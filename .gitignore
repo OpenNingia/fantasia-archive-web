@@ -1,3 +1,6 @@
+# IDE / tool directories
+.serena/
+
 # Environment and secrets
 .env
 nginx/certs/
