@@ -22,8 +22,12 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - ./backend/src:/app/src
+      - ./backend/scripts:/app/scripts
       - ./backend/prisma:/app/prisma
+      - ./src:/src                      # frontend src — needed by scripts/extractBlueprints.ts
       - uploads:/app/uploads
+    ports:
+      - "3000:3000"
     environment:
       NODE_ENV: development
       LOCAL_AUTH_ENABLED: "true"
