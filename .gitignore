@@ -1,3 +1,14 @@
+# Environment and secrets
+.env
+nginx/certs/
+
+# Upload storage (Docker volume — not tracked)
+uploads/
+
+# Backend build
+backend/dist/
+backend/node_modules/
+
 .DS_Store
 .thumbs.db
 .history

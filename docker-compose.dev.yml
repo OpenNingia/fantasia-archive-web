@@ -1,0 +1,38 @@
+# Development override — use with: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Changes from production:
+#   - postgres and redis exposed on localhost
+#   - backend runs with tsx watch (hot reload)
+#   - frontend not built; run `quasar dev` directly on host
+#   - nginx disabled (backend and frontend accessed directly)
+#   - TLS disabled
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+      - uploads:/app/uploads
+    environment:
+      NODE_ENV: development
+      LOCAL_AUTH_ENABLED: "true"
+      LOG_LEVEL: debug
+
+  frontend:
+    profiles:
+      - donotstart  # frontend runs on host via `quasar dev` during development
+
+  nginx:
+    profiles:
+      - donotstart

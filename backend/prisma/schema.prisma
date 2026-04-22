@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  oidcSub      String?  @map("oidc_sub")
+  oidcIss      String?  @map("oidc_iss")
+  email        String?
+  displayName  String?  @map("display_name")
+  passwordHash String?  @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  projectsCreated   Project[]           @relation("ProjectCreator")
+  projectAccess     ProjectAccess[]
+  documentsCreated  Document[]          @relation("DocumentCreator")
+  templatesCreated  DocumentTemplate[]  @relation("TemplateCreator")
+  uploadedFiles     UploadedFile[]
+  settings          UserSetting[]
+  recentDocuments   UserRecentDocument[]
+  refreshTokens     RefreshToken[]
+
+  @@unique([oidcSub, oidcIss])
+  @@map("users")
+}
+
+model Project {
+  id             String   @id @default(uuid())
+  name           String
+  customCss      String?  @map("custom_css")
+  corkboardText  String?  @map("corkboard_text")
+  appVersion     String?  @map("app_version")
+  createdById    String   @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  createdBy         User                @relation("ProjectCreator", fields: [createdById], references: [id])
+  access            ProjectAccess[]
+  blueprints        Blueprint[]
+  documents         Document[]
+  templates         DocumentTemplate[]
+  uploadedFiles     UploadedFile[]
+  userSettings      UserSetting[]
+  recentDocuments   UserRecentDocument[]
+
+  @@map("projects")
+}
+
+model ProjectAccess {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  userId    String   @map("user_id")
+  role      String   // 'master' | 'player'
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_access")
+}
+
+model Blueprint {
+  id           String   @id @default(uuid())
+  projectId    String   @map("project_id")
+  slug         String   // e.g. 'characters', 'locations'
+  nameSingular String   @map("name_singular")
+  namePlural   String   @map("name_plural")
+  icon         String
+  category     String
+  displayOrder Int      @default(0) @map("display_order")
+  // Array of I_ExtraFields objects, each may have masterOnly: boolean
+  extraFields  Json     @default("[]") @map("extra_fields")
+  isBuiltIn    Boolean  @default(true) @map("is_built_in")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, slug])
+  @@map("blueprints")
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  type        String   // blueprint slug, e.g. 'characters'
+  // Array of {id: string, value: any} — persisted fields only, no UI state
+  extraFields Json     @default("[]") @map("extra_fields")
+  isCategory  Boolean  @default(false) @map("is_category")
+  parentDocId String?  @map("parent_doc_id")
+  createdById String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project         Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentDoc       Document?            @relation("DocHierarchy", fields: [parentDocId], references: [id], onDelete: SetNull)
+  children        Document[]           @relation("DocHierarchy")
+  createdBy       User?                @relation("DocumentCreator", fields: [createdById], references: [id])
+  recentDocuments UserRecentDocument[]
+
+  @@index([projectId, type])
+  @@map("documents")
+}
+
+model DocumentTemplate {
+  id               String   @id @default(uuid())
+  projectId        String   @map("project_id")
+  name             String
+  // Array of {documentTypeID: string, excludedFieldIDList: string[]}
+  documentTypeList Json     @default("[]") @map("document_type_list")
+  createdById      String?  @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User?   @relation("TemplateCreator", fields: [createdById], references: [id])
+
+  @@map("document_templates")
+}
+
+model UserSetting {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  projectId String?  @map("project_id")
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("user_settings")
+}
+
+model UserRecentDocument {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  projectId  String   @map("project_id")
+  documentId String   @map("document_id")
+  openedAt   DateTime @default(now()) @map("opened_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId, documentId])
+  @@map("user_recent_documents")
+}
+
+model UploadedFile {
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  uploadedById String? @map("uploaded_by")
+  filename    String
+  mimeType    String   @map("mime_type")
+  storagePath String   @map("storage_path")
+  sizeBytes   BigInt?  @map("size_bytes")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy User?   @relation(fields: [uploadedById], references: [id])
+
+  @@map("uploaded_files")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
