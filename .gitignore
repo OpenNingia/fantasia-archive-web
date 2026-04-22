@@ -8,6 +8,7 @@ uploads/
 # Backend build
 backend/dist/
 backend/node_modules/
+backend/src/data/blueprints.json
 
 .DS_Store
 .thumbs.db

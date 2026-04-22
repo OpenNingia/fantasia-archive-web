@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { requireAuth } from '../../middleware/requireAuth'
 import { requireProjectAccess, requireMaster } from '../../middleware/requireProjectAccess'
+import { seedBlueprintsForProject } from '../../services/blueprintService'
 import { z } from 'zod'
 
 export const projectRoutes: FastifyPluginAsync = async (fastify) => {
@@ -26,7 +27,7 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
     await fastify.prisma.projectAccess.create({
       data: { projectId: project.id, userId: req.user!.sub, role: 'master' }
     })
-    // TODO: seed blueprints (Phase 2)
+    await seedBlueprintsForProject(fastify.prisma, project.id)
     return reply.status(201).send(project)
   })
 
