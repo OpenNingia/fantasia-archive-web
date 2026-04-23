@@ -1,6 +1,6 @@
 import { MutationTree } from "vuex"
 import { OpenDocumentsStateInterface } from "./state"
-import { I_OpenedDocument } from "./../../interfaces/I_OpenedDocument"
+import type { I_OpenedDocument } from "./../../interfaces/I_OpenedDocument"
 
 import { uid } from "quasar"
 

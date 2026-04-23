@@ -1,4 +1,4 @@
-import { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 
 /**
  * Toggles dev tools in the current window

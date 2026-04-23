@@ -74,7 +74,7 @@
 import { Component, Watch } from "vue-property-decorator"
 
 import DialogBase from "src/components/dialogs/_DialogBase"
-import { I_KeyPressObject } from "src/interfaces/I_KeypressObject"
+import type { I_KeyPressObject } from "src/interfaces/I_KeypressObject"
 @Component({
   components: { }
 })

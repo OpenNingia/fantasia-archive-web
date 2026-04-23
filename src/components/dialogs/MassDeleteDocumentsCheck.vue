@@ -178,8 +178,8 @@ import DialogBase from "src/components/dialogs/_DialogBase"
 import { uid, extend } from "quasar"
 import documentPreview from "src/components/DocumentPreview.vue"
 
-import { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
-import { I_Blueprint } from "src/interfaces/I_Blueprint"
+import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 import { advancedDocumentFilter } from "src/scripts/utilities/advancedDocumentFilter"
 
 import RobotoRegular from "src/assets/fonts/Roboto-Regular.ttf"

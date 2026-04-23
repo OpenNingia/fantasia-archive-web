@@ -229,7 +229,7 @@ import BaseClass from "src/BaseClass"
 import { Component, Watch } from "vue-property-decorator"
 import deleteDocumentCheckDialog from "src/components/dialogs/DeleteDocumentCheck.vue"
 
-import { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
 import closeDocumentCheckDialog from "src/components/dialogs/CloseDocumentCheck.vue"
 import { createNewWithParent } from "src/scripts/documentActions/createNewWithParent"
 import { copyDocumentName, copyDocumentTextColor, copyDocumentBackgroundColor } from "src/scripts/documentActions/uniqueFieldCopy"

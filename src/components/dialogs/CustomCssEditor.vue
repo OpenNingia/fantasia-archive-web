@@ -39,20 +39,9 @@ import { Component, Watch } from "vue-property-decorator"
 import DialogBase from "src/components/dialogs/_DialogBase"
 import { changeCurrentProjectSettings } from "src/scripts/projectManagement/projectManagent"
 
-// @ts-ignore
-import { codemirror } from "vue-codemirror"
-
-// default css
-import "codemirror/lib/codemirror.css"
-
-// language
-import "codemirror/mode/css/css.js"
-
-// theme css
-import "codemirror/theme/monokai.css"
-
-// require active-line.js
-import "codemirror/addon/selection/active-line.js"
+import { Codemirror as codemirror } from "vue-codemirror"
+import { css as cssLang } from "@codemirror/lang-css"
+import { oneDark } from "@codemirror/theme-one-dark"
 
 @Component({
   components: {

@@ -1,5 +1,5 @@
-import { I_Blueprint } from "src/interfaces/I_Blueprint"
-import { I_ShortenedDocument } from "./../../interfaces/I_OpenedDocument"
+import type { I_Blueprint } from "src/interfaces/I_Blueprint"
+import type { I_ShortenedDocument } from "./../../interfaces/I_OpenedDocument"
 
 /**
  * Handles advanced filtering for any kind of search-field involving documents

@@ -1,6 +1,6 @@
 import { GetterTree } from "vuex"
 import { StateInterface } from "../index"
-import { ProjectInterface } from "./state"
+import type { ProjectInterface } from "./state"
 
 const getters: GetterTree<ProjectInterface, StateInterface> = {
   getProjectData (context) {
@@ -17,6 +17,22 @@ const getters: GetterTree<ProjectInterface, StateInterface> = {
 
   getProjectCustomCSS (context) {
     return context.projectCustomCSS
+  },
+
+  currentUser (context) {
+    return context.currentUser
+  },
+
+  currentUserRole (context) {
+    return context.currentUserRole
+  },
+
+  currentProjectId (context) {
+    return context.currentProjectId
+  },
+
+  isMaster (context) {
+    return context.currentUserRole === "master"
   }
 }
 

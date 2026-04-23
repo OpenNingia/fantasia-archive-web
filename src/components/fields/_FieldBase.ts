@@ -1,6 +1,6 @@
 import { Component, Prop, Watch } from "vue-property-decorator"
 import BaseClass from "src/BaseClass"
-import { I_ExtraFields } from "src/interfaces/I_Blueprint"
+import type { I_ExtraFields } from "src/interfaces/I_Blueprint"
 
 @Component
 export default class FieldBase extends BaseClass {

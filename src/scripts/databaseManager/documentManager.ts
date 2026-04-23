@@ -1,6 +1,6 @@
 import { single_changeRelationshipToAnotherObject, many_changeRelationshipToAnotherObject } from "src/scripts/databaseManager/relationshipManager"
-import { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
-import { I_Blueprint, I_ExtraFields } from "src/interfaces/I_Blueprint"
+import type { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_Blueprint, I_ExtraFields } from "src/interfaces/I_Blueprint"
 import PouchDB from "pouchdb"
 import { Loading, QSpinnerGears, extend } from "quasar"
 

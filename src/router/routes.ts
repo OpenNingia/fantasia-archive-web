@@ -1,8 +1,13 @@
-import { RouteConfig } from "vue-router"
+import { RouteRecordRaw } from "vue-router"
 import DocumentLayout from "src/layouts/DocumentLayout.vue"
 import ProjectManagentLayout from "layouts/ProjectManagentLayout.vue"
 
-const routes: RouteConfig[] = [
+const routes: RouteRecordRaw[] = [
+  {
+    path: "/login",
+    component: () => import("pages/LoginPage.vue"),
+    meta: { public: true }
+  },
   {
     path: "/",
     component: ProjectManagentLayout,
@@ -18,11 +23,8 @@ const routes: RouteConfig[] = [
       { path: "/project/display-content/:type/:id", component: () => import("pages/DocumentDisplay.vue") }
     ]
   },
-
-  // Always leave this as last one,
-  // but you can also remove it
   {
-    path: "*",
+    path: "/:catchAll(.*)*",
     component: () => import("pages/Error404.vue")
   }
 ]

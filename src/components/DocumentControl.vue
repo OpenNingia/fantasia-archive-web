@@ -380,7 +380,7 @@ import advancedSearchGuideDialog from "src/components/dialogs/AdvancedSearchGuid
 import keybindCheatsheetDialog from "src/components/dialogs/KeybindCheatsheet.vue"
 import tipsTricksTriviaDialog from "src/components/dialogs/TipsTricksTrivia.vue"
 
-import { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
 import { extend, Loading, QSpinnerGears } from "quasar"
 import { saveDocument } from "src/scripts/databaseManager/documentManager"
 import { createNewWithParent } from "src/scripts/documentActions/createNewWithParent"

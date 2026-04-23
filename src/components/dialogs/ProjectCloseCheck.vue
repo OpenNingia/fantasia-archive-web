@@ -67,7 +67,7 @@
 import { Component, Watch, Prop } from "vue-property-decorator"
 
 import DialogBase from "src/components/dialogs/_DialogBase"
-import { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
 import { remote } from "electron"
 import { extend, QSpinnerGears, Loading } from "quasar"
 import { saveDocument } from "src/scripts/databaseManager/documentManager"

@@ -1,5 +1,5 @@
 import { RPGSystemsStats } from "./../extraFieldLists/RPGSystemsStats"
-import { I_Blueprint } from "../../../interfaces/I_Blueprint"
+import type { I_Blueprint } from "../../../interfaces/I_Blueprint"
 export const charactersBlueprint: I_Blueprint = {
   _id: "characters",
   order: 370,

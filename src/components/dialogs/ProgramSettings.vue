@@ -1053,7 +1053,7 @@ import { Component, Watch } from "vue-property-decorator"
 import DialogBase from "src/components/dialogs/_DialogBase"
 import { extend } from "quasar"
 
-import { OptionsStateInteface } from "src/store/module-options/state"
+import type { OptionsStateInteface } from "src/store/module-options/state"
 @Component({
   components: { }
 })

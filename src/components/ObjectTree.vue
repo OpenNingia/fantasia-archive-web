@@ -472,7 +472,7 @@ interface NewObjectDocument {
 import { Component, Watch } from "vue-property-decorator"
 
 import BaseClass from "src/BaseClass"
-import { I_ExtraDocumentFields, I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_ExtraDocumentFields, I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import deleteDocumentCheckDialog from "src/components/dialogs/DeleteDocumentCheck.vue"
 import renameTagDialog from "src/components/dialogs/RenameTag.vue"
 import deleteTagDialog from "src/components/dialogs/DeleteTag.vue"

@@ -1,20 +1,31 @@
 import { MutationTree } from "vuex"
-import { ProjectInterface } from "./state"
+import type { ProjectInterface } from "./state"
+import type { AuthUser } from "src/services/api/authApi"
 
 const mutation: MutationTree<ProjectInterface> = {
-
-  setProjecLoadingState (state: ProjectInterface, input: boolean) {
+  setProjecLoadingState (state, input: boolean) {
     state.projectLoaded = input
   },
 
-  setProjectName (state: ProjectInterface, input: string) {
+  setProjectName (state, input: string) {
     state.projectName = input
   },
 
-  setProjectCustomCSS (state: ProjectInterface, input: string) {
+  setProjectCustomCSS (state, input: string) {
     state.projectCustomCSS = input
-  }
+  },
 
+  SET_CURRENT_USER (state, user: AuthUser | null) {
+    state.currentUser = user
+  },
+
+  SET_CURRENT_USER_ROLE (state, role: "master" | "player" | null) {
+    state.currentUserRole = role
+  },
+
+  SET_CURRENT_PROJECT_ID (state, id: string | null) {
+    state.currentProjectId = id
+  }
 }
 
 export default mutation

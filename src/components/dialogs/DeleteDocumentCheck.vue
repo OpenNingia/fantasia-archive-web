@@ -42,7 +42,7 @@
 import { Component, Watch, Prop } from "vue-property-decorator"
 
 import DialogBase from "src/components/dialogs/_DialogBase"
-import { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import PouchDB from "pouchdb"
 
 @Component({

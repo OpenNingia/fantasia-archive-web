@@ -1,5 +1,5 @@
 import { MutationTree } from "vuex"
-import { OptionsStateInteface } from "./state"
+import type { OptionsStateInteface } from "./state"
 
 const mutation: MutationTree<OptionsStateInteface> = {
 

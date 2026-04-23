@@ -1,5 +1,5 @@
-import { I_Blueprint } from "src/interfaces/I_Blueprint"
-import { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_Blueprint } from "src/interfaces/I_Blueprint"
+import type { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 
 export const copyDocument = (currentDoc: I_OpenedDocument | I_ShortenedDocument, newDocumentID: string, documentBlueprint: I_Blueprint) : I_OpenedDocument => {
   currentDoc._id = newDocumentID

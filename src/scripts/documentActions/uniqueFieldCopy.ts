@@ -1,4 +1,4 @@
-import { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 
 export const copyDocumentName = (targetDocument: I_OpenedDocument | I_ShortenedDocument) => {
   const returnValue = targetDocument.extraFields.find(e => e.id === "name")?.value

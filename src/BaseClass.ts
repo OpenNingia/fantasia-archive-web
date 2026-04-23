@@ -1,15 +1,18 @@
-import { OptionsStateInteface } from "./store/module-options/state"
-import { KeyManagementInterface } from "./store/module-keybinds/state"
-import { I_OpenedDocument, I_ShortenedDocument } from "./interfaces/I_OpenedDocument"
+import type { OptionsStateInteface } from "./store/module-options/state"
+import type { KeyManagementInterface } from "./store/module-keybinds/state"
+import type { I_OpenedDocument, I_ShortenedDocument } from "./interfaces/I_OpenedDocument"
 import { Component, Vue } from "vue-property-decorator"
 import { namespace } from "vuex-class"
-import { I_Blueprint } from "src/interfaces/I_Blueprint"
-import { I_NewObjectTrigger } from "src/interfaces/I_NewObjectTrigger"
+import type { I_Blueprint } from "src/interfaces/I_Blueprint"
+import type { I_NewObjectTrigger } from "src/interfaces/I_NewObjectTrigger"
 import { uid, colors, extend } from "quasar"
-import { I_FieldRelationship } from "src/interfaces/I_FieldRelationship"
-import { I_KeyPressObject } from "src/interfaces/I_KeypressObject"
-import { ProjectInterface } from "./store/module-project/state"
-import { shell } from "electron"
+import type { I_FieldRelationship } from "src/interfaces/I_FieldRelationship"
+import type { I_KeyPressObject } from "src/interfaces/I_KeypressObject"
+import type { ProjectInterface } from "./store/module-project/state"
+// electron shell — stubbed for web; Electron mode re-enables via src-electron
+const shell = {
+  openExternal: (url: string) => { window.open(url, "_blank") }
+}
 
 const Blueprints = namespace("blueprintsModule")
 const AllDocuments = namespace("allDocumentsModule")

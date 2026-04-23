@@ -1,6 +1,6 @@
 import { MutationTree } from "vuex"
 import { KeybindsStateInterface } from "./state"
-import { I_KeyPressObject } from "./../../interfaces/I_KeypressObject"
+import type { I_KeyPressObject } from "./../../interfaces/I_KeypressObject"
 
 import { uid } from "quasar"
 

@@ -1,4 +1,4 @@
-import { I_KeyPressObject } from "./../../interfaces/I_KeypressObject"
+import type { I_KeyPressObject } from "./../../interfaces/I_KeypressObject"
 
 export interface KeybindsStateInterface {
   keyManagement: KeyManagementInterface

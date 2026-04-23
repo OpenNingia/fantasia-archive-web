@@ -1,5 +1,5 @@
 import { retrieveAllBlueprints } from "src/scripts/databaseManager/blueprintManager"
-import { I_Blueprint } from "../../interfaces/I_Blueprint"
+import type { I_Blueprint } from "../../interfaces/I_Blueprint"
 import PouchDB from "pouchdb"
 
 export const cleanDatabases = async () => {

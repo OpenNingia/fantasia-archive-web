@@ -1,4 +1,4 @@
-import { I_Blueprint } from "../../interfaces/I_Blueprint"
+import type { I_Blueprint } from "../../interfaces/I_Blueprint"
 
 import PouchDB from "pouchdb"
 import _ from "lodash"

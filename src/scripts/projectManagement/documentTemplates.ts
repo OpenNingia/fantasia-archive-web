@@ -1,4 +1,4 @@
-import { I_DocumentTemplate } from "./../../interfaces/I_DocumentTemplate"
+import type { I_DocumentTemplate } from "./../../interfaces/I_DocumentTemplate"
 // @ts-ignore
 import PouchDB from "pouchdb"
 import { extend } from "quasar"

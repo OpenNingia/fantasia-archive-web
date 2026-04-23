@@ -75,7 +75,7 @@ import { retrieveAllDocumentTemplatesFromDB } from "src/scripts/projectManagemen
 
 import FieldBase from "src/components/fields/_FieldBase"
 import { extend } from "quasar"
-import { I_DocumentTemplate } from "src/interfaces/I_DocumentTemplate"
+import type { I_DocumentTemplate } from "src/interfaces/I_DocumentTemplate"
 
 @Component({
   components: { }

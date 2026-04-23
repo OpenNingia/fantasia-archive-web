@@ -89,8 +89,8 @@ import { Component, Watch } from "vue-property-decorator"
 import DialogBase from "src/components/dialogs/_DialogBase"
 import { changeCurrentProjectSettings, saveProject } from "src/scripts/projectManagement/projectManagent"
 
-import { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
-import { I_Blueprint } from "src/interfaces/I_Blueprint"
+import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 
 @Component({
   components: { }

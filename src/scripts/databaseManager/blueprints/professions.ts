@@ -1,4 +1,4 @@
-import { I_Blueprint } from "../../../interfaces/I_Blueprint"
+import type { I_Blueprint } from "../../../interfaces/I_Blueprint"
 import { RPGSystemsStats } from "../extraFieldLists/RPGSystemsStats"
 export const professionsBlueprint: I_Blueprint = {
   _id: "professions",

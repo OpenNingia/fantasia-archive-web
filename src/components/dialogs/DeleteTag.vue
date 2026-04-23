@@ -45,7 +45,7 @@ import { massDeleteTag } from "src/scripts/documentActions/tagManager"
 import { saveDocument } from "src/scripts/databaseManager/documentManager"
 
 import { Loading, QSpinnerGears, extend } from "quasar"
-import { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
 
 @Component({
   components: { }

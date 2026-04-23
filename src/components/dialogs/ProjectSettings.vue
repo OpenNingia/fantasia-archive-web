@@ -60,7 +60,7 @@
 <script lang="ts">
 
 import { Component, Watch } from "vue-property-decorator"
-import { I_Blueprint } from "src/interfaces/I_Blueprint"
+import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 
 import DialogBase from "src/components/dialogs/_DialogBase"
 import { changeCurrentProjectSettings } from "src/scripts/projectManagement/projectManagent"

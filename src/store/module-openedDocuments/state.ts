@@ -1,4 +1,4 @@
-import { I_OpenedDocument } from "./../../interfaces/I_OpenedDocument"
+import type { I_OpenedDocument } from "./../../interfaces/I_OpenedDocument"
 
 export interface OpenDocumentsStateInterface {
   documents: InnerOpenDocumentsStateInterface

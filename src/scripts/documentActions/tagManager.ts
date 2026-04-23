@@ -1,4 +1,4 @@
-import { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import { extend } from "quasar"
 
 export const massRenameTag = (newTag: string, oldTag: string, allTags: string[], documentList: I_ShortenedDocument[]): I_ShortenedDocument[] => {

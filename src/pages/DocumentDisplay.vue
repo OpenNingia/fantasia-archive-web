@@ -372,9 +372,9 @@ import { Component, Watch } from "vue-property-decorator"
 
 import BaseClass from "src/BaseClass"
 
-import { I_Blueprint, I_ExtraFields } from "src/interfaces/I_Blueprint"
+import type { I_Blueprint, I_ExtraFields } from "src/interfaces/I_Blueprint"
 import { extend } from "quasar"
-import { I_OpenedDocument, I_ShortenedDocument, I_HasFullScreenEditMode } from "src/interfaces/I_OpenedDocument"
+import type { I_OpenedDocument, I_ShortenedDocument, I_HasFullScreenEditMode } from "src/interfaces/I_OpenedDocument"
 import { copyDocument } from "src/scripts/documentActions/copyDocument"
 
 import { saveDocument } from "src/scripts/databaseManager/documentManager"
@@ -396,7 +396,7 @@ import Field_Tags from "src/components/fields/Field_Tags.vue"
 import Field_DocumentTemplate from "src/components/fields/Field_DocumentTemplate.vue"
 
 import { updateLastOpenedDocuments } from "src/scripts/projectManagement/projectManagent"
-import { I_DocumentTemplate } from "src/interfaces/I_DocumentTemplate"
+import type { I_DocumentTemplate } from "src/interfaces/I_DocumentTemplate"
 
 @Component({
   components: {

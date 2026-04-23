@@ -1,13 +1,38 @@
 {
-  "extends": "@quasar/app/tsconfig-preset",
   "compilerOptions": {
+    "target": "ES2022",
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "dom"],
     "baseUrl": ".",
-    "experimentalDecorators": true,
+    "paths": {
+      "src/*": ["src/*"],
+      "app/*": ["./*"],
+      "components/*": ["src/components/*"],
+      "layouts/*": ["src/layouts/*"],
+      "pages/*": ["src/pages/*"],
+      "assets/*": ["src/assets/*"],
+      "boot/*": ["src/boot/*"],
+      "stores/*": ["src/stores/*"]
+    },
+    "skipLibCheck": true,
+    "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "strictPropertyInitialization": false,
-    "suppressImplicitAnyIndexErrors": true
+    "suppressImplicitAnyIndexErrors": true,
+    "strict": true,
+    "noImplicitAny": false
   },
   "include": [
-    "src"
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.vue"
   ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "backend"
+  ]
 }

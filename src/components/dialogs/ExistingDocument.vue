@@ -247,7 +247,7 @@
 <script lang="ts">
 
 import { Component, Emit, Prop, Watch } from "vue-property-decorator"
-import { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import { advancedDocumentFilter } from "src/scripts/utilities/advancedDocumentFilter"
 import { extend, uid } from "quasar"
 
@@ -256,7 +256,7 @@ import { copyDocumentName, copyDocumentTextColor, copyDocumentBackgroundColor } 
 import { copyDocument } from "src/scripts/documentActions/copyDocument"
 
 import DialogBase from "src/components/dialogs/_DialogBase"
-import { I_Blueprint } from "src/interfaces/I_Blueprint"
+import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 
 @Component({
   components: {

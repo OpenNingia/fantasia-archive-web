@@ -328,8 +328,8 @@
 import { Component, Prop, Watch } from "vue-property-decorator"
 
 import BaseClass from "src/BaseClass"
-import { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
-import { I_Blueprint } from "src/interfaces/I_Blueprint"
+import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 
 import Field_Break from "src/components/fields/Field_Break.vue"
 import Field_Text from "src/components/fields/Field_Text.vue"
@@ -341,7 +341,7 @@ import Field_SingleSelect from "src/components/fields/Field_SingleSelect.vue"
 import Field_MultiSelect from "src/components/fields/Field_MultiSelect.vue"
 import Field_Tags from "src/components/fields/Field_Tags.vue"
 import { extend } from "quasar"
-import { I_DocumentTemplate } from "src/interfaces/I_DocumentTemplate"
+import type { I_DocumentTemplate } from "src/interfaces/I_DocumentTemplate"
 import { retrieveAllDocumentTemplatesFromDB } from "src/scripts/projectManagement/documentTemplates"
 
 @Component({

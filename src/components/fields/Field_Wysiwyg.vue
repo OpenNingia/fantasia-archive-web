@@ -80,7 +80,7 @@ import { Component, Emit, Prop, Watch } from "vue-property-decorator"
 
 import FieldBase from "src/components/fields/_FieldBase"
 import { QEditor, extend } from "quasar"
-import { I_HasFullScreenEditMode, I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_HasFullScreenEditMode, I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
 
 import WISIWYG_insertImageChoice from "src/components/dialogs/WISIWYG_insertImageChoice.vue"
 import WISIWYG_changeImagePath from "src/components/dialogs/WISIWYG_changeImagePath.vue"

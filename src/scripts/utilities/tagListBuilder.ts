@@ -1,4 +1,4 @@
-import { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 
 /**
  * Build a tag list of all know database documents

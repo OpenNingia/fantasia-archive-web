@@ -1,6 +1,6 @@
 import { ActionTree } from "vuex"
 import { StateInterface } from "../index"
-import { OptionsStateInteface } from "./state"
+import type { OptionsStateInteface } from "./state"
 import PouchDB from "pouchdb"
 
 const actions: ActionTree<OptionsStateInteface, StateInterface> = {
