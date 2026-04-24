@@ -508,9 +508,9 @@ function addNewUnderParent (currentDoc: I_OpenedDocument) {
 // Close document dialog
 /****************************************************************/
 
-const closeDocumentCheckDialogTrigger = ref<string | false>(false)
+const closeDocumentCheckDialogTrigger = ref("")
 function closeDocumentCheckDialogClose () {
-  closeDocumentCheckDialogTrigger.value = false
+  closeDocumentCheckDialogTrigger.value = ""
 }
 
 function closeDocumentCheckDialogAssignUID () {
@@ -521,9 +521,9 @@ function closeDocumentCheckDialogAssignUID () {
 // Delete dialog
 /****************************************************************/
 
-const deleteObjectDialogTrigger = ref<string | false>(false)
+const deleteObjectDialogTrigger = ref("")
 function deleteObjectDialogClose () {
-  deleteObjectDialogTrigger.value = false
+  deleteObjectDialogTrigger.value = ""
 }
 
 function deleteObjectAssignUID () {

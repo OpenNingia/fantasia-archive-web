@@ -105,10 +105,10 @@ onUnmounted(() => {
 // Close project dialog
 /****************************************************************/
 
-const projectCloseCheckDialogTrigger = ref<string | false>(false)
+const projectCloseCheckDialogTrigger = ref("")
 
 function projectCloseCheckDialogClose () {
-  projectCloseCheckDialogTrigger.value = false
+  projectCloseCheckDialogTrigger.value = ""
 }
 
 function projectCloseCheckDialogAssignUID () {

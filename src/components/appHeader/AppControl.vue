@@ -715,9 +715,9 @@ watch(() => keybindsStore.getCurrentKeyBindData, () => {
 // Full page search pop-up
 /****************************************************************/
 
-const fullPageSeachPopupTrigger = ref<string | false>(false)
+const fullPageSeachPopupTrigger = ref("")
 function fullPageSeachPopupClose () {
-  fullPageSeachPopupTrigger.value = false
+  fullPageSeachPopupTrigger.value = ""
 }
 
 function fullPageSeachPopupAssignUID () {
@@ -756,9 +756,9 @@ function commenceSave () {
 // Close project dialog
 /****************************************************************/
 
-const projectCloseCheckDialogTrigger = ref<string | false>(false)
+const projectCloseCheckDialogTrigger = ref("")
 function projectCloseCheckDialogClose () {
-  projectCloseCheckDialogTrigger.value = false
+  projectCloseCheckDialogTrigger.value = ""
 }
 
 function projectCloseCheckDialogAssignUID () {
@@ -769,9 +769,9 @@ function projectCloseCheckDialogAssignUID () {
 // Import project dialog
 /****************************************************************/
 
-const loadProjectDialogTrigger = ref<string | false>(false)
+const loadProjectDialogTrigger = ref("")
 function loadProjectDialogClose () {
-  loadProjectDialogTrigger.value = false
+  loadProjectDialogTrigger.value = ""
 }
 
 function loadProjectAssignUID () {
@@ -782,9 +782,9 @@ function loadProjectAssignUID () {
 // Merge project dialog
 /****************************************************************/
 
-const mergeProjectDialogTrigger = ref<string | false>(false)
+const mergeProjectDialogTrigger = ref("")
 function mergeProjectDialogClose () {
-  mergeProjectDialogTrigger.value = false
+  mergeProjectDialogTrigger.value = ""
 }
 
 function mergeProjectAssignUID () {
@@ -795,9 +795,9 @@ function mergeProjectAssignUID () {
 // Custom CSS editor dialog
 /****************************************************************/
 
-const customCssEditorDialogTrigger = ref<string | false>(false)
+const customCssEditorDialogTrigger = ref("")
 function customCssEditorDialogClose () {
-  customCssEditorDialogTrigger.value = false
+  customCssEditorDialogTrigger.value = ""
 }
 
 function customCssEditorAssignUID () {
@@ -808,9 +808,9 @@ function customCssEditorAssignUID () {
 // Export project dialog
 /****************************************************************/
 
-const exportProjectDialogTrigger = ref<string | false>(false)
+const exportProjectDialogTrigger = ref("")
 function exportProjectDialogClose () {
-  exportProjectDialogTrigger.value = false
+  exportProjectDialogTrigger.value = ""
 }
 
 watch(() => dialogsStore.getExportDialogState, () => {
@@ -833,9 +833,9 @@ function exportProjectAssignUID () {
 // New project dialog
 /****************************************************************/
 
-const newProjectDialogTrigger = ref<string | false>(false)
+const newProjectDialogTrigger = ref("")
 function newProjectDialogClose () {
-  newProjectDialogTrigger.value = false
+  newProjectDialogTrigger.value = ""
 }
 
 function newProjectAssignUID () {
@@ -846,9 +846,9 @@ function newProjectAssignUID () {
 // Keybinds cheatsheet dialog
 /****************************************************************/
 
-const keybindsDialogTrigger = ref<string | false>(false)
+const keybindsDialogTrigger = ref("")
 function keybindsDialogClose () {
-  keybindsDialogTrigger.value = false
+  keybindsDialogTrigger.value = ""
 }
 
 function keybindsDialogAssignUID () {
@@ -859,9 +859,9 @@ function keybindsDialogAssignUID () {
 // About app dialog
 /****************************************************************/
 
-const aboutAppDialogTrigger = ref<string | false>(false)
+const aboutAppDialogTrigger = ref("")
 function aboutAppDialogClose () {
-  aboutAppDialogTrigger.value = false
+  aboutAppDialogTrigger.value = ""
 }
 
 function aboutAppDialogAssignUID () {
@@ -872,9 +872,9 @@ function aboutAppDialogAssignUID () {
 // Changelog dialog
 /****************************************************************/
 
-const changeLogDialogTrigger = ref<string | false>(false)
+const changeLogDialogTrigger = ref("")
 function changeLogDialogClose () {
-  changeLogDialogTrigger.value = false
+  changeLogDialogTrigger.value = ""
 }
 
 function changeLogDialogAssignUID () {
@@ -885,9 +885,9 @@ function changeLogDialogAssignUID () {
 // Program settings dialog
 /****************************************************************/
 
-const programSettingsDialogTrigger = ref<string | false>(false)
+const programSettingsDialogTrigger = ref("")
 function programSettingsDialogClose () {
-  programSettingsDialogTrigger.value = false
+  programSettingsDialogTrigger.value = ""
 }
 
 function programSettingsDialogAssignUID () {
@@ -898,9 +898,9 @@ function programSettingsDialogAssignUID () {
 // Program tutorials dialog
 /****************************************************************/
 
-const programTutorialsDialogTrigger = ref<string | false>(false)
+const programTutorialsDialogTrigger = ref("")
 function programTutorialsDialogClose () {
-  programTutorialsDialogTrigger.value = false
+  programTutorialsDialogTrigger.value = ""
 }
 
 function programTutorialsDialogAssignUID () {
@@ -911,9 +911,9 @@ function programTutorialsDialogAssignUID () {
 // Advanced search guide dialog
 /****************************************************************/
 
-const advancedSearchGuideDialogTrigger = ref<string | false>(false)
+const advancedSearchGuideDialogTrigger = ref("")
 function advancedSearchGuideDialogClose () {
-  advancedSearchGuideDialogTrigger.value = false
+  advancedSearchGuideDialogTrigger.value = ""
 }
 
 function advancedSearchGuideAssignUID () {
@@ -924,9 +924,9 @@ function advancedSearchGuideAssignUID () {
 // New document dialog
 /****************************************************************/
 
-const newObjectDialogTrigger = ref<string | false>(false)
+const newObjectDialogTrigger = ref("")
 function newObjectDialogClose () {
-  newObjectDialogTrigger.value = false
+  newObjectDialogTrigger.value = ""
 }
 
 function newObjectAssignUID () {
@@ -937,9 +937,9 @@ function newObjectAssignUID () {
 // Existing document dialog
 /****************************************************************/
 
-const existingObjectDialogTrigger = ref<string | false>(false)
+const existingObjectDialogTrigger = ref("")
 function existingObjectDialogClose () {
-  existingObjectDialogTrigger.value = false
+  existingObjectDialogTrigger.value = ""
 }
 
 function existingObjectAssignUID () {
@@ -950,9 +950,9 @@ function existingObjectAssignUID () {
 // Tips, Tricks & Trivia dialog
 /****************************************************************/
 
-const tipsTricksDialogTrigger = ref<string | false>(false)
+const tipsTricksDialogTrigger = ref("")
 function tipsTricksDialogClose () {
-  tipsTricksDialogTrigger.value = false
+  tipsTricksDialogTrigger.value = ""
 }
 
 function tipsTricksAssignUID () {
@@ -963,9 +963,9 @@ function tipsTricksAssignUID () {
 // License dialog
 /****************************************************************/
 
-const licenseDialogTrigger = ref<string | false>(false)
+const licenseDialogTrigger = ref("")
 function licenseDialogClose () {
-  licenseDialogTrigger.value = false
+  licenseDialogTrigger.value = ""
 }
 
 function licenseAssignUID () {
@@ -976,9 +976,9 @@ function licenseAssignUID () {
 // Repair project dialog
 /****************************************************************/
 
-const repairProjectDialogTrigger = ref<string | false>(false)
+const repairProjectDialogTrigger = ref("")
 function repairProjectDialogClose () {
-  repairProjectDialogTrigger.value = false
+  repairProjectDialogTrigger.value = ""
 }
 
 function repairProjectAssignUID () {
@@ -989,9 +989,9 @@ function repairProjectAssignUID () {
 // Mass delete documents dialog
 /****************************************************************/
 
-const massDocumentDeleteDialogTrigger = ref<string | false>(false)
+const massDocumentDeleteDialogTrigger = ref("")
 function massDocumentDeleteDialogClose () {
-  massDocumentDeleteDialogTrigger.value = false
+  massDocumentDeleteDialogTrigger.value = ""
 }
 
 function massDocumentDeleteDialogAssignUID () {
@@ -1002,9 +1002,9 @@ function massDocumentDeleteDialogAssignUID () {
 // Project settings dialog
 /****************************************************************/
 
-const projectSettingsDialogTrigger = ref<string | false>(false)
+const projectSettingsDialogTrigger = ref("")
 function projectSettingsDialogClose () {
-  projectSettingsDialogTrigger.value = false
+  projectSettingsDialogTrigger.value = ""
 }
 
 function projectSettingsDialogAssignUID () {

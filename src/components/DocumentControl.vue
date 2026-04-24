@@ -530,9 +530,9 @@ watch(() => keybindsStore.getCurrentKeyBindData, async () => {
 // Advanced search guide dialog
 /****************************************************************/
 
-const advancedSearchGuideDialogTrigger = ref<string | false>(false)
+const advancedSearchGuideDialogTrigger = ref("")
 function advancedSearchGuideDialogClose () {
-  advancedSearchGuideDialogTrigger.value = false
+  advancedSearchGuideDialogTrigger.value = ""
 }
 
 function advancedSearchGuideAssignUID () {
@@ -543,9 +543,9 @@ function advancedSearchGuideAssignUID () {
 // Keybinds cheatsheet dialog
 /****************************************************************/
 
-const keybindsDialogTrigger = ref<string | false>(false)
+const keybindsDialogTrigger = ref("")
 function keybindsDialogClose () {
-  keybindsDialogTrigger.value = false
+  keybindsDialogTrigger.value = ""
 }
 
 function keybindsDialogAssignUID () {
@@ -556,9 +556,9 @@ function keybindsDialogAssignUID () {
 // Delete dialog
 /****************************************************************/
 
-const deleteObjectDialogTrigger = ref<string | false>(false)
+const deleteObjectDialogTrigger = ref("")
 function deleteObjectDialogClose () {
-  deleteObjectDialogTrigger.value = false
+  deleteObjectDialogTrigger.value = ""
 }
 
 function deleteObjectAssignUID () {
@@ -569,9 +569,9 @@ function deleteObjectAssignUID () {
 // New document dialog
 /****************************************************************/
 
-const newObjectDialogTrigger = ref<string | false>(false)
+const newObjectDialogTrigger = ref("")
 function newObjectDialogClose () {
-  newObjectDialogTrigger.value = false
+  newObjectDialogTrigger.value = ""
 }
 
 function newObjectAssignUID () {
@@ -582,9 +582,9 @@ function newObjectAssignUID () {
 // Existing document dialog
 /****************************************************************/
 
-const existingObjectDialogTrigger = ref<string | false>(false)
+const existingObjectDialogTrigger = ref("")
 function existingObjectDialogClose () {
-  existingObjectDialogTrigger.value = false
+  existingObjectDialogTrigger.value = ""
 }
 
 function existingObjectAssignUID () {
@@ -595,9 +595,9 @@ function existingObjectAssignUID () {
 // Tips, Tricks & Trivia dialog
 /****************************************************************/
 
-const tipsTricksDialogTrigger = ref<string | false>(false)
+const tipsTricksDialogTrigger = ref("")
 function tipsTricksDialogClose () {
-  tipsTricksDialogTrigger.value = false
+  tipsTricksDialogTrigger.value = ""
 }
 
 function tipsTricksAssignUID () {

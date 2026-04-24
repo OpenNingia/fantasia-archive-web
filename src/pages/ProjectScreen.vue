@@ -644,10 +644,10 @@ function setDocumentPreviewClose () {
 // NEW DOCUMENT DIALOG
 /****************************************************************/
 
-const newObjectDialogTrigger = ref<string | false>(false)
+const newObjectDialogTrigger = ref("")
 
 function newObjectDialogClose () {
-  newObjectDialogTrigger.value = false
+  newObjectDialogTrigger.value = ""
 }
 
 function newObjectAssignUID () {
@@ -658,10 +658,10 @@ function newObjectAssignUID () {
 // Delete dialog
 /****************************************************************/
 
-const deleteObjectDialogTrigger = ref<string | false>(false)
+const deleteObjectDialogTrigger = ref("")
 
 function deleteObjectDialogClose () {
-  deleteObjectDialogTrigger.value = false
+  deleteObjectDialogTrigger.value = ""
 }
 
 function deleteObjectAssignUID () {

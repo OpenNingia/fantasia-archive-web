@@ -9,6 +9,7 @@ export default configure(function (/* ctx */) {
   return {
     boot: [
       "pinia",
+      "qmarkdown",
       "i18n",
       "axios",
       "notify-defaults",
@@ -46,8 +47,6 @@ export default configure(function (/* ctx */) {
           // ExportProject.vue still uses these Node.js modules — stub them until Phase 6 rewrites it
           "fs-extra": resolve(__dirname, "src/shims/node-stub.ts"),
           request: resolve(__dirname, "src/shims/node-stub.ts"),
-          // vue-property-decorator@9 has broken interop with vue-class-component@8 — use shim
-          "vue-property-decorator": resolve(__dirname, "src/shims/vue-property-decorator.ts")
         }
         // Handle .md files as raw string imports (replaces @quasar/qmarkdown extension)
         viteConf.plugins = viteConf.plugins || []

@@ -27,7 +27,7 @@
       v-model="splitterModel"
       unit="px"
       emit-immediately
-      :class="{splitterClass, 'splitterHidden': (hideHierarchyTree || SGET_getDocumentPreviewVisible !== '')}"
+      :class="{splitterClass, 'splitterHidden': (hideHierarchyTree || floatingWindowsStore.getDocumentPreviewVisible !== '')}"
       @input="onChange"
       :limits="[limiterWidth, Infinity]"
       class="pageSplitter"
@@ -321,10 +321,10 @@ function onChange (value: number) {
 // Repair project dialog
 /****************************************************************/
 
-const repairProjectDialogTrigger = ref<string | false>(false)
+const repairProjectDialogTrigger = ref("")
 
 function repairProjectDialogClose () {
-  repairProjectDialogTrigger.value = false
+  repairProjectDialogTrigger.value = ""
 }
 
 function repairProjectAssignUID () {

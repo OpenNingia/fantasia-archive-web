@@ -995,9 +995,9 @@ function determineSize_XL (field: I_ExtraFields) {
 // DELETE DIALOG
 /****************************************************************/
 
-const deleteObjectDialogTrigger = ref<string | false>(false)
+const deleteObjectDialogTrigger = ref("")
 function deleteObjectDialogClose () {
-  deleteObjectDialogTrigger.value = false
+  deleteObjectDialogTrigger.value = ""
 }
 
 function deleteObjectAssignUID () {

@@ -1343,9 +1343,9 @@ function massExportDocuments (node: { children: { _id: string}[]}) {
 // Delete dialog
 /****************************************************************/
 
-const deleteObjectDialogTrigger = ref<string | false>(false)
+const deleteObjectDialogTrigger = ref("")
 function deleteObjectDialogClose () {
-  deleteObjectDialogTrigger.value = false
+  deleteObjectDialogTrigger.value = ""
 }
 
 function deleteObjectAssignUID () {
@@ -1365,9 +1365,9 @@ function deleteTabDocument (targetDocument: I_OpenedDocument) {
 // Rename tag dialog
 /****************************************************************/
 
-const renameTagDialogTrigger = ref<string | false>(false)
+const renameTagDialogTrigger = ref("")
 function renameTagDialogClose () {
-  renameTagDialogTrigger.value = false
+  renameTagDialogTrigger.value = ""
 }
 
 function renameTagAssignUID () {
@@ -1388,9 +1388,9 @@ const toRenameTagDocumentIdList = ref<string[]>([])
 // Delete tag dialog
 /****************************************************************/
 
-const deleteTagDialogTrigger = ref<string | false>(false)
+const deleteTagDialogTrigger = ref("")
 function deleteTagDialogClose () {
-  deleteTagDialogTrigger.value = false
+  deleteTagDialogTrigger.value = ""
 }
 
 function deleteTagAssignUID () {
@@ -1419,9 +1419,9 @@ const allTags = ref<string[]>([])
 // Mass delete documents dialog
 /****************************************************************/
 
-const massDocumentDelteDialogTrigger = ref<string | false>(false)
+const massDocumentDelteDialogTrigger = ref("")
 function massDocumentDelteDialogClose () {
-  massDocumentDelteDialogTrigger.value = false
+  massDocumentDelteDialogTrigger.value = ""
 }
 
 function massDocumentDelteDialogAssignUID () {

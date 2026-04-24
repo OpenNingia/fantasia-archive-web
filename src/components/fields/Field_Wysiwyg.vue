@@ -241,7 +241,7 @@ function pasteCapture (evt: any) {
   /* eslint-enable */
 }
 
-const existingObjectDialogTrigger = ref<string | false>(false)
+const existingObjectDialogTrigger = ref("")
 
 function handleDocumentSelected (id: string) {
   /*eslint-disable */
@@ -256,7 +256,7 @@ function handleDocumentSelected (id: string) {
 }
 
 function existingObjectDialogClose () {
-  existingObjectDialogTrigger.value = false
+  existingObjectDialogTrigger.value = ""
 }
 
 function existingObjectAssignUID () {
@@ -473,9 +473,9 @@ const wysiwygOptions = [
 ]
 
 // Insert image dialog
-const WISIWYG_insertImageChoiceDialogTrigger = ref<string | false>(false)
+const WISIWYG_insertImageChoiceDialogTrigger = ref("")
 function WISIWYG_insertImageChoiceDialogClose () {
-  WISIWYG_insertImageChoiceDialogTrigger.value = false
+  WISIWYG_insertImageChoiceDialogTrigger.value = ""
 }
 
 function WISIWYG_insertImageChoiceAssignUID () {
@@ -483,9 +483,9 @@ function WISIWYG_insertImageChoiceAssignUID () {
 }
 
 // Change image path dialog
-const WISIWYG_changeImagePathDialogTrigger = ref<string | false>(false)
+const WISIWYG_changeImagePathDialogTrigger = ref("")
 function WISIWYG_changeImagePathDialogClose () {
-  WISIWYG_changeImagePathDialogTrigger.value = false
+  WISIWYG_changeImagePathDialogTrigger.value = ""
 }
 
 function WISIWYG_changeImagePathAssignUID () {
