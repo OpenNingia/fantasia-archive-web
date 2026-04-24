@@ -8,6 +8,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 export default configure(function (/* ctx */) {
   return {
     boot: [
+      "pinia",
+      "store",
       "i18n",
       "axios",
       "notify-defaults",
