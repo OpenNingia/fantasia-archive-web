@@ -77,6 +77,10 @@ export default class BaseClass extends Vue {
   @Project.Getter("currentProjectId") SGET_currentProjectId!: string | null
   @Project.Getter("currentUserRole") SGET_currentUserRole!: "master" | "player" | null
   @Project.Mutation("SET_CURRENT_PROJECT_ID") SSET_currentProjectId!: (id: string | null) => void
+  @Project.Mutation("SET_CURRENT_USER_ROLE") SSET_currentUserRole!: (role: "master" | "player" | null) => void
+  @Project.Getter("currentUser") SGET_currentUser!: import("src/services/api/authApi").AuthUser | null
+  @Project.Mutation("SET_CURRENT_USER") SSET_currentUser!: (user: import("src/services/api/authApi").AuthUser | null) => void
+  @Project.Getter("isMaster") SGET_isMaster!: boolean
 
   /****************************************************************/
   // FLOATING WINDOWS

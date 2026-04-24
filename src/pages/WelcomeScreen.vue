@@ -1,256 +1,241 @@
 <template>
-  <q-page class="column items-center justify-center">
+  <q-page class="column items-center justify-center q-pa-lg">
 
-    <!-- Import project dialog -->
-    <loadProjectCheckDialog
-      :dialog-trigger="loadProjectDialogTrigger"
-      @trigger-dialog-close="loadProjectDialogClose"
-    />
+    <div class="col-auto q-mb-sm">
+      <h5 class="mainSubTitle">Welcome to</h5>
+    </div>
+    <div class="col-auto q-mb-xl">
+      <h2 class="mainTitle">Fantasia Archive</h2>
+    </div>
 
-    <!-- New project dialog -->
-    <newProjectCheckDialog
-      :dialog-trigger="newProjectDialogTrigger"
-      @trigger-dialog-close="newProjectDialogClose"
-    />
-
-      <div class="col-12">
-        <h5 class="mainSubTitle">Welcome to </h5>
-      </div>
-      <div class="col-12">
-        <h2 class="mainTitle">Fantasia Archive</h2>
-      </div>
-
-      <div class="col-12 q-mb-lg">
-       <q-btn
-          v-if="projectExists"
+    <!-- Project list -->
+    <div class="col-auto projectListWrapper">
+      <div class="row justify-between items-center q-mb-md">
+        <div class="text-h6">Your Projects</div>
+        <q-btn
           color="primary"
-          size="md"
+          icon="mdi-plus"
+          label="New Project"
           :outline="isDarkMode"
-          class="q-px-xl q-py-xs"
-          to="/project"
-        >
-        <div>Resume project </div>
-       </q-btn>
+          size="sm"
+          @click="openNewProjectDialog"
+        />
       </div>
 
-      <div class="col-12 q-mb-lg">
+      <q-card :dark="isDarkMode" class="projectListCard">
+        <q-card-section v-if="loading" class="column items-center q-py-xl">
+          <q-spinner color="primary" size="2em" />
+        </q-card-section>
+
+        <q-card-section v-else-if="projects.length === 0" class="text-center q-py-xl text-grey">
+          No projects yet. Create one to get started.
+        </q-card-section>
+
+        <q-list v-else separator>
+          <q-item
+            v-for="project in projects"
+            :key="project.id"
+            clickable
+            :active="project.id === selectedProjectId"
+            active-class="bg-primary text-white"
+            @click="selectProject(project)"
+          >
+            <q-item-section avatar>
+              <q-icon
+                :name="project.role === 'master' ? 'mdi-crown' : 'mdi-account'"
+                :color="project.id === selectedProjectId ? 'white' : (project.role === 'master' ? 'amber' : 'grey')"
+              />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>{{ project.name }}</q-item-label>
+              <q-item-label caption :class="project.id === selectedProjectId ? 'text-white' : ''">
+                {{ project.role === 'master' ? 'Master' : 'Player' }}
+              </q-item-label>
+            </q-item-section>
+            <q-item-section side v-if="project.role === 'master'">
+              <q-btn
+                flat
+                round
+                dense
+                icon="mdi-delete"
+                :color="project.id === selectedProjectId ? 'white' : 'negative'"
+                @click.stop="confirmDelete(project)"
+              />
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-card>
+
+      <div class="row justify-center q-mt-lg">
         <q-btn
           color="primary"
           size="md"
           :outline="isDarkMode"
-          class="q-px-xl q-py-xs"
-          @click="newProjectAssignUID"
+          :disable="!selectedProjectId"
+          class="q-px-xl"
+          @click="openSelectedProject"
         >
-         New Project
+          Open Project
         </q-btn>
       </div>
+    </div>
 
-      <div class="col-12">
-       <q-btn
-          color="primary"
-          :outline="isDarkMode"
-          size="md"
-          class="q-px-xl q-py-xs"
-          @click="saveProjectAssignUID()"
-        >
-        Load existing project
-       </q-btn>
-      </div>
+    <!-- New project dialog -->
+    <q-dialog v-model="newProjectDialog">
+      <q-card :dark="isDarkMode" style="min-width: 360px">
+        <q-card-section>
+          <div class="text-h6">New Project</div>
+        </q-card-section>
+        <q-card-section>
+          <q-input
+            v-model="newProjectName"
+            :dark="isDarkMode"
+            label="Project name"
+            autofocus
+            @keydown.enter.prevent="createProject"
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn
+            flat
+            label="Create"
+            color="primary"
+            :disable="!newProjectName.trim()"
+            :loading="creating"
+            @click="createProject"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
 
-      <template v-if="!hideWelcomeScreenSocials">
-        <q-separator color="primary" horizonatal dark class="q-mt-xl q-mb-lg" style="opacity: 0.5; width: 400px;" />
-
-        <div class="col-12 q-mx-sm q-my-md">
-          <div class="row">
-
-            <div class="q-mx-sm q-my-md">
-              <div class="patreonButton shadow-1" @click="openPatreonLink">
-                Support FA on Patreon!
-              </div>
-            </div>
-
-            <div class="q-mx-sm q-my-md">
-              <div class="kofiButton shadow-1" @click="openKofiLink">
-                Support FA on Ko-Fi!
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <div class="col-12 q-mb-lg">
-          <div class="row">
-
-            <div class="q-mx-sm q-my-md">
-              <div class="discordButton shadow-1" @click="openDiscordInviteLink">
-                Discord
-              </div>
-            </div>
-
-            <div class="q-mx-sm q-my-md">
-              <div class="redditButton shadow-1" @click="openRedditLink"></div>
-            </div>
-
-            <div class="q-mx-sm q-my-md">
-              <div class="websiteButton shadow-1" @click="openWebsiteLink">
-                Website
-              </div>
-            </div>
-
-            <div class="q-mx-sm q-my-md">
-              <div class="githubButton shadow-1" @click="openGithubLink">
-                GitHub
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-
-      </template>
+    <!-- Delete confirm dialog -->
+    <q-dialog v-model="deleteDialog">
+      <q-card :dark="isDarkMode" style="min-width: 320px">
+        <q-card-section>
+          <div class="text-h6">Delete Project</div>
+        </q-card-section>
+        <q-card-section>
+          Delete <strong>{{ projectToDelete?.name }}</strong>? This cannot be undone.
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn flat label="Delete" color="negative" :loading="deleting" @click="deleteProject" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
 
   </q-page>
 </template>
 
 <script lang="ts">
 import { Component, Watch } from "vue-property-decorator"
-
 import BaseClass from "src/BaseClass"
-import loadProjectCheckDialog from "src/components/dialogs/LoadProjectCheck.vue"
-import newProjectCheckDialog from "src/components/dialogs/NewProjectCheck.vue"
-import { shell } from "electron"
+import { projectApi, type ProjectSummary } from "src/services/api/projectApi"
 
-@Component({
-  components: {
-    loadProjectCheckDialog,
-    newProjectCheckDialog
-  }
-})
+@Component
 export default class WelcomeScreen extends BaseClass {
-  /****************************************************************/
-  // LOCAL SETTINGS
-  /****************************************************************/
-
-  /**
-   * React to changes on the options store
-   */
-  @Watch("SGET_options", { immediate: true, deep: true })
-  onSettingsChange () {
-    const options = this.SGET_options
-    this.isDarkMode = options.darkMode
-    this.hideWelcomeScreenSocials = options.hideWelcomeScreenSocials
-  }
-
-  /**
-   * Determines if the page should show in dark mode or not
-   */
   isDarkMode = false
 
-  /**
-   * Determines if the welcome screen social links should show or not
-   */
-  hideWelcomeScreenSocials = false
-
-  /****************************************************************/
-  // BASIC DATA
-  /****************************************************************/
-
-  /**
-   * Determines if any project exists on the window
-   */
-  projectExists: undefined | string | boolean = false
-
-  /****************************************************************/
-  // COMPONENT FUNCTIONALITY
-  /****************************************************************/
-
-  /**
-   * Get project name upon creation
-   * For the purposes of this component, we only check if the project exists via this
-   */
-  created () {
-    this.checkProjectStatus()
+  @Watch("SGET_options", { immediate: true, deep: true })
+  onSettingsChange () {
+    this.isDarkMode = this.SGET_options.darkMode
   }
 
-  @Watch("SGET_getProjectName")
-  checkProjectStatus () {
-    this.projectExists = (this.SGET_getProjectName.length > 0)
+  projects: ProjectSummary[] = []
+  loading = false
+  selectedProjectId: string | null = null
+
+  newProjectDialog = false
+  newProjectName = ""
+  creating = false
+
+  deleteDialog = false
+  projectToDelete: ProjectSummary | null = null
+  deleting = false
+
+  async created () {
+    await this.loadProjects()
   }
 
-  /**
-   * Open Discord invite link in the default browser window
-   */
-  openDiscordInviteLink () {
-    shell.openExternal("https://discord.gg/JQDBvsN9Te").catch(e => console.log(e))
+  async loadProjects () {
+    this.loading = true
+    try {
+      this.projects = await projectApi.list()
+      const saved = this.SGET_currentProjectId
+      if (saved && this.projects.some(p => p.id === saved)) {
+        this.selectedProjectId = saved
+      }
+    } catch (e) {
+      console.error("Failed to load projects", e)
+    } finally {
+      this.loading = false
+    }
   }
 
-  /**
-   * Open Patreon link in the default browser window
-   */
-  openPatreonLink () {
-    shell.openExternal("https://www.patreon.com/c/vishiri").catch(e => console.log(e))
+  selectProject (project: ProjectSummary) {
+    this.selectedProjectId = project.id
   }
 
-  /**
-   * Open Ko-Fi link in the default browser window
-   */
-  openKofiLink () {
-    shell.openExternal("https://ko-fi.com/vishiri").catch(e => console.log(e))
+  openSelectedProject () {
+    const project = this.projects.find(p => p.id === this.selectedProjectId)
+    if (!project) return
+    this.SSET_currentProjectId(project.id)
+    this.SSET_currentUserRole(project.role)
+    this.$router.push("/project")
   }
 
-  /**
-   * Open Reddit link in the default browser window
-   */
-  openRedditLink () {
-    shell.openExternal("https://www.reddit.com/r/FantasiaArchive/").catch(e => console.log(e))
+  openNewProjectDialog () {
+    this.newProjectName = ""
+    this.newProjectDialog = true
   }
 
-  /**
-   * Open Website link in the default browser window
-   */
-  openWebsiteLink () {
-    shell.openExternal("http://fantasiaarchive.com/").catch(e => console.log(e))
+  async createProject () {
+    const name = this.newProjectName.trim()
+    if (!name) return
+    this.creating = true
+    try {
+      const project = await projectApi.create(name)
+      this.projects.push(project)
+      this.selectedProjectId = project.id
+      this.newProjectDialog = false
+    } catch (e) {
+      console.error("Failed to create project", e)
+    } finally {
+      this.creating = false
+    }
   }
 
-  /**
-   * Open GitHub link in the default browser window
-   */
-  openGithubLink () {
-    shell.openExternal("https://github.com/vishiri/fantasia-archive-v1").catch(e => console.log(e))
+  confirmDelete (project: ProjectSummary) {
+    this.projectToDelete = project
+    this.deleteDialog = true
   }
 
-  /****************************************************************/
-  // NEW PROJECT DIALOG
-  /****************************************************************/
-  newProjectDialogTrigger: string | false = false
-  newProjectDialogClose () {
-    this.newProjectDialogTrigger = false
-  }
-
-  newProjectAssignUID () {
-    this.newProjectDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // IMPORT PROJECT DIALOG
-  /****************************************************************/
-  loadProjectDialogTrigger: string | false = false
-  loadProjectDialogClose () {
-    this.loadProjectDialogTrigger = false
-  }
-
-  saveProjectAssignUID () {
-    this.loadProjectDialogTrigger = this.generateUID()
+  async deleteProject () {
+    if (!this.projectToDelete) return
+    this.deleting = true
+    try {
+      await projectApi.delete(this.projectToDelete.id)
+      this.projects = this.projects.filter(p => p.id !== this.projectToDelete!.id)
+      if (this.selectedProjectId === this.projectToDelete.id) {
+        this.selectedProjectId = null
+        this.SSET_currentProjectId(null)
+      }
+      this.deleteDialog = false
+      this.projectToDelete = null
+    } catch (e) {
+      console.error("Failed to delete project", e)
+    } finally {
+      this.deleting = false
+    }
   }
 }
 </script>
 
-<style  lang="scss">
-
+<style lang="scss">
 .mainTitle {
   color: var(--q-color-dark);
 }
-
 body.body--dark {
   .mainTitle {
     color: var(--q-color-primary);
@@ -259,7 +244,6 @@ body.body--dark {
 </style>
 
 <style scoped lang="scss">
-
 .mainSubTitle {
   margin-top: 0;
   margin-bottom: 0;
@@ -297,5 +281,14 @@ body.body--dark {
     background-size: contain;
     filter: drop-shadow(-1px 1px 2px var(--q-color-dark));
   }
+}
+
+.projectListWrapper {
+  width: 100%;
+  max-width: 500px;
+}
+
+.projectListCard {
+  min-height: 120px;
 }
 </style>

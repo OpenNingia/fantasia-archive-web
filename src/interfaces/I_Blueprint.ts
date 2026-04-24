@@ -6,6 +6,7 @@ export interface I_ExtraFields {
   tooltip?: string
   isLegacy?: boolean
   isSpoiler?: boolean
+  masterOnly?: boolean
   type:
   "text" |
   "number" |

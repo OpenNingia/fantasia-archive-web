@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-if="!isMasterOnlyField || canEditMasterOnlyField">
   <div class="documentLabelWrapper text-weight-bolder q-mb-sm q-mt-md">
     <q-icon v-if="inputIcon" :name="inputIcon" :size="(inputIcon.includes('fas') || inputIcon.includes('fab'))? '15px': '20px'" class="documentLabelIcon"/>
     <div class="documentLabelContent">

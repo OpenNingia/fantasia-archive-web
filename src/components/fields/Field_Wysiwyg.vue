@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-if="!isMasterOnlyField || canEditMasterOnlyField">
     <!-- Insert image dialog -->
     <WISIWYG_insertImageChoice
       :dialog-trigger="WISIWYG_insertImageChoiceDialogTrigger"

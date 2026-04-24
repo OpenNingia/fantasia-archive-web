@@ -54,6 +54,14 @@ export default class FieldBase extends BaseClass {
     this.agressiveRelationshipFilter = this.SGET_options.agressiveRelationshipFilter
   }
 
+  get isMasterOnlyField () {
+    return this.inputDataBluePrint?.masterOnly === true
+  }
+
+  get canEditMasterOnlyField () {
+    return this.SGET_currentUserRole === "master"
+  }
+
   agressiveRelationshipFilter = false
 
   /**

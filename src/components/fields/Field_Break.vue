@@ -1,5 +1,5 @@
 <template>
-<div>
+<div v-if="!isMasterOnlyField || canEditMasterOnlyField">
   <h5 class="text-weight-bolder q-mb-xs q-mt-lg">
     <span :class="(isDarkMode || recursive) ? 'text-satin-sheen-gold-bright' : 'text-gunmetal-medium'">
       {{inputDataBluePrint.name}}
