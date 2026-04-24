@@ -85,387 +85,376 @@
   </div>
 </template>
 
-<script lang="ts">
-import BaseClass from "src/BaseClass"
-import { Component, Watch } from "vue-property-decorator"
+<script setup lang="ts">
+import { ref, watch, onMounted, onUnmounted } from "vue"
+import { useRoute } from "vue-router"
+import { useQuasar, colors } from "quasar"
 import { defaultKeybinds } from "src/scripts/appSettings/defaultKeybinds"
 import appWindowButtons from "src/components/appHeader/AppWindowButtons.vue"
 import type { OptionsStateInteface } from "./store/module-options/state"
-import { colors } from "quasar"
 import { tipsTricks } from "src/scripts/utilities/tipsTricks"
 import { summonAllPlusheForms } from "src/scripts/utilities/plusheMascot"
 import { saveCorkboard, retrieveCorkboard } from "src/scripts/projectManagement/projectManagent"
 import documentPreview from "src/components/DocumentPreview.vue"
-@Component({
-  components: {
-    documentPreview: documentPreview,
-    appWindowButtons: appWindowButtons
-  }
-})
-export default class App extends BaseClass {
-  /****************************************************************/
-  // APP START & END SETUP
-  /****************************************************************/
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 
-  async created () {
-    // Catch middle clicks
-    window.addEventListener("auxclick", this.reactToMiddleClick)
+const q = useQuasar()
+const route = useRoute()
+const {
+  keybindsStore,
+  optionsStore,
+  floatingWindowsStore,
+  projectStore
+} = useAppStores()
+const { openLink, determineKeyBind } = useDocumentHelpers()
 
-    // Add a secondary blocker to prevent the middle-mouse button scrolling
-    document.body.onmousedown = function (e) {
-      if (e.button === 1) {
-        e.preventDefault()
-        return false
-      }
-    }
+/****************************************************************/
+// APP START & END SETUP
+/****************************************************************/
 
-    // Load settings
-    this.loadSettings()
+onMounted(async () => {
+  // Catch middle clicks
+  window.addEventListener("auxclick", reactToMiddleClick)
 
-    await this.loadCorkboardCotent()
-
-    // Load the popup hint on
-    this.loadHintPopup()
-
-    // React to keybind presses
-    window.addEventListener("keydown", this.triggerKeyPush)
-
-    // Catch normal clicks inside wysiwyg
-    window.addEventListener("click", this.openWysiwygLink)
-  }
-
-  destroyed () {
-    window.removeEventListener("auxclick", this.reactToMiddleClick)
-
-    this.deregisterCustomKeybinds()
-    this.deregisterDefaultKeybinds()
-    window.removeEventListener("keydown", this.triggerKeyPush)
-  }
-
-  /****************************************************************/
-  // START NOTIFICATION
-  /****************************************************************/
-
-  /**
-   * Model for the startup notification
-   */
-  starupNotif = null as any
-
-  /**
-   * Notification checker
-   * Can go up to 3
-   */
-  popupCheck = 0
-
-  /**
-   * Show the actual popup
-   */
-  loadHintPopup () {
-    const options = this.SGET_options
-
-    // Considering there is a bit of a delay between the initial load of the store DB content, we give the program 3 attempts to load the data over 3 seconds. If no is loaded in that time, we assume that the settings are not set at all and display the hint as normal.
-    if ((!options._id || !options._rev) && this.popupCheck < 3) {
-      setTimeout(() => {
-        this.popupCheck++
-        this.loadHintPopup()
-      }, 1000)
-      return
-    }
-
-    if (options.hideTooltipsStart) {
-      return
-    }
-
-    const messageToShow = tipsTricks[Math.floor(Math.random() * tipsTricks.length)]
-    const plusheForm = summonAllPlusheForms[Math.floor(Math.random() * summonAllPlusheForms.length)]
-    this.starupNotif = this.$q.notify({
-
-      timeout: 15000,
-      icon: (this.hidePlushes) ? "mdi-help" : undefined,
-      color: "info",
-      message: "Did you know?",
-      avatar: (!this.hidePlushes) ? plusheForm : undefined,
-      caption: messageToShow,
-      actions: [{ icon: "mdi-close", color: "white" }]
-    })
-  }
-
-  /**
-   * Hide the startup notification if the user changed the route before it disappeared
-   */
-  @Watch("$route", { deep: true })
-  onUrlChange () {
-    if (typeof this.starupNotif === "function") {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      this.starupNotif()
-    }
-  }
-
-  /****************************************************************/
-  // KEYBIND HANDLING
-  /****************************************************************/
-
-  /**
-   * React to keybind combinations being pushed and submit them to the store
-   */
-  triggerKeyPush (e:any) {
-    // console.log("")
-    // console.log(`Key: ${e.key}`)
-    // console.log(`Ctrl: ${e.ctrlKey}`)
-    // console.log(`Shift: ${e.shiftKey}`)
-    // console.log(`Alt: ${e.altKey}`)
-    // console.log(e)
-
-    const specialKeyList = [
-      // F11
-      122
-    ]
-
-    if (e?.altKey === true || e?.ctrlKey || e?.shiftKey || specialKeyList.includes(e?.which)) {
-      const ouputKeycombo = {
-        altKey: e.altKey,
-        ctrlKey: e.ctrlKey,
-        shiftKey: e.shiftKey,
-        which: e.which
-      }
-
-      this.SSET_updatePressedKey(ouputKeycombo)
-    }
-  }
-
-  /**
-   * Registers a default keybind into the store
-   */
-  registerDefaultKeybinds () {
-    // @ts-ignore
-    defaultKeybinds.forEach(e => this.SSET_registerDefaultKeybind(e))
-  }
-
-  /**
-   * Removes a default keybind from the store
-   */
-  deregisterDefaultKeybinds () {
-    // @ts-ignore
-    defaultKeybinds.forEach(e => this.SSET_deregisterDefaultKeybind(e))
-  }
-
-  /**
-   * Registers a custom keybind into the store
-   */
-  registerCustomKeybinds () {
-    setTimeout(() => {
-      this.SGET_options.userKeybindList.forEach(e => this.SSET_registerUserKeybind(e))
-    }, 1000)
-  }
-
-  /**
-   * Removes a custom keybind from the store
-   */
-  deregisterCustomKeybinds () {
-    // @ts-ignore
-    defaultKeybinds.forEach(e => this.SSET_deregisterUserKeybind(e))
-  }
-
-  /****************************************************************/
-  // VARIOUS APP FUNCTIONALITY
-  /****************************************************************/
-
-  /**
-   * Open wysiwyg links in default browser window
-   */
-  openWysiwygLink (event: MouseEvent) {
-    event.preventDefault()
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    if (event.target && event.target.tagName.toLowerCase() === "a" && event.target.closest(".fieldWysiwyg")) {
-      // @ts-ignore
-      this.openLink(event.target.href as string)
-      // @ts-ignore
-    }
-  }
-
-  /**
-   * React to middle mouse button clicks
-   */
-  reactToMiddleClick (e: {button: number, preventDefault: ()=> void}) {
+  // Add a secondary blocker to prevent the middle-mouse button scrolling
+  document.body.onmousedown = function (e) {
     if (e.button === 1) {
       e.preventDefault()
       return false
     }
   }
 
-  /**
-   * Load settings from localStorage on app start.
-   */
-  loadSettings () {
-    const raw = localStorage.getItem("fa_settings")
-    if (raw) {
-      try {
-        const settings = JSON.parse(raw) as OptionsStateInteface
-        this.SSET_options(settings)
-      }
-      catch (e) {
-        console.warn("Failed to parse stored settings", e)
-      }
-    }
+  // Load settings
+  loadSettings()
 
-    this.registerDefaultKeybinds()
-    this.registerCustomKeybinds()
-  }
+  await loadCorkboardCotent()
 
-  /**
-   * Update dark/light mode across the app based on what is currently in the store
-   */
-  @Watch("SGET_options", { deep: true })
-  onSettingsChange () {
-    const options = this.SGET_options
+  // Load the popup hint on
+  loadHintPopup()
 
-    this.hidePlushes = options.hidePlushes
-    this.allowWiderScrollbars = options.allowWiderScrollbars
-    this.$q.dark.set(options.darkMode)
-    if (options.darkMode) {
-      colors.setBrand("dark", "#1b333e")
-      colors.setBrand("primary", "#ffd673")
-    }
-    else {
-      colors.setBrand("dark", "#18303a")
-      colors.setBrand("primary", "#e8bb50")
-    }
+  // React to keybind presses
+  window.addEventListener("keydown", triggerKeyPush)
 
-    this.disableDocumentControlBar = options.disableDocumentControlBar
-    this.refreshDocumentPreviewWindow()
+  // Catch normal clicks inside wysiwyg
+  window.addEventListener("click", openWysiwygLink)
+})
 
-    if (options.disableSpellCheck) {
-      document.body.setAttribute("spellcheck", "false")
-    }
-    else {
-      document.body.setAttribute("spellcheck", "true")
-    }
-  }
+onUnmounted(() => {
+  window.removeEventListener("auxclick", reactToMiddleClick)
 
-  disableDocumentControlBar = false
+  deregisterCustomKeybinds()
+  deregisterDefaultKeybinds()
+  window.removeEventListener("keydown", triggerKeyPush)
+})
 
-  /**
-   * Hides the mascot... nooo :(
-   */
-  hidePlushes = false
+/****************************************************************/
+// START NOTIFICATION
+/****************************************************************/
 
-  allowWiderScrollbars = false
+/**
+ * Model for the startup notification
+ */
+let starupNotif = null as any
 
-  @Watch("SGET_getAdvSearchWindowVisible")
-  onAdvSearchWindowOpen () {
-    this.advSearchWindowVisible = true
-  }
+/**
+ * Notification checker
+ * Can go up to 3
+ */
+let popupCheck = 0
 
-  advSearchWindowVisible = false
+/**
+ * Show the actual popup
+ */
+function loadHintPopup () {
+  const options = optionsStore.getOptions
 
-  @Watch("SGET_getNoteCorkboardWindowVisible")
-  onCorkboardWindowOpen () {
-    this.corkboardWindowVisible = true
-  }
-
-  corkboardWindowVisible = false
-
-  corkboardContent = ""
-
-  /**
-   * Debounce timer to prevent buggy input sync
-   */
-  corkboardTimer = null as any
-
-  processCorkboardInput () {
-    clearTimeout(this.corkboardTimer)
-    this.corkboardTimer = setTimeout(() => {
-      saveCorkboard(this.corkboardContent, this.SGET_currentProjectId).catch(e => console.log(e))
+  // Considering there is a bit of a delay between the initial load of the store DB content, we give the program 3 attempts to load the data over 3 seconds. If no is loaded in that time, we assume that the settings are not set at all and display the hint as normal.
+  if ((!options._id || !options._rev) && popupCheck < 3) {
+    setTimeout(() => {
+      popupCheck++
+      loadHintPopup()
     }, 1000)
+    return
   }
 
-  /**
-   * Corkboard checker
-   * Can go up to 3
-   */
-  corkboardCheck = 0
-
-  async loadCorkboardCotent () {
-    const options = this.SGET_options
-
-    this.corkboardContent = await retrieveCorkboard(this.SGET_currentProjectId)
-
-    // Considering there is a bit of a delay between the initial load of the store DB content, we give the program 3 attempts to load the data over 3 seconds. If no is loaded in that time, we assume that the settings are not set at all and display the hint as normal.
-    if ((!options._id || !options._rev) && this.corkboardCheck < 3) {
-      setTimeout(() => {
-        this.corkboardCheck++
-        this.loadCorkboardCotent().catch(e => console.log(e))
-      }, 1000)
-      return
-    }
-
-    if (options.preventFilledNoteBoardPopup) {
-      return
-    }
-
-    if (this.corkboardContent.length) {
-      this.corkboardWindowVisible = true
-    }
+  if (options.hideTooltipsStart) {
+    return
   }
 
-  documentPreviewWindowVisible = false
-  documentPreviewElementID = ""
+  const messageToShow = tipsTricks[Math.floor(Math.random() * tipsTricks.length)]
+  const plusheForm = summonAllPlusheForms[Math.floor(Math.random() * summonAllPlusheForms.length)]
+  starupNotif = q.notify({
+    timeout: 15000,
+    icon: (hidePlushes.value) ? "mdi-help" : undefined,
+    color: "info",
+    message: "Did you know?",
+    avatar: (!hidePlushes.value) ? plusheForm : undefined,
+    caption: messageToShow,
+    actions: [{ icon: "mdi-close", color: "white" }]
+  })
+}
 
-  @Watch("SGET_getDocumentPreviewWindowID")
-  reactToPreviewIDChange () {
-    this.refreshDocumentPreviewWindow()
+/**
+ * Hide the startup notification if the user changed the route before it disappeared
+ */
+watch(route, () => {
+  if (typeof starupNotif === "function") {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    starupNotif()
   }
+})
 
-  @Watch("SGET_getDocumentPreviewVisible")
-  reactToPreviewVisibilityChange () {
-    if (this.SGET_getDocumentPreviewVisible !== "") {
-      this.refreshDocumentPreviewWindow()
-    }
-  }
+/****************************************************************/
+// KEYBIND HANDLING
+/****************************************************************/
 
-  refreshDocumentPreviewWindow (input = true) {
-    this.documentPreviewElementID = this.SGET_getDocumentPreviewWindowID
-    const newOpenString = this.SGET_getDocumentPreviewVisible
+/**
+ * React to keybind combinations being pushed and submit them to the store
+ */
+function triggerKeyPush (e: any) {
+  const specialKeyList = [
+    // F11
+    122
+  ]
 
-    if (!input || newOpenString.length === 0) {
-      this.SSET_setDocumentPreviewWindowVisible(false)
-      this.documentPreviewWindowVisible = false
-    }
-    else {
-      this.documentPreviewWindowVisible = true
-    }
-
-  }
-
-  /****************************************************************/
-  // Local keybinds
-  /****************************************************************/
-
-  @Watch("SGET_getCurrentKeyBindData", { deep: true })
-  processKeyPush () {
-  // Toggle the Advanced search cheatsheet
-    if (this.determineKeyBind("toggleAdvSearchCheatsheet")) {
-      this.advSearchWindowVisible = !this.advSearchWindowVisible
+  if (e?.altKey === true || e?.ctrlKey || e?.shiftKey || specialKeyList.includes(e?.which)) {
+    const ouputKeycombo = {
+      altKey: e.altKey,
+      ctrlKey: e.ctrlKey,
+      shiftKey: e.shiftKey,
+      which: e.which
     }
 
-    // Toggle Note Board - CTRL + ALT + SHIFT + P
-    if (this.determineKeyBind("toggleNoteCorkboard")) {
-      this.corkboardWindowVisible = !this.corkboardWindowVisible
-    }
-  }
-
-  /****************************************************************/
-  // CUSTOM CSS ATTACHING
-  /****************************************************************/
-
-  widerScrollBarCSSS = "*::-webkit-scrollbar{width: 15px !important; height: 15px !important;}"
-
-  customCSS = ""
-
-  @Watch("SGET_getProjectCustomCSS", { deep: true })
-  checkCustomCSS () {
-    this.customCSS = this.SGET_getProjectCustomCSS
+    keybindsStore.updatePressedKey(ouputKeycombo)
   }
 }
+
+/**
+ * Registers a default keybind into the store
+ */
+function registerDefaultKeybinds () {
+  // @ts-ignore
+  defaultKeybinds.forEach(e => keybindsStore.registerDefaultKeybind(e))
+}
+
+/**
+ * Removes a default keybind from the store
+ */
+function deregisterDefaultKeybinds () {
+  // @ts-ignore
+  defaultKeybinds.forEach(e => keybindsStore.deregisterDefaultKeybind(e))
+}
+
+/**
+ * Registers a custom keybind into the store
+ */
+function registerCustomKeybinds () {
+  setTimeout(() => {
+    optionsStore.getOptions.userKeybindList.forEach(e => keybindsStore.registerUserKeybind(e))
+  }, 1000)
+}
+
+/**
+ * Removes a custom keybind from the store
+ */
+function deregisterCustomKeybinds () {
+  // @ts-ignore
+  defaultKeybinds.forEach(e => keybindsStore.deregisterUserKeybind(e))
+}
+
+/****************************************************************/
+// VARIOUS APP FUNCTIONALITY
+/****************************************************************/
+
+/**
+ * Open wysiwyg links in default browser window
+ */
+function openWysiwygLink (event: MouseEvent) {
+  event.preventDefault()
+  // @ts-ignore
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  if (event.target && event.target.tagName.toLowerCase() === "a" && event.target.closest(".fieldWysiwyg")) {
+    // @ts-ignore
+    openLink(event.target.href as string)
+    // @ts-ignore
+  }
+}
+
+/**
+ * React to middle mouse button clicks
+ */
+function reactToMiddleClick (e: {button: number, preventDefault: ()=> void}) {
+  if (e.button === 1) {
+    e.preventDefault()
+    return false
+  }
+}
+
+/**
+ * Load settings from localStorage on app start.
+ */
+function loadSettings () {
+  const raw = localStorage.getItem("fa_settings")
+  if (raw) {
+    try {
+      const settings = JSON.parse(raw) as OptionsStateInteface
+      optionsStore.setOptions(settings)
+    }
+    catch (e) {
+      console.warn("Failed to parse stored settings", e)
+    }
+  }
+
+  registerDefaultKeybinds()
+  registerCustomKeybinds()
+}
+
+/**
+ * Update dark/light mode across the app based on what is currently in the store
+ */
+watch(() => optionsStore.getOptions, () => {
+  const options = optionsStore.getOptions
+
+  hidePlushes.value = options.hidePlushes
+  allowWiderScrollbars.value = options.allowWiderScrollbars
+  q.dark.set(options.darkMode)
+  if (options.darkMode) {
+    colors.setBrand("dark", "#1b333e")
+    colors.setBrand("primary", "#ffd673")
+  }
+  else {
+    colors.setBrand("dark", "#18303a")
+    colors.setBrand("primary", "#e8bb50")
+  }
+
+  disableDocumentControlBar.value = options.disableDocumentControlBar
+  refreshDocumentPreviewWindow()
+
+  if (options.disableSpellCheck) {
+    document.body.setAttribute("spellcheck", "false")
+  }
+  else {
+    document.body.setAttribute("spellcheck", "true")
+  }
+}, { deep: true })
+
+const disableDocumentControlBar = ref(false)
+
+/**
+ * Hides the mascot... nooo :(
+ */
+const hidePlushes = ref(false)
+
+const allowWiderScrollbars = ref(false)
+
+watch(() => floatingWindowsStore.getAdvSearchWindowVisible, () => {
+  advSearchWindowVisible.value = true
+})
+
+const advSearchWindowVisible = ref(false)
+
+watch(() => floatingWindowsStore.getNoteCorkboardWindowVisible, () => {
+  corkboardWindowVisible.value = true
+})
+
+const corkboardWindowVisible = ref(false)
+
+const corkboardContent = ref("")
+
+/**
+ * Debounce timer to prevent buggy input sync
+ */
+let corkboardTimer = null as any
+
+function processCorkboardInput () {
+  clearTimeout(corkboardTimer)
+  corkboardTimer = setTimeout(() => {
+    saveCorkboard(corkboardContent.value, projectStore.currentProjectId).catch(e => console.log(e))
+  }, 1000)
+}
+
+/**
+ * Corkboard checker
+ * Can go up to 3
+ */
+let corkboardCheck = 0
+
+async function loadCorkboardCotent () {
+  const options = optionsStore.getOptions
+
+  corkboardContent.value = await retrieveCorkboard(projectStore.currentProjectId)
+
+  // Considering there is a bit of a delay between the initial load of the store DB content, we give the program 3 attempts to load the data over 3 seconds. If no is loaded in that time, we assume that the settings are not set at all and display the hint as normal.
+  if ((!options._id || !options._rev) && corkboardCheck < 3) {
+    setTimeout(() => {
+      corkboardCheck++
+      loadCorkboardCotent().catch(e => console.log(e))
+    }, 1000)
+    return
+  }
+
+  if (options.preventFilledNoteBoardPopup) {
+    return
+  }
+
+  if (corkboardContent.value.length) {
+    corkboardWindowVisible.value = true
+  }
+}
+
+const documentPreviewWindowVisible = ref(false)
+const documentPreviewElementID = ref("")
+
+watch(() => floatingWindowsStore.getDocumentPreviewWindowID, () => {
+  refreshDocumentPreviewWindow()
+})
+
+watch(() => floatingWindowsStore.getDocumentPreviewVisible, () => {
+  if (floatingWindowsStore.getDocumentPreviewVisible !== "") {
+    refreshDocumentPreviewWindow()
+  }
+})
+
+function refreshDocumentPreviewWindow (input = true) {
+  documentPreviewElementID.value = floatingWindowsStore.getDocumentPreviewWindowID
+  const newOpenString = floatingWindowsStore.getDocumentPreviewVisible
+
+  if (!input || newOpenString.length === 0) {
+    floatingWindowsStore.setDocumentPreviewWindowVisible(false)
+    documentPreviewWindowVisible.value = false
+  }
+  else {
+    documentPreviewWindowVisible.value = true
+  }
+}
+
+/****************************************************************/
+// Local keybinds
+/****************************************************************/
+
+watch(() => keybindsStore.getCurrentKeyBindData, () => {
+  // Toggle the Advanced search cheatsheet
+  if (determineKeyBind("toggleAdvSearchCheatsheet")) {
+    advSearchWindowVisible.value = !advSearchWindowVisible.value
+  }
+
+  // Toggle Note Board - CTRL + ALT + SHIFT + P
+  if (determineKeyBind("toggleNoteCorkboard")) {
+    corkboardWindowVisible.value = !corkboardWindowVisible.value
+  }
+}, { deep: true })
+
+/****************************************************************/
+// CUSTOM CSS ATTACHING
+/****************************************************************/
+
+const widerScrollBarCSSS = "*::-webkit-scrollbar{width: 15px !important; height: 15px !important;}"
+
+const customCSS = ref("")
+
+watch(() => projectStore.getProjectCustomCSS, () => {
+  customCSS.value = projectStore.getProjectCustomCSS
+}, { deep: true })
+
 </script>

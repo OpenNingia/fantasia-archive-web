@@ -18,22 +18,29 @@ export interface StateInterface {
 
 export const storeKey: InjectionKey<Store<StateInterface>> = Symbol("store")
 
+// Module-level singleton — created once, installed by boot/store.ts.
+// Used directly in router guards where inject() is unavailable.
+export const vuexStore = createStore<StateInterface>({
+  modules: {
+    blueprintsModule,
+    openedDocumentsModule,
+    allDocumentsModule,
+    keybindsModule,
+    dialogsModule,
+    optionsModule,
+    floatingWindowsModule,
+    projectModule
+  },
+  strict: !!process.env.DEBUGGING
+})
+
+// For components: inject under our custom key (provided by boot/store.ts).
 export function useStore (): Store<StateInterface> {
   return baseUseStore(storeKey)
 }
 
+// Kept for compatibility — @quasar/app-vite no longer auto-includes Vuex stores,
+// so boot/store.ts installs vuexStore manually.
 export default store(function () {
-  return createStore<StateInterface>({
-    modules: {
-      blueprintsModule,
-      openedDocumentsModule,
-      allDocumentsModule,
-      keybindsModule,
-      dialogsModule,
-      optionsModule,
-      floatingWindowsModule,
-      projectModule
-    },
-    strict: !!process.env.DEBUGGING
-  })
+  return vuexStore
 })

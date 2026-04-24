@@ -62,179 +62,184 @@
   </q-dialog>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch, Prop } from "vue-property-decorator"
-
-import DialogBase from "src/components/dialogs/_DialogBase"
-import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
-import { remote } from "electron"
+import { ref, computed, watch } from "vue"
+import { useRouter } from "vue-router"
 import { extend, QSpinnerGears, Loading } from "quasar"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
 import { saveDocument } from "src/scripts/databaseManager/documentManager"
 
-@Component({
-  components: { }
+const props = defineProps<{
+  dialogTrigger?: string
+  dialogMode: "appClose" | "projectClose"
+}>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
+
+const router = useRouter()
+const { dialogsStore, openedDocumentsStore, allDocumentsStore } = useAppStores()
+const { retrieveFieldValue, mapShortDocument, sleep } = useDocumentHelpers()
+
+const dialogModel = ref(false)
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    dialogsStore.setDialogState(true)
+    checkForDocumentsWithEdits()
+  }
 })
-export default class ProjectCloseCheck extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val) {
-      this.SSET_setDialogState(true)
-      this.checkForDocumentsWithEdits()
-    }
+
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+/**
+ * Label text for the dialog
+ */
+const exitLabelText = computed(() => {
+  if (props.dialogMode === "appClose") {
+    return "Exit app without saving"
   }
 
-  /**
-   * Determines if the dialog should be used in application closing mode or in project closing mode
-   */
-  @Prop() readonly dialogMode!: "appClose" | "projectClose"
+  if (props.dialogMode === "projectClose") {
+    return "Close project without saving"
+  }
+  return ""
+})
 
-  /**
-   * Label text for the dialog
-   */
-  get exitLabelText () {
-    if (this.dialogMode === "appClose") {
-      return "Exit app without saving"
-    }
-
-    if (this.dialogMode === "projectClose") {
-      return "Close project without saving"
-    }
+/**
+ * Label text for the dialog
+ */
+const saveAllLabelText = computed(() => {
+  if (props.dialogMode === "appClose") {
+    return "Save all & exit FA"
   }
 
-  /**
-   * Label text for the dialog
-   */
-  get saveAllLabelText () {
-    if (this.dialogMode === "appClose") {
-      return "Save all & exit FA"
-    }
-
-    if (this.dialogMode === "projectClose") {
-      return "Save all & close project"
-    }
+  if (props.dialogMode === "projectClose") {
+    return "Save all & close project"
   }
+  return ""
+})
 
-  /**
-   * List of opened documents with edits in them
-   */
-  openedDocsWithEdits: I_OpenedDocument[]= []
+/**
+ * List of opened documents with edits in them
+ */
+const openedDocsWithEdits = ref<I_OpenedDocument[]>([])
 
-  /**
-   * Check if we have any documents with edit. If not, skip the dialog and proceed.
-   */
-  checkForDocumentsWithEdits () {
-    this.openedDocsWithEdits = this.SGET_allOpenedDocuments.docs.filter(doc => doc.hasEdits)
+/**
+ * Check if we have any documents with edit. If not, skip the dialog and proceed.
+ */
+function checkForDocumentsWithEdits () {
+  openedDocsWithEdits.value = openedDocumentsStore.getAllDocuments.docs.filter(doc => doc.hasEdits)
 
-    if (this.openedDocsWithEdits.length > 0) {
-      this.dialogModel = true
-    }
-    else {
-      this.determineModeAction()
-    }
+  if (openedDocsWithEdits.value.length > 0) {
+    dialogModel.value = true
   }
-
-  /**
-   * Decide what action to take depending on the dialog mode
-   */
-  determineModeAction () {
-    if (this.dialogMode === "appClose") {
-      this.closeApp()
-    }
-    if (this.dialogMode === "projectClose") {
-      this.closeProject()
-    }
+  else {
+    determineModeAction()
   }
+}
 
-  async determineMassSaveAction () {
-    this.openedDocsWithEdits = this.SGET_allOpenedDocuments.docs.filter(doc => doc.hasEdits)
+/**
+ * Decide what action to take depending on the dialog mode
+ */
+function determineModeAction () {
+  if (props.dialogMode === "appClose") {
+    closeApp()
+  }
+  if (props.dialogMode === "projectClose") {
+    closeProject()
+  }
+}
 
-    const setup = {
-      message: "<h4>Saving project...</h4>",
-      spinnerColor: "primary",
-      messageColor: "cultured",
-      spinnerSize: 120,
-      backgroundColor: "dark",
-      // @ts-ignore
-      spinner: QSpinnerGears
-    }
+async function determineMassSaveAction () {
+  openedDocsWithEdits.value = openedDocumentsStore.getAllDocuments.docs.filter(doc => doc.hasEdits)
 
+  const setup = {
+    message: "<h4>Saving project...</h4>",
+    spinnerColor: "primary",
+    messageColor: "cultured",
+    spinnerSize: 120,
+    backgroundColor: "dark",
     // @ts-ignore
-    Loading.show(setup)
-    for (const document of this.openedDocsWithEdits) {
-      await this.saveOpenedDocument(document)
-    }
-
-    if (this.dialogMode === "appClose") {
-      this.closeApp()
-    }
-    if (this.dialogMode === "projectClose") {
-      await this.sleep(3000)
-      Loading.hide()
-      this.closeProject()
-    }
+    spinner: QSpinnerGears
   }
 
-  /**
-   * Close the project and navigate to the intro screen
-   */
-  closeProject () {
-    this.SSET_resetDocuments()
-    this.triggerDialogClose()
-    this.$router.push({ path: "/" }).catch((e: {name: string}) => {
-      if (e && e.name !== "NavigationDuplicated") {
-        console.log(e)
-      }
-    })
+  // @ts-ignore
+  Loading.show(setup)
+  for (const document of openedDocsWithEdits.value) {
+    await saveOpenedDocument(document)
   }
 
-  /**
-   * Close app
-   */
-  closeApp () {
-    remote.getCurrentWindow().destroy()
+  if (props.dialogMode === "appClose") {
+    closeApp()
   }
+  if (props.dialogMode === "projectClose") {
+    await sleep(3000)
+    Loading.hide()
+    closeProject()
+  }
+}
 
-  async saveOpenedDocument (document: I_OpenedDocument) {
-    const docCopy:I_OpenedDocument = extend(true, [], document)
-    const allOpenedDocuments:I_OpenedDocument[] = extend(true, [], this.SGET_allOpenedDocuments)
+/**
+ * Close the project and navigate to the intro screen
+ */
+function closeProject () {
+  openedDocumentsStore.resetDocuments()
+  triggerDialogClose()
+  router.push({ path: "/" }).catch((e: {name: string}) => {
+    if (e && e.name !== "NavigationDuplicated") {
+      console.log(e)
+    }
+  })
+}
 
+/**
+ * Close app — in web mode just navigate away or reload
+ */
+function closeApp () {
+  window.close()
+}
+
+async function saveOpenedDocument (document: I_OpenedDocument) {
+  const docCopy: I_OpenedDocument = extend(true, [], document)
+  const allOpenedDocuments: I_OpenedDocument[] = extend(true, [], openedDocumentsStore.getAllDocuments)
+
+  // @ts-ignore
+  const isNew = document.isNew
+
+  // @ts-ignore
+  const savedDocument: {
+    documentCopy: I_OpenedDocument,
+    allOpenedDocuments: I_OpenedDocument[]
+  } = await saveDocument(docCopy, allOpenedDocuments, allDocumentsStore.getAllDocuments.docs, false, null, true)
+
+  // Update the opened document
+  const dataPass = { doc: savedDocument.documentCopy, treeAction: true }
+  openedDocumentsStore.updateDocument(dataPass)
+
+  // Update document
+  if (!isNew) {
     // @ts-ignore
-    const isNew = document.isNew
-
+    allDocumentsStore.updateDocument({ doc: mapShortDocument(savedDocument.documentCopy, allDocumentsStore.getDocumentsByType(savedDocument.documentCopy.type).docs) })
+  }
+  // Add new document
+  else {
     // @ts-ignore
-    const savedDocument: {
-      documentCopy: I_OpenedDocument,
-      allOpenedDocuments: I_OpenedDocument[]
-    } = await saveDocument(docCopy, allOpenedDocuments, this.SGET_allDocuments.docs, false, this, true)
+    allDocumentsStore.addDocument({ doc: mapShortDocument(savedDocument.documentCopy, allDocumentsStore.getDocumentsByType(savedDocument.documentCopy.type).docs) })
+  }
 
+  // Update all others
+  for (const doc of savedDocument.allOpenedDocuments) {
     // Update the opened document
-    const dataPass = { doc: savedDocument.documentCopy, treeAction: true }
-    this.SSET_updateOpenedDocument(dataPass)
+    const dataPass = { doc: doc, treeAction: true }
+    openedDocumentsStore.updateDocument(dataPass)
 
-    // Update document
-    if (!isNew) {
-      // @ts-ignore
-      this.SSET_updateDocument({ doc: this.mapShortDocument(savedDocument.documentCopy, this.SGET_allDocumentsByType(savedDocument.documentCopy.type).docs) })
-    }
-    // Add new document
-    else {
-      // @ts-ignore
-      this.SSET_addDocument({ doc: this.mapShortDocument(savedDocument.documentCopy, this.SGET_allDocumentsByType(savedDocument.documentCopy.type).docs) })
-    }
-
-    // Update all others
-    for (const doc of savedDocument.allOpenedDocuments) {
-      // Update the opened document
-      const dataPass = { doc: doc, treeAction: true }
-      this.SSET_updateOpenedDocument(dataPass)
-
-      // @ts-ignore
-      this.SSET_updateDocument({ doc: this.mapShortDocument(doc, this.SGET_allDocumentsByType(doc.type).docs) })
-    }
+    // @ts-ignore
+    allDocumentsStore.updateDocument({ doc: mapShortDocument(doc, allDocumentsStore.getDocumentsByType(doc.type).docs) })
   }
 }
 </script>

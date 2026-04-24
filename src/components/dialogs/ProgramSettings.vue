@@ -1046,356 +1046,297 @@
 
 </template>
 
-<script lang="ts">
-
-import { Component, Watch } from "vue-property-decorator"
-
-import DialogBase from "src/components/dialogs/_DialogBase"
+<script setup lang="ts">
+import { ref, watch, nextTick } from "vue"
 import { extend } from "quasar"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 
 import type { OptionsStateInteface } from "src/store/module-options/state"
-@Component({
-  components: { }
-})
-export default class ProgramSettings extends DialogBase {
-  /****************************************************************/
-  // DIALOG CONTROL
-  /****************************************************************/
 
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
-      this.options = extend(true, {}, this.SGET_options)
-      this.mapKeybinds()
-    }
+const props = defineProps<{ dialogTrigger?: string }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
+
+const { dialogsStore, optionsStore, keybindsStore } = useAppStores()
+const { retrieveKeybindString } = useDocumentHelpers()
+
+const dialogModel = ref(false)
+const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTabs = { right: "0px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTutorialTabContent = { right: "-55px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    openDialog(val)
   }
+})
 
-  /**
-   * Currently active tab model of the options\
-   * "uiSettings" by default
-   */
-  activeTab = "uiSettings"
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
 
-  /**
-   * Save settings and keybings
-   */
-  saveSettings () {
-    const optionsSnapShot: OptionsStateInteface = extend(true, {}, this.options)
-    optionsSnapShot.userKeybindList = []
+/****************************************************************/
+// DIALOG CONTROL
+/****************************************************************/
 
-    this.keybindList.forEach(e => {
-      // Deregister all custom user keybinds
-      this.SSET_deregisterUserKeybind({
-        id: e.id,
-        altKey: e.defaultKeybind.altKey,
-        ctrlKey: e.defaultKeybind.ctrlKey,
-        shiftKey: e.defaultKeybind.shiftKey,
-        which: e.defaultKeybind.which
-      })
+const activeTab = ref("uiSettings")
 
-      // Re-register new user keybinds if there are any present
-      if (e.userKeybind && e.userKeybind.which) {
-        const tempkey = {
-          id: e.id,
-          altKey: e.userKeybind.altKey,
-          ctrlKey: e.userKeybind.ctrlKey,
-          shiftKey: e.userKeybind.shiftKey,
-          which: e.userKeybind.which
-        }
+function openDialog (val: string | false) {
+  if (val) {
+    if (dialogsStore.getDialogsState) {
+      return
+    }
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
+    options.value = extend(true, {}, optionsStore.getOptions)
+    mapKeybinds()
+  }
+}
 
-        optionsSnapShot.userKeybindList.push(tempkey)
-        this.SSET_registerUserKeybind(tempkey)
-      }
+function saveSettings () {
+  const optionsSnapShot: OptionsStateInteface = extend(true, {}, options.value)
+  optionsSnapShot.userKeybindList = []
+
+  keybindList.value.forEach(e => {
+    keybindsStore.deregisterUserKeybind({
+      id: e.id,
+      altKey: e.defaultKeybind.altKey,
+      ctrlKey: e.defaultKeybind.ctrlKey,
+      shiftKey: e.defaultKeybind.shiftKey,
+      which: e.defaultKeybind.which
     })
 
-    this.SSET_options(optionsSnapShot)
-  }
+    if (e.userKeybind && e.userKeybind.which) {
+      const tempkey = {
+        id: e.id,
+        altKey: e.userKeybind.altKey,
+        ctrlKey: e.userKeybind.ctrlKey,
+        shiftKey: e.userKeybind.shiftKey,
+        which: e.userKeybind.which
+      }
 
-  /****************************************************************/
-  // OPTIONS TAB
-  /****************************************************************/
-
-  /**
-   * Default options list state
-   */
-  options: OptionsStateInteface = {
-    _id: "settings",
-    darkMode: false,
-    disableSpellCheck: false,
-    preventFilledNoteBoardPopup: false,
-    agressiveRelationshipFilter: false,
-    preventAutoScroll: false,
-    textShadow: false,
-    hideAdvSearchCheatsheetButton: false,
-    doubleDashDocCount: false,
-    hideDeadCrossThrough: false,
-    allowWiderScrollbars: false,
-    hidePlushes: false,
-    hideDocumentTitles: false,
-    hideHierarchyTree: false,
-    tagsAtTop: false,
-    noTags: false,
-    compactTags: false,
-    noProjectName: false,
-    invertTreeSorting: false,
-    hideEmptyFields: false,
-    disableDocumentToolTips: false,
-    doNotcollaseTreeOptions: false,
-    disableDocumentControlBar: false,
-    disableDocumentControlBarGuides: false,
-    disableCloseAftertSelectQuickSearch: false,
-    disableQuickSearchCategoryPrecheck: false,
-    allowQuickPopupSameKeyClose: false,
-    disableDocumentCounts: false,
-    compactDocumentCount: false,
-    showDocumentID: false,
-    invertCategoryPosition: false,
-    hideWelcomeScreenSocials: false,
-    hideTooltipsStart: false,
-    hideTooltipsProject: false,
-    hideTreeOrderNumbers: false,
-    hideTreeExtraIcons: false,
-    hideTreeIconAddUnder: false,
-    hideTreeIconEdit: false,
-    hideTreeIconView: false,
-    limitEditorHeight: false,
-    preventPreviewsTree: true,
-    preventPreviewsTabs: true,
-    preventPreviewsPopups: false,
-    preventPreviewsDocuments: false,
-    userKeybindList: []
-  }
-
-  /****************************************************************/
-  // KEYBINDS MANAGEMENT
-  /****************************************************************/
-
-  /**
-   * Keybinds table pagination settings
-   */
-  pagination = {
-    rowsPerPage: 0
-  }
-
-  /**
-   * Keybinds table settings
-   */
-  keybindListCollums = [
-    {
-      name: "name",
-      required: true,
-      label: "Action",
-      align: "left",
-      field: (row: {name: string}) => row.name,
-      format: (val: string) => `${val}`,
-      sortable: true
-    },
-    {
-      name: "userKeybinds",
-      align: "left",
-      label: "User Keybinds",
-      field: "userKeybind"
-    },
-    {
-      name: "defaultKeybinds",
-      align: "left",
-      label: "Default keybinds",
-      field: "defaultKeybind"
+      optionsSnapShot.userKeybindList.push(tempkey)
+      keybindsStore.registerUserKeybind(tempkey)
     }
-  ]
+  })
 
-  /**
-   * Keybinds table string filter
-   */
-  filter = ""
+  void optionsStore.setOptions(optionsSnapShot)
+}
 
-  /**
-   * Temporary keybind string value entered by the user
-   * EG: "CTRL + V"
-   */
-  tempKeybindString = ""
+/****************************************************************/
+// OPTIONS TAB
+/****************************************************************/
 
-  /**
-   * Temporary keybind object details entered by the user
-   */
-  tempKeybindData = null as any
+const options = ref<OptionsStateInteface>({
+  _id: "settings",
+  darkMode: false,
+  disableSpellCheck: false,
+  preventFilledNoteBoardPopup: false,
+  agressiveRelationshipFilter: false,
+  preventAutoScroll: false,
+  textShadow: false,
+  hideAdvSearchCheatsheetButton: false,
+  doubleDashDocCount: false,
+  hideDeadCrossThrough: false,
+  allowWiderScrollbars: false,
+  hidePlushes: false,
+  hideDocumentTitles: false,
+  hideHierarchyTree: false,
+  tagsAtTop: false,
+  noTags: false,
+  compactTags: false,
+  noProjectName: false,
+  invertTreeSorting: false,
+  hideEmptyFields: false,
+  disableDocumentToolTips: false,
+  doNotcollaseTreeOptions: false,
+  disableDocumentControlBar: false,
+  disableDocumentControlBarGuides: false,
+  disableCloseAftertSelectQuickSearch: false,
+  disableQuickSearchCategoryPrecheck: false,
+  allowQuickPopupSameKeyClose: false,
+  disableDocumentCounts: false,
+  compactDocumentCount: false,
+  showDocumentID: false,
+  invertCategoryPosition: false,
+  hideWelcomeScreenSocials: false,
+  hideTooltipsStart: false,
+  hideTooltipsProject: false,
+  hideTreeOrderNumbers: false,
+  hideTreeExtraIcons: false,
+  hideTreeIconAddUnder: false,
+  hideTreeIconEdit: false,
+  hideTreeIconView: false,
+  limitEditorHeight: false,
+  preventPreviewsTree: true,
+  preventPreviewsTabs: true,
+  preventPreviewsPopups: false,
+  preventPreviewsDocuments: false,
+  userKeybindList: []
+})
 
-  /**
-   * Determines if any change has been done to the input entered by the user after it was lodead
-   */
-  tempHasChange = false
+/****************************************************************/
+// KEYBINDS MANAGEMENT
+/****************************************************************/
 
-  /**
-   * A list of all keybinds
-   */
-  keybindList: any[] = []
+const pagination = ref({
+  rowsPerPage: 0
+})
 
-  /**
-   * Determines if the keybinds popup has any error right now
-   */
-  keybindError = false
-
-  /**
-   * Current error message
-   */
-  keybindErrorMessage = ""
-
-  /**
-   * Temporary variable for holding on to currently active row data
-   */
-  currentRowData = {} as any
-
-  /**
-   * Resets the particular keybind
-   */
-  async resetKeybind () {
-    this.tempKeybindString = ""
-    this.tempKeybindData = null
-    this.keybindError = false
-
-    this.currentRowData.userKeybind = ""
-
-    const temp: any[] = extend(true, [], this.keybindList)
-
-    this.keybindList = []
-
-    await this.$nextTick()
-
-    this.keybindList = temp
+const keybindListCollums = [
+  {
+    name: "name",
+    required: true,
+    label: "Action",
+    align: "left",
+    field: (row: {name: string}) => row.name,
+    format: (val: string) => `${val}`,
+    sortable: true
+  },
+  {
+    name: "userKeybinds",
+    align: "left",
+    label: "User Keybinds",
+    field: "userKeybind"
+  },
+  {
+    name: "defaultKeybinds",
+    align: "left",
+    label: "Default keybinds",
+    field: "defaultKeybind"
   }
+]
 
-  /**
-   * Sets the particular keybind
-   */
-  async setKeybind () {
-    this.currentRowData.userKeybind = this.tempKeybindData
-    const temp: any[] = extend(true, [], this.keybindList)
+const filter = ref("")
+const tempKeybindString = ref("")
+const tempKeybindData = ref<any>(null)
+const tempHasChange = ref(false)
+const keybindList = ref<any[]>([])
+const keybindError = ref(false)
+const keybindErrorMessage = ref("")
+const currentRowData = ref<any>({})
 
-    this.keybindList = []
+async function resetKeybind () {
+  tempKeybindString.value = ""
+  tempKeybindData.value = null
+  keybindError.value = false
 
-    await this.$nextTick()
+  currentRowData.value.userKeybind = ""
 
-    this.keybindList = temp
-  }
+  const temp: any[] = extend(true, [], keybindList.value)
 
-  /**
-   * Process all needed actions after the keybind window popup closes
-   */
-  processKeybindSetting () {
-    window.removeEventListener("keydown", this.triggerKeyPush)
-  }
+  keybindList.value = []
 
-  /**
-   * Process all needed actions before the keybind window popup opens
-   */
-  prepareKeybindSetting (row: any) {
-    this.keybindError = false
-    this.tempHasChange = false
-    this.tempKeybindData = (row.userKeybind && row.userKeybind.which) ? this.tempKeybindData : null
-    this.tempKeybindString = (row.userKeybind && row.userKeybind.which) ? this.retrieveKeybindString(row.userKeybind) : ""
-    this.currentRowData = row
-    window.addEventListener("keydown", this.triggerKeyPush)
-  }
+  await nextTick()
 
-  /**
-   * Register keybind input for the keybind popup
-   */
-  triggerKeyPush (e:any) {
-    this.keybindError = false
+  keybindList.value = temp
+}
 
-    const ignoredKeys = [16, 17, 18, 27]
-    const allowedKeys = [186, 187, 188, 189, 190, 191, 192, 219, 220, 221, 222, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 37, 38, 39, 40, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90]
+async function setKeybind () {
+  currentRowData.value.userKeybind = tempKeybindData.value
+  const temp: any[] = extend(true, [], keybindList.value)
 
-    // Prevent all non-permitted key presses
-    if ((e?.altKey || e?.ctrlKey) && e?.keyCode && !ignoredKeys.includes(e.which)) {
-      if (allowedKeys.includes(e.which)) {
-        // Check for duplicates already existing in the list
-        const compareList = this.keybindList
-          .filter(e => e.id !== this.currentRowData.id)
-          .map(bind => {
-            const mappedKeybind = (bind.userKeybind && bind.userKeybind.which)
-              ? {
-                altKey: bind.userKeybind.altKey,
-                ctrlKey: bind.userKeybind.ctrlKey,
-                shiftKey: bind.userKeybind.shiftKey,
-                which: bind.userKeybind.which,
-                id: this.currentRowData.id
-              }
-              : {
-                altKey: bind.defaultKeybind.altKey,
-                ctrlKey: bind.defaultKeybind.ctrlKey,
-                shiftKey: bind.defaultKeybind.shiftKey,
-                which: bind.defaultKeybind.which,
-                id: this.currentRowData.id
-              }
+  keybindList.value = []
 
-            return mappedKeybind
-          })
+  await nextTick()
 
-        let duplicate = false
-        compareList.forEach(bind => {
-          if (
-            bind.altKey === e.altKey &&
-            bind.ctrlKey === e.ctrlKey &&
-            bind.shiftKey === e.shiftKey &&
-            bind.which === e.which
-          ) {
-            duplicate = true
-          }
+  keybindList.value = temp
+}
+
+function processKeybindSetting () {
+  window.removeEventListener("keydown", triggerKeyPush)
+}
+
+function prepareKeybindSetting (row: any) {
+  keybindError.value = false
+  tempHasChange.value = false
+  tempKeybindData.value = (row.userKeybind && row.userKeybind.which) ? tempKeybindData.value : null
+  tempKeybindString.value = (row.userKeybind && row.userKeybind.which) ? retrieveKeybindString(row.userKeybind) : ""
+  currentRowData.value = row
+  window.addEventListener("keydown", triggerKeyPush)
+}
+
+function triggerKeyPush (e: any) {
+  keybindError.value = false
+
+  const ignoredKeys = [16, 17, 18, 27]
+  const allowedKeys = [186, 187, 188, 189, 190, 191, 192, 219, 220, 221, 222, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 37, 38, 39, 40, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90]
+
+  if ((e?.altKey || e?.ctrlKey) && e?.keyCode && !ignoredKeys.includes(e.which)) {
+    if (allowedKeys.includes(e.which)) {
+      const compareList = keybindList.value
+        .filter(e => e.id !== currentRowData.value.id)
+        .map(bind => {
+          const mappedKeybind = (bind.userKeybind && bind.userKeybind.which)
+            ? {
+              altKey: bind.userKeybind.altKey,
+              ctrlKey: bind.userKeybind.ctrlKey,
+              shiftKey: bind.userKeybind.shiftKey,
+              which: bind.userKeybind.which,
+              id: currentRowData.value.id
+            }
+            : {
+              altKey: bind.defaultKeybind.altKey,
+              ctrlKey: bind.defaultKeybind.ctrlKey,
+              shiftKey: bind.defaultKeybind.shiftKey,
+              which: bind.defaultKeybind.which,
+              id: currentRowData.value.id
+            }
+
+          return mappedKeybind
         })
 
-        if (duplicate) {
-          this.keybindError = true
-          this.keybindErrorMessage = "This keybind is already present among the existing ones. Please chose a different one."
-          return
+      let duplicate = false
+      compareList.forEach(bind => {
+        if (
+          bind.altKey === e.altKey &&
+          bind.ctrlKey === e.ctrlKey &&
+          bind.shiftKey === e.shiftKey &&
+          bind.which === e.which
+        ) {
+          duplicate = true
         }
+      })
 
-        // Continue the script if no duplicates were found
-        this.tempHasChange = true
-        this.keybindError = false
-        const keybindString = this.retrieveKeybindString(e)
-        this.tempKeybindString = keybindString
-        this.tempKeybindData = {
-          altKey: e.altKey,
-          ctrlKey: e.ctrlKey,
-          shiftKey: e.shiftKey,
-          which: e.which,
-          id: this.currentRowData.id
-        }
+      if (duplicate) {
+        keybindError.value = true
+        keybindErrorMessage.value = "This keybind is already present among the existing ones. Please chose a different one."
+        return
       }
-      else {
-        this.keybindError = true
-        this.keybindErrorMessage = "Only alphanumerical keys, arrows keys and F keys are allowed for keybinds."
+
+      tempHasChange.value = true
+      keybindError.value = false
+      const keybindStringValue = retrieveKeybindString(e)
+      tempKeybindString.value = keybindStringValue
+      tempKeybindData.value = {
+        altKey: e.altKey,
+        ctrlKey: e.ctrlKey,
+        shiftKey: e.shiftKey,
+        which: e.which,
+        id: currentRowData.value.id
       }
     }
-    else if (!ignoredKeys.includes(e.keyCode)) {
-      this.keybindError = true
-      this.keybindErrorMessage = "Only combination containing ALT and/or CTRL allowed."
+    else {
+      keybindError.value = true
+      keybindErrorMessage.value = "Only alphanumerical keys, arrows keys and F keys are allowed for keybinds."
     }
   }
-
-  /**
-   * Map all existing keybinds to something useable for the table
-   */
-  mapKeybinds () {
-    this.keybindList = this.SGET_getCurrentKeyBindData.defaults.map((keybind, index) => {
-      return {
-        name: keybind.tooltip,
-        id: keybind.id,
-        editable: keybind.editable,
-        defaultKeybind: keybind,
-        userKeybind: (this.options.userKeybindList.find(userKb => userKb.id === keybind.id)) || ""
-      }
-    })
+  else if (!ignoredKeys.includes(e.keyCode)) {
+    keybindError.value = true
+    keybindErrorMessage.value = "Only combination containing ALT and/or CTRL allowed."
   }
+}
+
+function mapKeybinds () {
+  keybindList.value = keybindsStore.getCurrentKeyBindData.defaults.map((keybind) => {
+    return {
+      name: keybind.tooltip,
+      id: keybind.id,
+      editable: keybind.editable,
+      defaultKeybind: keybind,
+      userKeybind: (options.value.userKeybindList.find(userKb => userKb.id === keybind.id)) || ""
+    }
+  })
 }
 </script>
 

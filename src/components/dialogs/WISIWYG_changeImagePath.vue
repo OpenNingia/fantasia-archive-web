@@ -38,54 +38,56 @@
     </q-dialog>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch, Prop } from "vue-property-decorator"
+import { ref, watch, nextTick } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
 
-import DialogBase from "src/components/dialogs/_DialogBase"
+const props = defineProps<{
+  dialogTrigger?: string
+  currentImagePath?: string
+  currentImageTarget?: HTMLImageElement
+}>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit", "passing-image-path-change"])
 
-@Component({
-  components: { }
+const { dialogsStore } = useAppStores()
+
+const dialogModel = ref(false)
+const imagePath = ref("")
+const changeImagePathRef = ref<any>(null)
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    openDialog().catch(e => console.log(e))
+  }
 })
-export default class WISIWYG_changeImagePath extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  checkForOpenedProject (val: string|false) {
-    if (val) {
-      this.openDialog().catch(e => console.log(e))
-    }
+
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+/**
+ * Open the the dialog if project is present on the window
+ */
+async function openDialog () {
+  if (dialogsStore.getDialogsState) {
+    return
   }
+  dialogsStore.setDialogState(true)
+  dialogModel.value = true
 
-  @Prop() readonly currentImagePath!: string
+  await nextTick()
 
-  @Prop() readonly currentImageTarget!: HTMLImageElement
+  // @ts-ignore
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  changeImagePathRef.value?.focus()
+  imagePath.value = props.currentImagePath ?? ""
+}
 
-  imagePath = ""
-
-  /**
-   * Open the the dialog if project is present on the window
-   */
-  async openDialog () {
-    if (this.SGET_getDialogsState) {
-      return
-    }
-    this.SSET_setDialogState(true)
-    this.dialogModel = true
-
-    await this.$nextTick()
-
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    this.$refs.changeImagePathRef.focus()
-    this.imagePath = this.currentImagePath
-  }
-
-  passImagePath () {
-    this.$emit("passing-image-path-change", this.imagePath, this.currentImageTarget)
-    this.triggerDialogClose()
-  }
+function passImagePath () {
+  emit("passing-image-path-change", imagePath.value, props.currentImageTarget)
+  triggerDialogClose()
 }
 </script>
 

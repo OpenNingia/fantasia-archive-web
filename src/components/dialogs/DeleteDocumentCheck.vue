@@ -37,73 +37,71 @@
     </q-dialog>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch, Prop } from "vue-property-decorator"
-
-import DialogBase from "src/components/dialogs/_DialogBase"
+import { ref, watch } from "vue"
+import { useRoute } from "vue-router"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import { documentApi } from "src/services/api/documentApi"
 
-@Component({
-  components: { }
-})
-export default class DeleteDocumentCheckDialog extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val && (this.SGET_allOpenedDocuments.docs.length > 0 || (this.documentType.length > 0 && this.documentId.length > 0))) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
+const props = defineProps<{
+  dialogTrigger?: string
+  documentType?: string
+  documentId?: string
+}>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
-      const documentID = (this.documentId.length > 0) ? this.documentId : this.$route.params.id
-      this.currentDocument = this.SGET_document(documentID)
+const route = useRoute()
+const { dialogsStore, openedDocumentsStore, allDocumentsStore, projectStore } = useAppStores()
+const { retrieveFieldValue } = useDocumentHelpers()
+
+const dialogModel = ref(false)
+const currentDocument = ref(false as unknown as I_ShortenedDocument)
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+
+watch(() => props.dialogTrigger, (val) => {
+  const docType = props.documentType ?? ""
+  const docId = props.documentId ?? ""
+  if (val && (openedDocumentsStore.getAllDocuments.docs.length > 0 || (docType.length > 0 && docId.length > 0))) {
+    if (dialogsStore.getDialogsState) {
+      return
     }
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
+
+    const documentID = (docId.length > 0) ? docId : route.params.id as string
+    currentDocument.value = allDocumentsStore.getDocument(documentID)
   }
+})
 
-  /**
-   * OPTIONAL
-   * Type of the document to delete
-   */
-  @Prop({ default: "" }) readonly documentType!: ""
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
 
-  /**
-   * OPTIONAL
-   * ID of the document to delete
-   */
-  @Prop({ default: "" }) readonly documentId!: ""
+/**
+ * Delete the document
+ */
+async function deleteDocument () {
+  const docId = props.documentId ?? ""
+  const docType = props.documentType ?? ""
+  const documentID = (docId.length > 0) ? docId : route.params.id as string
+  const documentType = (docType.length > 0) ? docType : route.params.type as string
+  const projectId = projectStore.currentProjectId as string
 
-  /**
-   * Current document for deletion
-   */
-  currentDocument = false as unknown as I_ShortenedDocument
+  await documentApi.delete(projectId, documentType, documentID)
 
-  /**
-   * Delete the document
-   */
-  async deleteDocument () {
-    const documentID = (this.documentId.length > 0) ? this.documentId : this.$route.params.id
-    const documentType = (this.documentType.length > 0) ? this.documentType : this.$route.params.type
-    const projectId = this.SGET_currentProjectId as string
+  currentDocument.value = allDocumentsStore.getDocument(documentID)
+  const dataPass = { doc: currentDocument.value, treeAction: true }
 
-    await documentApi.delete(projectId, documentType, documentID)
+  dialogModel.value = false
+  dialogsStore.setDialogState(false)
 
-    this.currentDocument = this.SGET_document(documentID)
-    const dataPass = { doc: this.currentDocument, treeAction: true }
-
-    this.dialogModel = false
-    this.SSET_setDialogState(false)
-
-    // @ts-ignore
-    this.SSET_removeOpenedDocument(dataPass)
-    // @ts-ignore
-    this.SSET_removeDocument({ doc: this.currentDocument })
-  }
+  // @ts-ignore
+  openedDocumentsStore.removeDocument(dataPass)
+  // @ts-ignore
+  allDocumentsStore.removeDocument({ doc: currentDocument.value })
 }
 </script>
 

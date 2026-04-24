@@ -13,13 +13,10 @@
   </div>
 </template>
 
-<script lang="ts">
-import BaseClass from "src/BaseClass"
+<script setup lang="ts">
 import { tutorialImages } from "src/scripts/utilities/tutorialImages"
 
-export default class TutorialPage_projects extends BaseClass {
-  localImages = tutorialImages as unknown as any
-}
+const localImages = tutorialImages as unknown as any
 </script>
 
 <style  lang="scss">

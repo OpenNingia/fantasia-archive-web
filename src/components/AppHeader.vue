@@ -18,23 +18,11 @@
 
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component } from "vue-property-decorator"
-
-import BaseClass from "src/BaseClass"
 import topTabs from "src/components/appHeader/TopTabs.vue"
 import appControl from "src/components/appHeader/AppControl.vue"
 
-@Component({
-  components: {
-    topTabs: topTabs,
-    appControl: appControl
-  }
-})
-export default class AppHeader extends BaseClass {
-
-}
 </script>
 
 <style lang="scss" scoped>

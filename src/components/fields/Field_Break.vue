@@ -9,18 +9,39 @@
 
 </template>
 
-<script lang="ts">
-import { Component, Prop } from "vue-property-decorator"
+<script setup lang="ts">
+import { ref, computed, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import type { I_ExtraFields } from "src/interfaces/I_Blueprint"
 
-import FieldBase from "src/components/fields/_FieldBase"
+const props = defineProps<{
+  inputDataBluePrint: I_ExtraFields
+  editMode?: boolean
+  recursive?: boolean
+}>()
 
-@Component({
-  components: { }
-})
-export default class Field_Text extends FieldBase {
-  /**
-   * Prevent document preview in already existing previews
-   */
-  @Prop({ default: false }) readonly recursive!: true
-}
+const { optionsStore, projectStore } = useAppStores()
+
+const isDarkMode = ref(false)
+const disableDocumentToolTips = ref(false)
+const textShadow = ref(false)
+const hideDeadCrossThrough = ref(false)
+const hideAdvSearchCheatsheetButton = ref(false)
+const preventPreviewsDocuments = ref(false)
+const agressiveRelationshipFilter = ref(false)
+
+const inputIcon = computed(() => props.inputDataBluePrint?.icon)
+const toolTip = computed(() => props.inputDataBluePrint?.tooltip)
+const isMasterOnlyField = computed(() => props.inputDataBluePrint?.masterOnly === true)
+const canEditMasterOnlyField = computed(() => projectStore.currentUserRole === "master")
+
+watch(() => optionsStore.getOptions, (options) => {
+  isDarkMode.value = options.darkMode
+  disableDocumentToolTips.value = options.disableDocumentToolTips
+  textShadow.value = options.textShadow
+  hideDeadCrossThrough.value = options.hideDeadCrossThrough
+  hideAdvSearchCheatsheetButton.value = options.hideAdvSearchCheatsheetButton
+  preventPreviewsDocuments.value = options.preventPreviewsDocuments
+  agressiveRelationshipFilter.value = options.agressiveRelationshipFilter
+}, { immediate: true, deep: true })
 </script>

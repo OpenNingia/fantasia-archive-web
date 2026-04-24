@@ -40,77 +40,73 @@
     </q-dialog>
 </template>
 
-<script lang="ts">
-
-import { Component, Watch } from "vue-property-decorator"
-
-import DialogBase from "src/components/dialogs/_DialogBase"
+<script setup lang="ts">
+import { ref, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
 import { saveProject, mergeExistingProject } from "src/scripts/projectManagement/projectManagent"
-import { Loading, QSpinnerGears } from "quasar"
+import { Loading, QSpinnerGears, useQuasar } from "quasar"
+import { useRouter } from "vue-router"
 
-@Component({
-  components: { }
+const props = defineProps<{ dialogTrigger?: string }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
+
+const router = useRouter()
+const q = useQuasar()
+const { dialogsStore, projectStore } = useAppStores()
+
+const dialogModel = ref(false)
+const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTabs = { right: "0px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTutorialTabContent = { right: "-55px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    const projectName = projectStore.getProjectName
+
+    if (projectName.length > 0) {
+      openDialog()
+    }
+  }
 })
-export default class MergeProjectCheckDialog extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  checkForOpenedProject (val: string|false) {
-    if (val) {
-      const projectName = this.SGET_getProjectName
 
-      if (projectName.length > 0) {
-        this.openDialog()
-      }
-    }
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+function openDialog () {
+  if (dialogsStore.getDialogsState) {
+    return
+  }
+  dialogsStore.setDialogState(true)
+  dialogModel.value = true
+}
+
+function mergeProject () {
+  const setup = {
+    message: "<h4>Merging selected project...</h4>",
+    spinnerColor: "primary",
+    messageColor: "cultured",
+    spinnerSize: 120,
+    backgroundColor: "dark",
+    // @ts-ignore
+    spinner: QSpinnerGears
   }
 
-  /**
-   * Open the the dialog if project is present on the window
-   */
-  openDialog () {
-    if (this.SGET_getDialogsState) {
-      return
-    }
-    this.SSET_setDialogState(true)
-    this.dialogModel = true
-  }
+  projectStore.setProjecLoadingState(false)
+  mergeExistingProject(router, Loading, setup, q, {} as any)
+}
 
-  /**
-  * MErge a new project
-  */
-  mergeProject () {
-    const setup = {
-      message: "<h4>Merging selected project...</h4>",
-      spinnerColor: "primary",
-      messageColor: "cultured",
-      spinnerSize: 120,
-      backgroundColor: "dark",
-      // @ts-ignore
-      spinner: QSpinnerGears
-    }
-
-    this.SSET_setProjecLoadingState(false)
-    mergeExistingProject(this.$router, Loading, setup, this.$q, this)
+function commenceSave () {
+  const setup = {
+    message: "<h4>Saving current project...</h4>",
+    spinnerColor: "primary",
+    messageColor: "cultured",
+    spinnerSize: 120,
+    backgroundColor: "dark",
+    // @ts-ignore
+    spinner: QSpinnerGears
   }
-
-  /**
-   * Export the current project
-   */
-  commenceSave () {
-    const projectName = this.SGET_getProjectName
-    const setup = {
-      message: "<h4>Saving current project...</h4>",
-      spinnerColor: "primary",
-      messageColor: "cultured",
-      spinnerSize: 120,
-      backgroundColor: "dark",
-      // @ts-ignore
-      spinner: QSpinnerGears
-    }
-    saveProject(this.SGET_currentProjectId as string, Loading, setup, this.$q)
-  }
+  saveProject(projectStore.currentProjectId as string, Loading, setup, q)
 }
 </script>
 

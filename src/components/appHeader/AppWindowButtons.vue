@@ -49,85 +49,72 @@
 
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component } from "vue-property-decorator"
-import { remote } from "electron"
-
-import BaseClass from "src/BaseClass"
+import { ref, onMounted, onUnmounted } from "vue"
 import projectCloseCheckDialog from "src/components/dialogs/ProjectCloseCheck.vue"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 
-@Component({
-  components: { projectCloseCheckDialog }
-})
-export default class AppWindowButtons extends BaseClass {
-  /****************************************************************/
-  // Basic component functionality
-  /****************************************************************/
+const { generateUID } = useDocumentHelpers()
 
-  /**
-   * Determines if the window is maximed or not
-   */
-  isMaximized = false
+/****************************************************************/
+// Basic component functionality
+/****************************************************************/
 
-  /**
-   * Gets the currently used OS
-   */
-  osSystem = remote.process.platform
+/**
+ * Determines if the window is maximed or not
+ */
+const isMaximized = ref(false)
 
-  /**
-   * Currently opened window
-   */
-  currentWindow = remote.getCurrentWindow()
+/**
+ * Gets the currently used OS — not available in browser build
+ */
+const osSystem = ref("")
 
-  /**
-   * Checks if the window is currently maximized or not
-   */
-  checkIfMaximized () {
-    this.isMaximized = this.currentWindow.isMaximized()
-  }
-
-  /**
-   * Minimizes the current window
-   */
-  minimizeWindow () {
-    this.currentWindow.minimize()
-  }
-
-  /**
-   * Resizes the window to either smaller or maximized
-   */
-  resizeWindow () {
-    if (this.currentWindow.isMaximized()) {
-      this.currentWindow.unmaximize()
-    }
-    else {
-      this.currentWindow.maximize()
-    }
-  }
-
-  created () {
-    window.addEventListener("resize", this.checkIfMaximized)
-    this.checkIfMaximized()
-  }
-
-  destroyed () {
-    window.addEventListener("resize", this.checkIfMaximized)
-  }
-
-  /****************************************************************/
-  // Close project dialog
-  /****************************************************************/
-
-  projectCloseCheckDialogTrigger: string | false = false
-  projectCloseCheckDialogClose () {
-    this.projectCloseCheckDialogTrigger = false
-  }
-
-  projectCloseCheckDialogAssignUID () {
-    this.projectCloseCheckDialogTrigger = this.generateUID()
-  }
+/**
+ * Checks if the window is currently maximized or not
+ */
+function checkIfMaximized () {
+  // No-op in browser build (Electron remote not available)
 }
+
+/**
+ * Minimizes the current window
+ */
+function minimizeWindow () {
+  // No-op in browser build
+}
+
+/**
+ * Resizes the window to either smaller or maximized
+ */
+function resizeWindow () {
+  // No-op in browser build
+}
+
+onMounted(() => {
+  window.addEventListener("resize", checkIfMaximized)
+  checkIfMaximized()
+})
+
+onUnmounted(() => {
+  window.removeEventListener("resize", checkIfMaximized)
+})
+
+/****************************************************************/
+// Close project dialog
+/****************************************************************/
+
+const projectCloseCheckDialogTrigger = ref<string | false>(false)
+
+function projectCloseCheckDialogClose () {
+  projectCloseCheckDialogTrigger.value = false
+}
+
+function projectCloseCheckDialogAssignUID () {
+  projectCloseCheckDialogTrigger.value = generateUID()
+}
+
 </script>
 
 <style lang="scss" scoped>

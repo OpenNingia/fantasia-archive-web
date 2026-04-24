@@ -68,114 +68,101 @@
 
 </template>
 
-<script lang="ts">
-import { Component, Emit, Prop, Watch } from "vue-property-decorator"
+<script setup lang="ts">
+import { ref, computed, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import type { I_ExtraFields } from "src/interfaces/I_Blueprint"
 
 import { retrieveAllDocumentTemplatesFromDB } from "src/scripts/projectManagement/documentTemplates"
-
-import FieldBase from "src/components/fields/_FieldBase"
 import { extend } from "quasar"
 import type { I_DocumentTemplate } from "src/interfaces/I_DocumentTemplate"
 
-@Component({
-  components: { }
-})
-export default class Field_SingleSelect extends FieldBase {
-  /****************************************************************/
-  // BASIC FIELD DATA
-  /****************************************************************/
+const props = defineProps<{
+  inputDataBluePrint: I_ExtraFields
+  editMode?: boolean
+  inputDataValue?: string
+}>()
 
-  /**
-   * Already existing value in the input field (IF one is there right now)
-   */
-  @Prop({ default: "" }) readonly inputDataValue!: ""
+const emit = defineEmits(["signalInput"])
 
-  /****************************************************************/
-  // INPUT HANDLING
-  /****************************************************************/
+const { optionsStore, projectStore } = useAppStores()
 
-  /**
-   * Watch changes to the prefilled data already existing in the field and update local input accordingly
-   */
-  @Watch("inputDataValue", { deep: true, immediate: true })
-  reactToInputChanges () {
-    // @ts-ignore
-    this.localInput = (this.inputDataValue) ? this.inputDataValue : null
+const isDarkMode = ref(false)
+const disableDocumentToolTips = ref(false)
+const textShadow = ref(false)
+const hideDeadCrossThrough = ref(false)
+const hideAdvSearchCheatsheetButton = ref(false)
+const preventPreviewsDocuments = ref(false)
+const agressiveRelationshipFilter = ref(false)
 
-    this.assignLocalInputData()
+const inputIcon = computed(() => props.inputDataBluePrint?.icon)
+const toolTip = computed(() => props.inputDataBluePrint?.tooltip)
+const isMasterOnlyField = computed(() => props.inputDataBluePrint?.masterOnly === true)
+const canEditMasterOnlyField = computed(() => projectStore.currentUserRole === "master")
+
+watch(() => optionsStore.getOptions, (options) => {
+  isDarkMode.value = options.darkMode
+  disableDocumentToolTips.value = options.disableDocumentToolTips
+  textShadow.value = options.textShadow
+  hideDeadCrossThrough.value = options.hideDeadCrossThrough
+  hideAdvSearchCheatsheetButton.value = options.hideAdvSearchCheatsheetButton
+  preventPreviewsDocuments.value = options.preventPreviewsDocuments
+  agressiveRelationshipFilter.value = options.agressiveRelationshipFilter
+}, { immediate: true, deep: true })
+
+// Input handling
+const localInput = ref(null as unknown as string)
+const documentTemplateList = ref<I_DocumentTemplate[]>([])
+const selectedTemplate = ref(null as unknown as I_DocumentTemplate)
+const extraInput = ref<I_DocumentTemplate[]>([])
+
+watch(() => props.inputDataValue, () => {
+  // @ts-ignore
+  localInput.value = (props.inputDataValue) ? props.inputDataValue : null
+  assignLocalInputData()
+}, { deep: true, immediate: true })
+
+watch(() => props.inputDataBluePrint, async () => {
+  await loadDocumentTemplates()
+  if (documentTemplateList.value) {
+    extraInput.value = extend(true, [], documentTemplateList.value)
   }
+  assignLocalInputData()
+}, { deep: true, immediate: true })
 
-  /**
-   * Model for the local input
-   */
-  localInput = null as unknown as string
+async function loadDocumentTemplates () {
+  documentTemplateList.value = await retrieveAllDocumentTemplatesFromDB()
+}
 
-  /**
-   * Local list of all predefined document templates
-   */
-  documentTemplateList: I_DocumentTemplate[] = []
-
-  selectedTemplate = null as unknown as I_DocumentTemplate
-
-  /**
-   * List of extra input values
-   */
-  extraInput: I_DocumentTemplate[] = []
-
-  /**
-   * Load data into the extra input
-   */
-  @Watch("inputDataBluePrint", { deep: true, immediate: true })
-  async populateExtraInput () {
-    await this.loadDocumentTemplates()
-    if (this.documentTemplateList) {
-      this.extraInput = extend(true, [], this.documentTemplateList)
-    }
-    this.assignLocalInputData()
-  }
-
-  async loadDocumentTemplates () {
-    this.documentTemplateList = await retrieveAllDocumentTemplatesFromDB()
-  }
-
-  assignLocalInputData () {
-    if (this.documentTemplateList.length > 0 && this.localInput) {
-      const newAssign = this.documentTemplateList.find(e => e.id === this.localInput)
-
-      if (newAssign) {
-        this.selectedTemplate = newAssign
-      }
+function assignLocalInputData () {
+  if (documentTemplateList.value.length > 0 && localInput.value) {
+    const newAssign = documentTemplateList.value.find(e => e.id === localInput.value)
+    if (newAssign) {
+      selectedTemplate.value = newAssign
     }
   }
+}
 
-  /**
-   * Filter the input list
-   */
-  filterFn (val: string, update: (fn: any) => void) {
-    if (val === "") {
-      update(() => {
-        if (this.documentTemplateList) {
-          this.extraInput = this.documentTemplateList
-        }
-      })
-      return
-    }
-
+function filterFn (val: string, update: (fn: any) => void) {
+  if (val === "") {
     update(() => {
-      if (this.inputDataBluePrint?.predefinedSelectValues) {
-        const needle = val.toLowerCase()
-        this.extraInput = this.documentTemplateList.filter(v => v.name.toLowerCase().indexOf(needle) > -1)
+      if (documentTemplateList.value) {
+        extraInput.value = documentTemplateList.value
       }
     })
+    return
   }
 
-  /**
-   * Signals the input change to the document body parent component
-   */
-  @Emit()
-  signalInput () {
-    return (this.selectedTemplate) ? this.selectedTemplate.id : null
-  }
+  update(() => {
+    if (props.inputDataBluePrint?.predefinedSelectValues) {
+      const needle = val.toLowerCase()
+      extraInput.value = documentTemplateList.value.filter(v => v.name.toLowerCase().indexOf(needle) > -1)
+    }
+  })
+}
+
+function signalInput () {
+  emit("signalInput", (selectedTemplate.value) ? selectedTemplate.value.id : null)
 }
 </script>
 

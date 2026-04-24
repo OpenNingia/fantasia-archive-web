@@ -79,90 +79,85 @@
     </q-dialog>
 </template>
 
-<script lang="ts">
-
-import { extend, Loading, QSpinnerGears } from "quasar"
-
-import { Component, Watch } from "vue-property-decorator"
-
-import DialogBase from "src/components/dialogs/_DialogBase"
+<script setup lang="ts">
+import { ref, computed, watch } from "vue"
+import { extend, Loading, QSpinnerGears, useQuasar } from "quasar"
+import { useAppStores } from "src/composables/useAppStores"
 import { changeCurrentProjectSettings, saveProject } from "src/scripts/projectManagement/projectManagent"
 
-@Component({
-  components: { }
+const props = defineProps<{ dialogTrigger?: string }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
+
+const q = useQuasar()
+const { dialogsStore, projectStore, optionsStore } = useAppStores()
+
+const dialogModel = ref(false)
+const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTabs = { right: "0px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTutorialTabContent = { right: "-55px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    openDialog()
+  }
 })
-export default class RepairProjectDialog extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  checkForOpenedProject (val: string|false) {
-    if (val) {
-      this.openDialog()
-    }
+
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+function openDialog () {
+  if (dialogsStore.getDialogsState) {
+    return
   }
+  repairOngoing.value = false
+  repairFinished.value = false
+  dialogsStore.setDialogState(true)
+  dialogModel.value = true
+}
 
-  /**
-   * Open the the dialog if project is present on the window
-   */
-  openDialog () {
-    if (this.SGET_getDialogsState) {
-      return
-    }
-    this.repairOngoing = false
-    this.repairFinished = false
-    this.SSET_setDialogState(true)
-    this.dialogModel = true
-  }
+const processedBlueprints = ref(0)
+const blueprintCount = ref(0)
+const processedDocument = ref(0)
+const documentCount = ref(0)
+const currectDocumentType = ref("")
 
-  processedBlueprints = 0
-  blueprintCount = 0
-  processedDocument = 0
-  documentCount = 0
-  currectDocumentType = ""
+const progressCounter = computed(() => {
+  return (processedDocument.value / documentCount.value)
+})
 
-  get progressCounter () {
-    return (this.processedDocument / this.documentCount)
-  }
+const repairFinished = ref(false)
+const repairOngoing = ref(false)
 
-  repairFinished = false
-  repairOngoing = false
+async function repairProject () {
+  // Legacy PouchDB repair is not applicable in the web version —
+  // all documents are stored in PostgreSQL with the correct format server-side.
+  // Mark the project as already at web version so this dialog stops appearing.
+  const optionsSnapShot = extend(true, {}, optionsStore.getOptions)
+  // @ts-ignore
+  optionsSnapShot.pre017check = false
+  void optionsStore.setOptions(optionsSnapShot)
 
-  async repairProject () {
-    // Legacy PouchDB repair is not applicable in the web version —
-    // all documents are stored in PostgreSQL with the correct format server-side.
-    // Mark the project as already at web version so this dialog stops appearing.
-    const optionsSnapShot = extend(true, {}, this.SGET_options)
+  await changeCurrentProjectSettings({ createdOnVersion: "web" }, {} as any)
+
+  repairFinished.value = true
+}
+
+function reloadFA () {
+  window.location.reload()
+}
+
+function commenceSave () {
+  const setup = {
+    message: "<h4>Saving current project...</h4>",
+    spinnerColor: "primary",
+    messageColor: "cultured",
+    spinnerSize: 120,
+    backgroundColor: "dark",
     // @ts-ignore
-    optionsSnapShot.pre017check = false
-    // @ts-ignore
-    this.SSET_options(optionsSnapShot)
-
-    await changeCurrentProjectSettings({ createdOnVersion: "web" }, this)
-
-    this.repairFinished = true
+    spinner: QSpinnerGears
   }
-
-  reloadFA () {
-    window.location.reload()
-  }
-
-  /**
-   * Save the current project
-   */
-  commenceSave () {
-    const projectName = this.SGET_getProjectName
-    const setup = {
-      message: "<h4>Saving current project...</h4>",
-      spinnerColor: "primary",
-      messageColor: "cultured",
-      spinnerSize: 120,
-      backgroundColor: "dark",
-      // @ts-ignore
-      spinner: QSpinnerGears
-    }
-    saveProject(this.SGET_currentProjectId as string, Loading, setup, this.$q)
-  }
+  saveProject(projectStore.currentProjectId as string, Loading, setup, q)
 }
 </script>
 

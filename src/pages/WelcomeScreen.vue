@@ -128,106 +128,106 @@
   </q-page>
 </template>
 
-<script lang="ts">
-import { Component, Watch } from "vue-property-decorator"
-import BaseClass from "src/BaseClass"
+<script setup lang="ts">
+import { ref, watch, onMounted } from "vue"
+import { useRouter } from "vue-router"
 import { projectApi, type ProjectSummary } from "src/services/api/projectApi"
+import { useAppStores } from "src/composables/useAppStores"
 
-@Component
-export default class WelcomeScreen extends BaseClass {
-  isDarkMode = false
+const router = useRouter()
+const { optionsStore, projectStore } = useAppStores()
 
-  @Watch("SGET_options", { immediate: true, deep: true })
-  onSettingsChange () {
-    this.isDarkMode = this.SGET_options.darkMode
-  }
+const isDarkMode = ref(false)
 
-  projects: ProjectSummary[] = []
-  loading = false
-  selectedProjectId: string | null = null
+watch(() => optionsStore.getOptions, () => {
+  isDarkMode.value = optionsStore.getOptions.darkMode
+}, { immediate: true, deep: true })
 
-  newProjectDialog = false
-  newProjectName = ""
-  creating = false
+const projects = ref<ProjectSummary[]>([])
+const loading = ref(false)
+const selectedProjectId = ref<string | null>(null)
 
-  deleteDialog = false
-  projectToDelete: ProjectSummary | null = null
-  deleting = false
+const newProjectDialog = ref(false)
+const newProjectName = ref("")
+const creating = ref(false)
 
-  async created () {
-    await this.loadProjects()
-  }
+const deleteDialog = ref(false)
+const projectToDelete = ref<ProjectSummary | null>(null)
+const deleting = ref(false)
 
-  async loadProjects () {
-    this.loading = true
-    try {
-      this.projects = await projectApi.list()
-      const saved = this.SGET_currentProjectId
-      if (saved && this.projects.some(p => p.id === saved)) {
-        this.selectedProjectId = saved
-      }
-    } catch (e) {
-      console.error("Failed to load projects", e)
-    } finally {
-      this.loading = false
+async function loadProjects () {
+  loading.value = true
+  try {
+    projects.value = await projectApi.list()
+    const saved = projectStore.currentProjectId
+    if (saved && projects.value.some(p => p.id === saved)) {
+      selectedProjectId.value = saved
     }
+  } catch (e) {
+    console.error("Failed to load projects", e)
+  } finally {
+    loading.value = false
   }
+}
 
-  selectProject (project: ProjectSummary) {
-    this.selectedProjectId = project.id
+onMounted(async () => {
+  await loadProjects()
+})
+
+function selectProject (project: ProjectSummary) {
+  selectedProjectId.value = project.id
+}
+
+function openSelectedProject () {
+  const project = projects.value.find(p => p.id === selectedProjectId.value)
+  if (!project) return
+  projectStore.setCurrentProjectId(project.id)
+  projectStore.setCurrentUserRole(project.role)
+  router.push("/project")
+}
+
+function openNewProjectDialog () {
+  newProjectName.value = ""
+  newProjectDialog.value = true
+}
+
+async function createProject () {
+  const name = newProjectName.value.trim()
+  if (!name) return
+  creating.value = true
+  try {
+    const project = await projectApi.create(name)
+    projects.value.push(project)
+    selectedProjectId.value = project.id
+    newProjectDialog.value = false
+  } catch (e) {
+    console.error("Failed to create project", e)
+  } finally {
+    creating.value = false
   }
+}
 
-  openSelectedProject () {
-    const project = this.projects.find(p => p.id === this.selectedProjectId)
-    if (!project) return
-    this.SSET_currentProjectId(project.id)
-    this.SSET_currentUserRole(project.role)
-    this.$router.push("/project")
-  }
+function confirmDelete (project: ProjectSummary) {
+  projectToDelete.value = project
+  deleteDialog.value = true
+}
 
-  openNewProjectDialog () {
-    this.newProjectName = ""
-    this.newProjectDialog = true
-  }
-
-  async createProject () {
-    const name = this.newProjectName.trim()
-    if (!name) return
-    this.creating = true
-    try {
-      const project = await projectApi.create(name)
-      this.projects.push(project)
-      this.selectedProjectId = project.id
-      this.newProjectDialog = false
-    } catch (e) {
-      console.error("Failed to create project", e)
-    } finally {
-      this.creating = false
+async function deleteProject () {
+  if (!projectToDelete.value) return
+  deleting.value = true
+  try {
+    await projectApi.delete(projectToDelete.value.id)
+    projects.value = projects.value.filter(p => p.id !== projectToDelete.value!.id)
+    if (selectedProjectId.value === projectToDelete.value.id) {
+      selectedProjectId.value = null
+      projectStore.setCurrentProjectId(null)
     }
-  }
-
-  confirmDelete (project: ProjectSummary) {
-    this.projectToDelete = project
-    this.deleteDialog = true
-  }
-
-  async deleteProject () {
-    if (!this.projectToDelete) return
-    this.deleting = true
-    try {
-      await projectApi.delete(this.projectToDelete.id)
-      this.projects = this.projects.filter(p => p.id !== this.projectToDelete!.id)
-      if (this.selectedProjectId === this.projectToDelete.id) {
-        this.selectedProjectId = null
-        this.SSET_currentProjectId(null)
-      }
-      this.deleteDialog = false
-      this.projectToDelete = null
-    } catch (e) {
-      console.error("Failed to delete project", e)
-    } finally {
-      this.deleting = false
-    }
+    deleteDialog.value = false
+    projectToDelete.value = null
+  } catch (e) {
+    console.error("Failed to delete project", e)
+  } finally {
+    deleting.value = false
   }
 }
 </script>

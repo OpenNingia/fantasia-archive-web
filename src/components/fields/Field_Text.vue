@@ -33,7 +33,7 @@
       :filled="isDarkMode"
       dense
       autogrow
-      :ref="`textField${this.inputDataBluePrint.id}`"
+      :ref="`textField${inputDataBluePrint.id}`"
      >
         <template v-slot:append v-if="isNew && !changedInput && localInput.length > 0">
           <q-icon name="close" @click="deletePlaceholder()" class="cursor-pointer" />
@@ -48,102 +48,90 @@
 
 </template>
 
-<script lang="ts">
-import { Component, Emit, Prop, Watch } from "vue-property-decorator"
+<script setup lang="ts">
+import { ref, computed, watch, nextTick } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import type { I_ExtraFields } from "src/interfaces/I_Blueprint"
 
-import FieldBase from "src/components/fields/_FieldBase"
+const props = defineProps<{
+  inputDataBluePrint: I_ExtraFields
+  editMode?: boolean
+  inputDataValue?: string
+  isNew?: boolean
+}>()
 
-@Component({
-  components: { }
-})
-export default class Field_Text extends FieldBase {
-  /****************************************************************/
-  // BASIC FIELD DATA
-  /****************************************************************/
+const emit = defineEmits(["signalInput"])
 
-  /**
-   * Already existing value in the input field (IF one is there right now)
-   */
-  @Prop({ default: "" }) readonly inputDataValue!: string
+const { optionsStore, projectStore } = useAppStores()
 
-  /**
-   * Determines if the parent document is new or not
-   */
-  @Prop() readonly isNew!: boolean
+const isDarkMode = ref(false)
+const disableDocumentToolTips = ref(false)
+const textShadow = ref(false)
+const hideDeadCrossThrough = ref(false)
+const hideAdvSearchCheatsheetButton = ref(false)
+const preventPreviewsDocuments = ref(false)
+const agressiveRelationshipFilter = ref(false)
 
-  /****************************************************************/
-  // INPUT HANDLING
-  /****************************************************************/
+const inputIcon = computed(() => props.inputDataBluePrint?.icon)
+const toolTip = computed(() => props.inputDataBluePrint?.tooltip)
+const isMasterOnlyField = computed(() => props.inputDataBluePrint?.masterOnly === true)
+const canEditMasterOnlyField = computed(() => projectStore.currentUserRole === "master")
 
-  /**
-   * Watch changes to the prefilled data already existing in the field and update local input accordingly
-   */
-  @Watch("inputDataValue", { deep: true, immediate: true })
-  reactToInputChanges () {
-    this.localInput = this.inputDataValue
+watch(() => optionsStore.getOptions, (options) => {
+  isDarkMode.value = options.darkMode
+  disableDocumentToolTips.value = options.disableDocumentToolTips
+  textShadow.value = options.textShadow
+  hideDeadCrossThrough.value = options.hideDeadCrossThrough
+  hideAdvSearchCheatsheetButton.value = options.hideAdvSearchCheatsheetButton
+  preventPreviewsDocuments.value = options.preventPreviewsDocuments
+  agressiveRelationshipFilter.value = options.agressiveRelationshipFilter
+}, { immediate: true, deep: true })
+
+// Input handling
+const localInput = ref("")
+const changedInput = ref(false)
+const textFieldRef = ref<any>(null)
+
+watch(() => props.inputDataValue, () => {
+  localInput.value = props.inputDataValue ?? ""
+}, { deep: true, immediate: true })
+
+watch(() => props.editMode, () => {
+  if (props.inputDataBluePrint?.id === "name" && props.editMode === true) {
+    nextTick(() => {
+      /*eslint-disable */
+      // @ts-ignore
+      textFieldRef.value?.focus()
+
+      if (props.isNew && !changedInput.value && localInput.value.length > 0) {
+        // @ts-ignore
+        textFieldRef.value?.select()
+      }
+      /* eslint-enable */
+    })
   }
+}, { immediate: true })
 
-  /**
-   * Determines if the input has any changes on it or not
-   */
-  changedInput = false
+function deletePlaceholder () {
+  localInput.value = ""
+  processInput()
+}
 
-  /**
-   * Model for the local input
-   */
-  localInput = ""
+let pullTimer = null as any
 
-  /**
-   * Deletes the placeholder value in the input field
-   */
-  deletePlaceholder () {
-    this.localInput = ""
-    this.processInput()
-  }
+function processInput () {
+  clearTimeout(pullTimer)
+  pullTimer = setTimeout(() => {
+    signalInput()
+  }, 500)
+}
 
-  /**
-   * Observe change on the edit mode and in case this field is "name", auto-select it as first field
-   */
-  @Watch("editMode", { immediate: true })
-  checkForNameFields () {
-    if (this.inputDataBluePrint?.id === "name" && this.editMode === true) {
-      this.$nextTick(function () {
-        /*eslint-disable */
-        // @ts-ignore 
-        this.$refs[`textField${this.inputDataBluePrint.id}`].focus()
-
-        if(this.isNew && !this.changedInput && this.localInput.length > 0){
-          // @ts-ignore 
-          this.$refs[`textField${this.inputDataBluePrint.id}`].select()
-        }
-    /* eslint-enable */
-      })
-    }
-  }
-
-  /**
-   * Debounce timer to prevent buggy input sync
-   */
-  pullTimer = null as any
-
-  processInput () {
-    clearTimeout(this.pullTimer)
-    this.pullTimer = setTimeout(() => {
-      this.signalInput()
-    }, 500)
-  }
-
-  /**
-   * Signals the input change to the document body parent component
-   */
-  @Emit()
-  signalInput () {
-    this.changedInput = true
-    return this.localInput.trim()
-  }
+function signalInput () {
+  changedInput.value = true
+  emit("signalInput", localInput.value.trim())
 }
 </script>
-<style lang='scss'>
+<style lang="scss">
 .fieldText_list {
   .q-item {
     padding-right: 10px;

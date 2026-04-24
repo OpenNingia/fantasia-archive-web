@@ -86,251 +86,249 @@
   </q-layout>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch } from "vue-property-decorator"
-import BaseClass from "src/BaseClass"
-
+import { ref, computed, watch, onMounted, nextTick } from "vue"
 import objectTree from "src/components/ObjectTree.vue"
 import appHeader from "src/components/AppHeader.vue"
 import documentControl from "src/components/DocumentControl.vue"
 import { engageBlueprints } from "src/scripts/databaseManager/blueprintManager"
 import repairProjectDialog from "src/components/dialogs/RepairProject.vue"
 
-import { extend } from "quasar"
+import { extend, useQuasar } from "quasar"
 import type { OptionsStateInteface } from "src/store/module-options/state"
 import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import { documentApi } from "src/services/api/documentApi"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 
-@Component({
-  components: {
-    objectTree,
-    appHeader,
-    documentControl,
-    repairProjectDialog
-  }
-})
-export default class DocumentLayout extends BaseClass {
-  /****************************************************************/
-  // PROJECT SETTINGS FIRST LOAD
-  /****************************************************************/
+const q = useQuasar()
+const {
+  blueprintsStore,
+  openedDocumentsStore,
+  allDocumentsStore,
+  optionsStore,
+  floatingWindowsStore,
+  projectStore
+} = useAppStores()
+const { mapShortDocument, checkForLegacyDocuments, generateUID } = useDocumentHelpers()
 
-  /**
-   * Load all blueprints and documents from the API on first render.
-   */
-  async created () {
-    if (this.SGET_allDocumentsFirstRunState) {
-      await this.processBluePrints()
-      await this.loadAllProjectDocuments()
-    }
+/****************************************************************/
+// PROJECT SETTINGS FIRST LOAD
+/****************************************************************/
 
-    await this.$nextTick()
-    this.SSET_setProjecLoadingState(true)
-  }
-
-  async processBluePrints (): Promise<void> {
-    const projectId = this.SGET_currentProjectId as string
-    const allObjectBlueprints = (await engageBlueprints(projectId))
-      .sort((a: I_Blueprint, b: I_Blueprint) => {
-        if (a.order > b.order) return -1
-        if (a.order < b.order) return 1
-        return 0
-      })
-
-    this.SSET_allBlueprints(allObjectBlueprints)
-  }
-
-  async loadAllProjectDocuments () {
-    const projectId = this.SGET_currentProjectId as string
-
-    for (const blueprint of this.SGET_allBlueprints) {
-      const docs = await documentApi.listByType(projectId, blueprint._id)
-
-      const formattedDocuments: I_ShortenedDocument[] = docs.map(d =>
-        this.mapShortDocument(
-          {
-            _id: d.id,
-            id: d.id,
-            icon: blueprint.icon,
-            url: `/project/display-content/${d.type}/${d.id}`,
-            type: d.type,
-            extraFields: d.extraFields
-          } as unknown as I_ShortenedDocument,
-          docs as any
-        )
-      ).sort((a, b) => a.label.localeCompare(b.label))
-
-      this.SSET_mapNewDocumentType({ id: blueprint._id, docs: formattedDocuments })
-    }
-
-    this.SSET_allDocumentsMarkAsNonFirstRun()
-  }
-
-  /****************************************************************/
-  // BASIC COMPONENT DATA
-  /****************************************************************/
-
-  /**
-   * Model for the left drawer of the app containing the hierarchical tree
-   */
-  leftDrawerOpen = true
-
-  /**
-   * Width of the splitted model
-   */
-  splitterModel = 375
-
-  pre017check = false
-
-  /**
-   * Special class for the splitter
-   */
-  get splitterClass () {
-    return !this.leftDrawerOpen ? "splitt" : ""
-  }
-
-  /**
-   * Special padding reset for the main page
-   */
-  get compPadding () {
-    return this.leftDrawerOpen ? { paddingLeft: "0px" } : ""
-  }
-
-  /****************************************************************/
-  // LOCAL SETTINGS
-  /****************************************************************/
-
-  /**
-   * React to changes on the options store
-   */
-  @Watch("SGET_options", { immediate: true, deep: true })
-  onSettingsChange () {
-    const options = this.SGET_options
-    this.hideHierarchyTree = options.hideHierarchyTree
-
-    this.legacyFieldsCheck018 = options.legacyFieldsCheck018
-
-    // @ts-ignore
-    this.pre017check = options.pre017check
-
-    this.resizeTreeWrapper()
-  }
-
-  legacyFieldsCheck018: boolean|undefined = true
-
-  get limiterWidth () {
-    return (!this.hideHierarchyTree && this.SGET_getDocumentPreviewVisible === "") ? 374 : 0
-  }
-
-  hideHierarchyTree = false
-
-  @Watch("limiterWidth")
-  resizeTreeWrapper () {
-    if (this.SGET_getDocumentPreviewVisible !== "") {
-      this.splitterModel = 600
-    }
-    else if (this.hideHierarchyTree) {
-      this.splitterModel = 0
-    }
-    else if (this.SGET_options.treeWidth && !this.hideHierarchyTree) {
-      this.splitterModel = this.SGET_options.treeWidth
-    }
-  }
-
-  @Watch("SGET_getDocumentPreviewVisible")
-  reactToPreviewVisibilityChange () {
-    this.resizeTreeWrapper()
-  }
-
-  /****************************************************************/
-  // OPTTION UPDATER
-  /****************************************************************/
-
-  /**
-   * Debounce timer to prevent infinite dragging
-   */
-  pullTimer = null as any
-
-  /**
-   * Snapshop of the current settings in the store for further modification
-   */
-  optionsSnapShot = {} as OptionsStateInteface
-
-  openLegacyDocuments () {
-    const legacyDocs = this.checkForLegacyDocuments()
-    legacyDocs.forEach(doc => {
-      const dataPass = {
-        doc: doc,
-        treeAction: false
-      }
-
-      // @ts-ignore
-      this.SSET_addOpenedDocument(dataPass)
+/**
+ * Load all blueprints and documents from the API on first render.
+ */
+async function processBluePrints (): Promise<void> {
+  const projectId = projectStore.currentProjectId as string
+  const allObjectBlueprints = (await engageBlueprints(projectId))
+    .sort((a: I_Blueprint, b: I_Blueprint) => {
+      if (a.order > b.order) return -1
+      if (a.order < b.order) return 1
+      return 0
     })
 
-    if (legacyDocs.length > 0) {
-      this.$q.notify({
-        group: false,
-        type: "warning",
-        timeout: 0,
-        html: true,
-        actions: [{ icon: "mdi-close", color: "black" }],
-        message: `
-        ${legacyDocs.length} documents with legacy field values found and opened in your to tabs.
-        <br>
-        Please go through they one by one and remap the legacy fields manually to ensure proper functioning of FA.
-        <br>
-        After the remapping is done, rerun the tool to re-check.
-        `
-      })
+  blueprintsStore.setAllBlueprints(allObjectBlueprints)
+}
+
+async function loadAllProjectDocuments () {
+  const projectId = projectStore.currentProjectId as string
+
+  for (const blueprint of blueprintsStore.getAllBlueprints) {
+    const docs = await documentApi.listByType(projectId, blueprint._id)
+
+    const formattedDocuments: I_ShortenedDocument[] = docs.map(d =>
+      mapShortDocument(
+        {
+          _id: d.id,
+          id: d.id,
+          icon: blueprint.icon,
+          url: `/project/display-content/${d.type}/${d.id}`,
+          type: d.type,
+          extraFields: d.extraFields
+        } as unknown as I_ShortenedDocument,
+        docs as any
+      )
+    ).sort((a, b) => a.label.localeCompare(b.label))
+
+    allDocumentsStore.mapNewDocumentType({ id: blueprint._id, docs: formattedDocuments })
+  }
+
+  allDocumentsStore.markAsNonFirstRun()
+}
+
+onMounted(async () => {
+  if (allDocumentsStore.getFirstRunState) {
+    await processBluePrints()
+    await loadAllProjectDocuments()
+  }
+
+  await nextTick()
+  projectStore.setProjecLoadingState(true)
+})
+
+/****************************************************************/
+// BASIC COMPONENT DATA
+/****************************************************************/
+
+/**
+ * Model for the left drawer of the app containing the hierarchical tree
+ */
+const leftDrawerOpen = ref(true)
+
+/**
+ * Width of the splitted model
+ */
+const splitterModel = ref(375)
+
+const pre017check = ref(false)
+
+/**
+ * Special class for the splitter
+ */
+const splitterClass = computed(() => !leftDrawerOpen.value ? "splitt" : "")
+
+/**
+ * Special padding reset for the main page
+ */
+const compPadding = computed(() => leftDrawerOpen.value ? { paddingLeft: "0px" } : "")
+
+/****************************************************************/
+// LOCAL SETTINGS
+/****************************************************************/
+
+const legacyFieldsCheck018 = ref<boolean | undefined>(true)
+const hideHierarchyTree = ref(false)
+
+const limiterWidth = computed(() =>
+  (!hideHierarchyTree.value && floatingWindowsStore.getDocumentPreviewVisible === "") ? 374 : 0
+)
+
+function resizeTreeWrapper () {
+  if (floatingWindowsStore.getDocumentPreviewVisible !== "") {
+    splitterModel.value = 600
+  }
+  else if (hideHierarchyTree.value) {
+    splitterModel.value = 0
+  }
+  else if (optionsStore.getOptions.treeWidth && !hideHierarchyTree.value) {
+    splitterModel.value = optionsStore.getOptions.treeWidth
+  }
+}
+
+/**
+ * React to changes on the options store
+ */
+watch(() => optionsStore.getOptions, () => {
+  const options = optionsStore.getOptions
+  hideHierarchyTree.value = options.hideHierarchyTree
+
+  legacyFieldsCheck018.value = options.legacyFieldsCheck018
+
+  // @ts-ignore
+  pre017check.value = options.pre017check
+
+  resizeTreeWrapper()
+}, { immediate: true, deep: true })
+
+watch(limiterWidth, () => {
+  resizeTreeWrapper()
+})
+
+watch(() => floatingWindowsStore.getDocumentPreviewVisible, () => {
+  resizeTreeWrapper()
+})
+
+/****************************************************************/
+// OPTTION UPDATER
+/****************************************************************/
+
+/**
+ * Debounce timer to prevent infinite dragging
+ */
+let pullTimer = null as any
+
+/**
+ * Snapshot of the current settings in the store for further modification
+ */
+let optionsSnapShot = {} as OptionsStateInteface
+
+function openLegacyDocuments () {
+  const legacyDocs = checkForLegacyDocuments()
+  legacyDocs.forEach(doc => {
+    const dataPass = {
+      doc: doc,
+      treeAction: false
     }
 
-    if (legacyDocs.length === 0) {
-      const optionsSnapShot = extend(true, {}, this.SGET_options)
-      // @ts-ignore
-      optionsSnapShot.legacyFieldsCheck018 = false
-      // @ts-ignore
-      this.SSET_options(optionsSnapShot)
+    // @ts-ignore
+    openedDocumentsStore.addDocument(dataPass)
+  })
 
-      this.$q.notify({
-        group: false,
-        type: "positive",
-        timeout: 3000,
-        message: "No legacy fields with active values found!"
-      })
-    }
+  if (legacyDocs.length > 0) {
+    q.notify({
+      group: false,
+      type: "warning",
+      timeout: 0,
+      html: true,
+      actions: [{ icon: "mdi-close", color: "black" }],
+      message: `
+      ${legacyDocs.length} documents with legacy field values found and opened in your to tabs.
+      <br>
+      Please go through they one by one and remap the legacy fields manually to ensure proper functioning of FA.
+      <br>
+      After the remapping is done, rerun the tool to re-check.
+      `
+    })
   }
 
-  /**
-   * React to dragging of the splitter
-   */
-  onChange (value: number) {
-    this.leftDrawerOpen = value > 0
+  if (legacyDocs.length === 0) {
+    const snap = extend(true, {}, optionsStore.getOptions)
+    // @ts-ignore
+    snap.legacyFieldsCheck018 = false
+    // @ts-ignore
+    optionsStore.setOptions(snap)
 
-    this.optionsSnapShot = extend(true, {}, this.SGET_options)
-
-    this.optionsSnapShot.treeWidth = this.splitterModel
-
-    clearTimeout(this.pullTimer)
-
-    this.pullTimer = setTimeout(() => {
-      this.SSET_options(this.optionsSnapShot)
-    }, 500)
+    q.notify({
+      group: false,
+      type: "positive",
+      timeout: 3000,
+      message: "No legacy fields with active values found!"
+    })
   }
+}
 
-  /****************************************************************/
-  // Repair project dialog
-  /****************************************************************/
+/**
+ * React to dragging of the splitter
+ */
+function onChange (value: number) {
+  leftDrawerOpen.value = value > 0
 
-  repairProjectDialogTrigger: string | false = false
-  repairProjectDialogClose () {
-    this.repairProjectDialogTrigger = false
-  }
+  optionsSnapShot = extend(true, {}, optionsStore.getOptions)
 
-  repairProjectAssignUID () {
-    this.repairProjectDialogTrigger = this.generateUID()
-  }
+  optionsSnapShot.treeWidth = splitterModel.value
+
+  clearTimeout(pullTimer)
+
+  pullTimer = setTimeout(() => {
+    optionsStore.setOptions(optionsSnapShot)
+  }, 500)
+}
+
+/****************************************************************/
+// Repair project dialog
+/****************************************************************/
+
+const repairProjectDialogTrigger = ref<string | false>(false)
+
+function repairProjectDialogClose () {
+  repairProjectDialogTrigger.value = false
+}
+
+function repairProjectAssignUID () {
+  repairProjectDialogTrigger.value = generateUID()
 }
 
 </script>

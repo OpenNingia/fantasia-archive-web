@@ -40,35 +40,35 @@
 
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch } from "vue-property-decorator"
+import { ref, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
 import { tipsTricks } from "src/scripts/utilities/tipsTricks"
 
-import DialogBase from "src/components/dialogs/_DialogBase"
-@Component({
-  components: { }
-})
-export default class ChangeLog extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
-    }
-  }
+const props = defineProps<{ dialogTrigger?: string }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
-  /**
-   * An array of string with the trivia
-   */
-  tipsTricks = tipsTricks
-}
+const { dialogsStore } = useAppStores()
+
+const dialogModel = ref(false)
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    if (dialogsStore.getDialogsState) {
+      return
+    }
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
+  }
+})
+
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
 </script>
 
 <style lang="scss">

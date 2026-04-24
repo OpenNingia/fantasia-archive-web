@@ -81,43 +81,43 @@
 
 </template>
 
-<script lang="ts">
-
-import { Component, Watch } from "vue-property-decorator"
-
-import DialogBase from "src/components/dialogs/_DialogBase"
-
+<script setup lang="ts">
+import { ref, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
 import Tutorials_1_projects from "src/documents/tutorials/1-projects.vue"
 
-@Component({
-  components: {
-    tutorials_1_projects: Tutorials_1_projects
+const tutorials_1_projects = Tutorials_1_projects
+
+const props = defineProps<{ dialogTrigger?: string }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
+
+const { dialogsStore } = useAppStores()
+
+const dialogModel = ref(false)
+const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTabs = { right: "0px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTutorialTabContent = { right: "-55px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    openDialog(val)
   }
 })
-export default class ProgramTutorials extends DialogBase {
-  /****************************************************************/
-  // DIALOG CONTROL
-  /****************************************************************/
 
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+const activeTab = ref("projects")
+
+function openDialog (val: string | false) {
+  if (val) {
+    if (dialogsStore.getDialogsState) {
+      return
     }
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
   }
-
-  /**
-   * Currently active tab model of the options\
-   * "uiSettings" by default
-   */
-  activeTab = "projects"
 }
 </script>
 

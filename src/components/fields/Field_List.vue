@@ -397,285 +397,242 @@
 
 </template>
 
-<script lang="ts">
-import { Component, Emit, Prop, Watch } from "vue-property-decorator"
-
-import FieldBase from "src/components/fields/_FieldBase"
+<script setup lang="ts">
+import { ref, computed, watch, nextTick } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import type { I_ExtraFields } from "src/interfaces/I_Blueprint"
 import { extend } from "quasar"
 
-@Component({
-  components: { }
+const props = defineProps<{
+  inputDataBluePrint: I_ExtraFields
+  editMode?: boolean
+  inputDataValue?: {
+    value: string
+    affix?: string
+  }[]
+}>()
+
+const emit = defineEmits(["signalInput"])
+
+const { optionsStore, projectStore } = useAppStores()
+
+const isDarkMode = ref(false)
+const disableDocumentToolTips = ref(false)
+const textShadow = ref(false)
+const hideDeadCrossThrough = ref(false)
+const hideAdvSearchCheatsheetButton = ref(false)
+const preventPreviewsDocuments = ref(false)
+const agressiveRelationshipFilter = ref(false)
+
+const inputIcon = computed(() => props.inputDataBluePrint?.icon)
+const toolTip = computed(() => props.inputDataBluePrint?.tooltip)
+const isMasterOnlyField = computed(() => props.inputDataBluePrint?.masterOnly === true)
+const canEditMasterOnlyField = computed(() => projectStore.currentUserRole === "master")
+
+watch(() => optionsStore.getOptions, (options) => {
+  isDarkMode.value = options.darkMode
+  disableDocumentToolTips.value = options.disableDocumentToolTips
+  textShadow.value = options.textShadow
+  hideDeadCrossThrough.value = options.hideDeadCrossThrough
+  hideAdvSearchCheatsheetButton.value = options.hideAdvSearchCheatsheetButton
+  preventPreviewsDocuments.value = options.preventPreviewsDocuments
+  agressiveRelationshipFilter.value = options.agressiveRelationshipFilter
+}, { immediate: true, deep: true })
+
+// Input handling
+const localInput = ref([] as {
+  value: string
+  affix?: string
+  type?: "input" | "title"
+}[])
+
+watch(() => props.inputDataValue, () => {
+  localInput.value = (props.inputDataValue) ? props.inputDataValue : []
+}, { deep: true, immediate: true })
+
+const hasExtraInput = computed(() => {
+  // @ts-ignore
+  localExtraInput.value = props.inputDataBluePrint?.predefinedListExtras?.extraSelectValueList
+  filteredLocalExtraInput.value = extend(true, [], localExtraInput.value)
+  return props.inputDataBluePrint?.predefinedListExtras?.extraSelectValueList
 })
-export default class Field_List extends FieldBase {
-  /****************************************************************/
-  // BASIC FIELD DATA
-  /****************************************************************/
 
-  /**
-   * Already existing value in the input field (IF one is there right now)
-   */
-  @Prop({
-    default: () => {
-      return []
-    }
-  }) readonly inputDataValue!: {
-    value: string
-    affix?: string
-  }[]
+const isReversed = computed(() => {
+  // @ts-ignore
+  return (props.inputDataBluePrint?.predefinedListExtras?.reverse)
+})
 
-  /****************************************************************/
-  // INPUT HANDLING
-  /****************************************************************/
+function mapFieldValue (input: {value: string}, index: number, positition: 1|2) {
+  let returnString = ""
 
-  /**
-   * Watch changes to the prefilled data already existing in the field and update local input accordingly
-   */
-  @Watch("inputDataValue", { deep: true, immediate: true })
-  reactToInputChanges () {
-    this.localInput = (this.inputDataValue) ? this.inputDataValue : []
-  }
-
-  /**
-   * Model for the local input
-   */
-  localInput = [] as {
-    value: string
-    affix?: string
-    type?: "input" | "title"
-  }[]
-
-  /**
-   * Determine if the input has any extra values attached to it or not
-   */
-  get hasExtraInput () {
-    // @ts-ignore
-    this.localExtraInput = this.inputDataBluePrint?.predefinedListExtras?.extraSelectValueList
-    this.filteredLocalExtraInput = extend(true, [], this.localExtraInput)
-
-    return this.inputDataBluePrint?.predefinedListExtras?.extraSelectValueList
-  }
-
-  /**
-   * Determine if the input is reversed
-   */
-  get isReversed () {
-    // @ts-ignore
-    return (this.inputDataBluePrint?.predefinedListExtras?.reverse)
-  }
-
-  mapFieldValue (input: {value: string}, index: number, positition: 1|2) {
-    let returnString = ""
-
-    // If reversed
-    if (this.isReversed) {
-      if (positition === 1) {
-        returnString += this.localInput[index].affix
-        if (input.value) {
-          returnString += ":"
-        }
-      }
-
-      // If having second input
-      if (input.value && positition === 2) {
-        returnString += `${input.value}`
+  if (isReversed.value) {
+    if (positition === 1) {
+      returnString += localInput.value[index].affix
+      if (input.value) {
+        returnString += ":"
       }
     }
-    // If non-reverse
-    else {
-      if (positition === 1) {
-        returnString += input.value
-      }
-
-      // If having second input
-      if (this.localInput[index] && positition === 2) {
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        returnString += `(${this.localInput[index].affix})`
-      }
+    if (input.value && positition === 2) {
+      returnString += `${input.value}`
     }
-
-    return returnString
+  }
+  else {
+    if (positition === 1) {
+      returnString += input.value
+    }
+    if (localInput.value[index] && positition === 2) {
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      returnString += `(${localInput.value[index].affix})`
+    }
   }
 
-  /**
-   * List of extra input values
-   */
-  localExtraInput:string[] | {
-    title: string,
-    values: string[]
-  } [] = []
+  return returnString
+}
 
-  /**
-   * List of extra input values - filtered
-   */
-  filteredLocalExtraInput:string[] | {
-    title: string,
-    values: string[]
-  } [] = []
+const localExtraInput = ref<string[] | { title: string, values: string[] }[]>([])
+const filteredLocalExtraInput = ref<string[] | { title: string, values: string[] }[]>([])
 
-  /**
-   * Label for the extra input
-   * EG: "Level" or "Skill tier"
-   */
-  get inputAffix () {
-    return (this.inputDataBluePrint?.predefinedListExtras?.affix) || ""
-  }
+const inputAffix = computed(() => {
+  return (props.inputDataBluePrint?.predefinedListExtras?.affix) || ""
+})
 
-  filterFn (val:string, update: (e: () => void) => void) {
-    if (val === "") {
-      update(() => {
-        const localListCopy: [] = extend(true, [], this.localExtraInput)
-        this.filteredLocalExtraInput = localListCopy
-      })
-      return
-    }
-
+function filterFn (val: string, update: (e: () => void) => void) {
+  if (val === "") {
     update(() => {
-      const needle = val.toLowerCase()
+      const localListCopy: [] = extend(true, [], localExtraInput.value)
+      filteredLocalExtraInput.value = localListCopy
+    })
+    return
+  }
 
-      const returnList: string[] | {
-        title: string,
-        values: string[]
-      } [] = []
+  update(() => {
+    const needle = val.toLowerCase()
 
-      const localListCopy: [] = extend(true, [], this.localExtraInput)
+    const returnList: string[] | {
+      title: string,
+      values: string[]
+    }[] = []
 
-      localListCopy.forEach((value:string | {
-        title: string,
-        values: string[]
-      }) => {
-        // For strings
-        if (typeof value === "string" && value.toLowerCase().includes(needle)) {
+    const localListCopy: [] = extend(true, [], localExtraInput.value)
+
+    localListCopy.forEach((value: string | {
+      title: string,
+      values: string[]
+    }) => {
+      if (typeof value === "string" && value.toLowerCase().includes(needle)) {
+        // @ts-ignore
+        returnList.push(value)
+      }
+
+      if (typeof value !== "string") {
+        if (value.title.toLowerCase().includes(needle)) {
           // @ts-ignore
           returnList.push(value)
         }
-
-        // For lists
-        if (typeof value !== "string") {
-          // If title matches
-          if (value.title.toLowerCase().includes(needle)) {
+        else {
+          const localFilteredSubvalues = value.values.filter(subValue => {
+            return subValue.toLowerCase().includes(needle)
+          })
+          if (localFilteredSubvalues.length > 0) {
+            value.values = localFilteredSubvalues
             // @ts-ignore
             returnList.push(value)
           }
-          // Try matching child values
-          else {
-            const localFilteredSubvalues = value.values.filter(subValue => {
-              return subValue.toLowerCase().includes(needle)
-            })
-            if (localFilteredSubvalues.length > 0) {
-              value.values = localFilteredSubvalues
-              // @ts-ignore
-              returnList.push(value)
-            }
-          }
         }
-      })
-
-      this.filteredLocalExtraInput = returnList
-    })
-  }
-
-  /**
-   * Remove an existing row from the input list
-   */
-  removeFromList (index: number) {
-    this.localInput.splice(index, 1)
-    this.processInput()
-  }
-
-  /**
-   * Adds new row to the input list
-   */
-  async addNewInput (affixValue = "", type: "input"|"title" = "input") {
-    if (type === "input") {
-      this.localInput.push({
-        value: "",
-        affix: affixValue,
-        type: type
-      })
-    }
-    else if (type === "title") {
-      this.localInput.push({
-        value: affixValue,
-        affix: "",
-        type: type
-      })
-    }
-
-    const targetRefStringNamer = (!this.isReversed || type === "title")
-      ? `.listField_input${this.localInput.length - 1}_${this.inputDataBluePrint.id}`
-      : `.listField_prefix${this.localInput.length - 1}_${this.inputDataBluePrint.id}`
-
-    await this.$nextTick()
-
-    const newInput = document.querySelector(targetRefStringNamer) as HTMLInputElement
-
-    if (newInput) {
-      newInput.focus()
-    }
-
-    this.processInput()
-  }
-
-  moveItem (index: number, direction: "up" | "down") {
-    const to = (direction === "up") ? index - 1 : index + 1
-    const from = index
-
-    this.localInput.splice(to, 0, this.localInput.splice(from, 1)[0])
-
-    this.processInput()
-  }
-
-  /**
-   * Debounce timer to prevent buggy input sync
-   */
-  pullTimer = null as any
-
-  processInput () {
-    clearTimeout(this.pullTimer)
-    this.pullTimer = setTimeout(() => {
-      this.signalInput()
-    }, 500)
-  }
-
-  /**
-   * Signals the input change to the document body parent component
-   */
-  @Emit()
-  signalInput () {
-    const dataCopy: {
-      value: string
-      affix?: string
-    }[] = extend(true, [], this.localInput)
-
-    // Fix hanging whitespaces in inputs
-    const returnValue = dataCopy.map(e => {
-      e.value = e.value.trim()
-      if (e.affix) {
-        e.affix = e.affix.trim()
       }
-      return e
     })
 
-    return returnValue
+    filteredLocalExtraInput.value = returnList
+  })
+}
+
+function removeFromList (index: number) {
+  localInput.value.splice(index, 1)
+  processInput()
+}
+
+async function addNewInput (affixValue = "", type: "input"|"title" = "input") {
+  if (type === "input") {
+    localInput.value.push({
+      value: "",
+      affix: affixValue,
+      type: type
+    })
+  }
+  else if (type === "title") {
+    localInput.value.push({
+      value: affixValue,
+      affix: "",
+      type: type
+    })
   }
 
-  async assignOptionGroupValues (categoryTitle: string, callerIndex: number) {
-    const targetCategory:{
-      title: string,
-      values: string[]
-    } = this.localExtraInput
-      // @ts-ignore
-      .find((e: {title: string}) => e.title === categoryTitle)
+  const targetRefStringNamer = (!isReversed.value || type === "title")
+    ? `.listField_input${localInput.value.length - 1}_${props.inputDataBluePrint.id}`
+    : `.listField_prefix${localInput.value.length - 1}_${props.inputDataBluePrint.id}`
 
-    await this.addNewInput(targetCategory.title, "title")
+  await nextTick()
 
-    for (const value of targetCategory.values) {
-      await this.addNewInput(value)
+  const newInput = document.querySelector(targetRefStringNamer) as HTMLInputElement
+
+  if (newInput) {
+    newInput.focus()
+  }
+
+  processInput()
+}
+
+function moveItem (index: number, direction: "up" | "down") {
+  const to = (direction === "up") ? index - 1 : index + 1
+  const from = index
+
+  localInput.value.splice(to, 0, localInput.value.splice(from, 1)[0])
+
+  processInput()
+}
+
+let pullTimer = null as any
+
+function processInput () {
+  clearTimeout(pullTimer)
+  pullTimer = setTimeout(() => {
+    signalInput()
+  }, 500)
+}
+
+function signalInput () {
+  const dataCopy: {
+    value: string
+    affix?: string
+  }[] = extend(true, [], localInput.value)
+
+  const returnValue = dataCopy.map(e => {
+    e.value = e.value.trim()
+    if (e.affix) {
+      e.affix = e.affix.trim()
     }
+    return e
+  })
 
-    if (this.localInput[callerIndex].value === "" && this.localInput[callerIndex].affix === "") {
-      this.removeFromList(callerIndex)
-    }
+  emit("signalInput", returnValue)
+}
+
+async function assignOptionGroupValues (categoryTitle: string, callerIndex: number) {
+  const targetCategory: {
+    title: string,
+    values: string[]
+  } = localExtraInput.value
+    // @ts-ignore
+    .find((e: {title: string}) => e.title === categoryTitle)
+
+  await addNewInput(targetCategory.title, "title")
+
+  for (const value of targetCategory.values) {
+    await addNewInput(value)
+  }
+
+  if (localInput.value[callerIndex].value === "" && localInput.value[callerIndex].affix === "") {
+    removeFromList(callerIndex)
   }
 }
 </script>

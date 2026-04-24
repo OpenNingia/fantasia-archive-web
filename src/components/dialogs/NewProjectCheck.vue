@@ -59,135 +59,141 @@
     </q-dialog>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch } from "vue-property-decorator"
+import { ref, computed, watch, nextTick } from "vue"
+import { useRouter } from "vue-router"
+import { useQuasar, Loading, QSpinnerGears, extend } from "quasar"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+import { saveProject, createNewProject as createNewProjectAction } from "src/scripts/projectManagement/projectManagent"
 
-import DialogBase from "src/components/dialogs/_DialogBase"
-import { saveProject, createNewProject } from "src/scripts/projectManagement/projectManagent"
+const props = defineProps<{ dialogTrigger?: string }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
-import { Loading, QSpinnerGears, extend } from "quasar"
+const router = useRouter()
+const q = useQuasar()
+const { dialogsStore, optionsStore, projectStore } = useAppStores()
+const { sleep } = useDocumentHelpers()
 
-@Component({
-  components: { }
-})
-export default class NewProjectCheck extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  async openDialog (val: string|false) {
-    if (val) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
-      this.newProjectName = ""
-      this.oldProjectName = this.SGET_getProjectName
+const dialogModel = ref(false)
+const newProjectInput = ref<any>(null)
 
-      await this.sleep(300)
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
 
-      /*eslint-disable */
-      // @ts-ignore
-      this.$refs.newProjectInput.focus()
-      /* eslint-enable */
+watch(() => props.dialogTrigger, async (val) => {
+  if (val) {
+    if (dialogsStore.getDialogsState) {
+      return
     }
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
+    newProjectName.value = ""
+    oldProjectName.value = projectStore.getProjectName
+
+    await sleep(300)
+
+    /*eslint-disable */
+    // @ts-ignore
+    newProjectInput.value?.focus()
+    /* eslint-enable */
+  }
+})
+
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+/**
+ * Determines if any project currently exists or not
+ */
+const oldProjectName = ref("")
+
+/**
+ * Model for the new project name
+ */
+const newProjectName = ref("")
+
+const reservedCharacterList = [
+  "/",
+  ">",
+  "<",
+  "|",
+  ":",
+  "&",
+  "\\",
+  "-",
+  "[",
+  "]",
+  "{",
+  "}",
+  "*",
+  "?",
+  "'",
+  "\"",
+  "#",
+  "%",
+  "$",
+  "!",
+  "@"
+]
+
+const isInvalid = computed(() => {
+  let isValid = true
+  if (newProjectName.value.length === 0) {
+    isValid = false
   }
 
-  /**
-   * Determines if any project currently exists or not
-   */
-  oldProjectName = ""
-
-  /**
-   * Model for the new project name
-   */
-  newProjectName = ""
-
-  reservedCharacterList = [
-    "/",
-    ">",
-    "<",
-    "|",
-    ":",
-    "&",
-    "\\",
-    "-",
-    "[",
-    "]",
-    "{",
-    "}",
-    "*",
-    "?",
-    "'",
-    "\"",
-    "#",
-    "%",
-    "$",
-    "!",
-    "@"
-  ]
-
-  get isInvalid () {
-    let isValid = true
-    if (this.newProjectName.length === 0) {
+  reservedCharacterList.forEach(char => {
+    if (newProjectName.value.includes(char)) {
       isValid = false
     }
+  })
 
-    this.reservedCharacterList.forEach(char => {
-      if (this.newProjectName.includes(char)) {
-        isValid = false
-      }
-    })
+  return !isValid
+})
 
-    return !isValid
-  }
+/**
+ * Create new project
+ */
+function createNewProject () {
+  if (isInvalid.value) return
 
-  /**
-   * Create new project
-   */
-  createNewProject () {
-    if (this.isInvalid) return
-
-    Loading.show({
-      message: "<h4>Setting up a new project...</h4>",
-      spinnerColor: "primary",
-      messageColor: "cultured",
-      spinnerSize: 120,
-      backgroundColor: "dark",
-      // @ts-ignore
-      spinner: QSpinnerGears
-    })
-
-    const optionsSnapShot = extend(true, {}, this.SGET_options)
+  Loading.show({
+    message: "<h4>Setting up a new project...</h4>",
+    spinnerColor: "primary",
+    messageColor: "cultured",
+    spinnerSize: 120,
+    backgroundColor: "dark",
     // @ts-ignore
-    optionsSnapShot.legacyFieldsCheck018 = false
+    spinner: QSpinnerGears
+  })
+
+  const optionsSnapShot = extend(true, {}, optionsStore.getOptions)
+  // @ts-ignore
+  optionsSnapShot.legacyFieldsCheck018 = false
+  // @ts-ignore
+  void optionsStore.setOptions(optionsSnapShot)
+
+  projectStore.setProjectName(newProjectName.value)
+  projectStore.setProjecLoadingState(false)
+
+  createNewProjectAction(newProjectName.value, router, q, null).catch(e => console.log(e))
+}
+
+/**
+ * Export current project
+ */
+function commenceSave () {
+  const setup = {
+    message: "<h4>Saving current project...</h4>",
+    spinnerColor: "primary",
+    messageColor: "cultured",
+    spinnerSize: 120,
+    backgroundColor: "dark",
     // @ts-ignore
-    this.SSET_options(optionsSnapShot)
-
-    this.SSET_setProjectName(this.newProjectName)
-    this.SSET_setProjecLoadingState(false)
-
-    createNewProject(this.newProjectName, this.$router, this.$q, this).catch(e => console.log(e))
+    spinner: QSpinnerGears
   }
-
-  /**
-   * Export current project
-   */
-  commenceSave () {
-    const projectName = this.SGET_getProjectName
-    const setup = {
-      message: "<h4>Saving current project...</h4>",
-      spinnerColor: "primary",
-      messageColor: "cultured",
-      spinnerSize: 120,
-      backgroundColor: "dark",
-      // @ts-ignore
-      spinner: QSpinnerGears
-    }
-    saveProject(this.SGET_currentProjectId as string, Loading, setup, this.$q)
-  }
+  saveProject(projectStore.currentProjectId as string, Loading, setup, q)
 }
 </script>
 

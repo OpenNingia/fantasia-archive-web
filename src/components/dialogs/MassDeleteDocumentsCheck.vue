@@ -43,7 +43,7 @@
             @filter="filterExistingSelect"
           >
             <template v-slot:append v-if="!hideAdvSearchCheatsheetButton">
-              <q-btn round dense flat icon="mdi-help-rhombus" @click.stop.prevent="SSET_setAdvSearchWindowVisible"
+              <q-btn round dense flat icon="mdi-help-rhombus" @click.stop.prevent="floatingWindowsStore.setAdvSearchWindowVisible"
               >
                 <q-tooltip :delay="500">
                   Open search cheatsheet
@@ -169,228 +169,219 @@
 
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch, Prop } from "vue-property-decorator"
-import DialogBase from "src/components/dialogs/_DialogBase"
-import { uid, extend } from "quasar"
+import { ref, computed, watch, nextTick } from "vue"
+import { useQuasar, uid, extend } from "quasar"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 import documentPreview from "src/components/DocumentPreview.vue"
 import { documentApi } from "src/services/api/documentApi"
-
 import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 import { advancedDocumentFilter } from "src/scripts/utilities/advancedDocumentFilter"
 
-import RobotoRegular from "src/assets/fonts/Roboto-Regular.ttf"
-import RobotoBold from "src/assets/fonts/Roboto-Bold.ttf"
-import ArialFallback from "src/assets/fonts/ArialUnicodeMS.ttf"
+const props = defineProps<{
+  dialogTrigger?: string
+  prepickedIds?: string[]
+}>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
-@Component({
-  components: {
-    documentPreview
+const q = useQuasar()
+const { dialogsStore, openedDocumentsStore, allDocumentsStore, blueprintsStore, optionsStore, floatingWindowsStore, projectStore } = useAppStores()
+const { retrieveIconColor, stripTags } = useDocumentHelpers()
+
+const dialogModel = ref(false)
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    if (dialogsStore.getDialogsState) {
+      return
+    }
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
+
+    resetLocalData()
+    reloadOptions()
+    populateDeleteObjectDialog()
+
+    const prepickedIds = props.prepickedIds ?? []
+    if (prepickedIds.length > 0) {
+      // @ts-ignore
+      deleteDocumentsModel.value = allDocumentsStore.getAllDocuments.docs.filter(doc => {
+        return prepickedIds.includes(doc._id)
+      })
+    }
   }
 })
 
-export default class DeleteProject extends DialogBase {
-  RobotoRegular = RobotoRegular
-  RobotoBold = RobotoBold
-  ArialFallback = ArialFallback
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
 
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
+const ref_deleteDocument = ref<any>(null)
 
-      this.resetLocalData()
-      this.reloadOptions()
-      this.populateDeleteObjectDialog()
+function setDocumentPreviewClose () {
+  documentPreviewClose.value = uid()
+}
 
-      if (this.prepickedIds.length > 0) {
-        // @ts-ignore
-        this.deleteDocumentsModel = this.SGET_allDocuments.docs.filter(doc => {
-          return this.prepickedIds.includes(doc._id)
-        })
-      }
-    }
-  }
+/**
+ * Reloads local options
+ */
+function reloadOptions () {
+  textShadow.value = optionsStore.getOptions.textShadow
+  hideDeadCrossThrough.value = optionsStore.getOptions.hideDeadCrossThrough
+  hideAdvSearchCheatsheetButton.value = optionsStore.getOptions.hideAdvSearchCheatsheetButton
+}
 
-  resetLocalData () {
-    this.deleteDocumentsModel = []
-  }
+/**
+ * Hides the advanced search cheatsheet help button in relationship type fields.
+ */
+const hideAdvSearchCheatsheetButton = ref(false)
 
-  @Prop(({
-    default () {
-      return []
-    }
-  })) readonly prepickedIds!: string[]
+/**
+ * Determines if the "dead" document type should have a cross-text decoration or not
+ */
+const hideDeadCrossThrough = ref(false)
 
-  setDocumentPreviewClose () {
-    this.documentPreviewClose = uid()
-  }
+/**
+ * Determines if text shadow will be shows for accesiblity reasons or not
+ */
+const textShadow = ref(false)
 
-  /**
-   * Reloads local options
-   */
-  reloadOptions () {
-    this.textShadow = this.SGET_options.textShadow
-    this.hideDeadCrossThrough = this.SGET_options.hideDeadCrossThrough
-    this.hideAdvSearchCheatsheetButton = this.SGET_options.hideAdvSearchCheatsheetButton
-  }
+const documentPreviewClose = ref("")
 
-  /**
-   * Hides the advanced search cheatsheet help button in relationship type fields.
-   */
-  hideAdvSearchCheatsheetButton = false
+/**
+ * Currently being opened document
+ */
+const deleteDocumentsModel = ref<I_ShortenedDocument[]>([])
 
-  /**
-   * Determines if the "dead" document type should have a cross-text decoration or not
-   */
-  hideDeadCrossThrough = false
+/**
+ * Pre-filtered list based on the category inclussion or exlcussion
+ */
+const existingObjectsFullList = ref<I_ShortenedDocument[]>([])
 
-  /**
-   * Determines if text shadow will be shows for accesiblity reasons or not
-   */
-  textShadow = false
+/**
+ * All currently loaded blueprints
+ */
+const allDocumentBluePrints = ref<I_Blueprint[]>([])
 
-  documentPreviewClose = ""
+/**
+ * Filtered list of items
+ */
+const filteredExistingInput = ref<I_ShortenedDocument[]>([])
 
-  /**
-   * Currently being opened document
-   */
-  deleteDocumentsModel = [] as I_ShortenedDocument[]
+/**
+ * Local list copy for filtering in order to not mess up the original list
+ */
+const listCopy = ref<I_ShortenedDocument[]>([])
 
-  /**
-   * Pre-filtered list based on the category inclussion or exlcussion
-   */
-  existingObjectsFullList = [] as I_ShortenedDocument[]
+function resetLocalData () {
+  deleteDocumentsModel.value = []
+}
 
-  /**
-   * All currently loaded blueprints
-   */
-  allDocumentBluePrints = [] as I_Blueprint[]
+/**
+ * Refocuses the first value in the select upon filtering for intuitive keyboard control
+ */
+async function refocusSelect () {
+  await nextTick()
+  /*eslint-disable */
+  // @ts-ignore
+  ref_deleteDocument.value?.setOptionIndex(-1)
+  // @ts-ignore
+  ref_deleteDocument.value?.moveOptionSelection(1, true)
+  /* eslint-enable */
+}
 
-  /**
-   * Filtered list of items
-   */
-  filteredExistingInput = null as unknown as I_ShortenedDocument[]
-
-  /**
-   * Local list copty for filtering in order to not mess up the original list
-   */
-  listCopy: I_ShortenedDocument[] = []
-
-  /**
-   * Refocuses the first value in the selct upon filtering for intuitive keyboard control
-   */
-  async refocusSelect () {
-    await this.$nextTick()
-    /*eslint-disable */
-    // @ts-ignore 
-    this.$refs.ref_deleteDocument.setOptionIndex(-1)
-    // @ts-ignore 
-    this.$refs.ref_deleteDocument.moveOptionSelection(1, true) 
-    /* eslint-enable */
-  }
-
-  /**
-   * Filter the pre-filtered list
-   */
-  filterExistingSelect (val: string, update: (e: () => void) => void) {
-    if (val === "") {
-      update(() => {
-        this.filteredExistingInput = this.existingObjectsFullList.filter((obj) => !obj.isMinor)
-        if (this.$refs.ref_existingDocument && this.filteredExistingInput.length > 0) {
-          this.refocusSelect().catch(e => console.log(e))
-        }
-      })
-      return
-    }
-
+/**
+ * Filter the pre-filtered list
+ */
+function filterExistingSelect (val: string, update: (e: () => void) => void) {
+  if (val === "") {
     update(() => {
-      const needle = val.toLowerCase()
-      this.listCopy = extend(true, [], this.existingObjectsFullList)
-      this.filteredExistingInput = advancedDocumentFilter(needle, this.listCopy, this.allDocumentBluePrints, this.existingObjectsFullList)
-
-      if (this.$refs.ref_existingDocument && this.filteredExistingInput.length > 0) {
-        this.refocusSelect().catch(e => console.log(e))
+      filteredExistingInput.value = existingObjectsFullList.value.filter((obj) => !obj.isMinor)
+      if (filteredExistingInput.value.length > 0) {
+        refocusSelect().catch(e => console.log(e))
       }
     })
+    return
   }
 
-  /**
-   * Set up up all data in to the dialog on popup load
-   */
-  populateDeleteObjectDialog () {
-    this.allDocumentBluePrints = this.SGET_allBlueprints
+  update(() => {
+    const needle = val.toLowerCase()
+    listCopy.value = extend(true, [], existingObjectsFullList.value)
+    filteredExistingInput.value = advancedDocumentFilter(needle, listCopy.value, allDocumentBluePrints.value, existingObjectsFullList.value)
 
-    this.existingObjectsFullList = this.SGET_allDocuments.docs
-  }
-
-  async removeInput (scope: {
-    index: number
-    removeAtIndex: (index: number) => void
-  }) {
-    scope.removeAtIndex(scope.index)
-
-    await this.$nextTick()
-    /*eslint-disable */
-    // @ts-ignore 
-    this.$refs.ref_deleteDocument.hidePopup() 
-    /* eslint-enable */
-  }
-
-  deleteOngoing = false
-
-  deletedDocuments = 0
-
-  currentDocName = ""
-
-  currentDocument = null as unknown as I_ShortenedDocument
-
-  get progressCounter () {
-    return (this.deletedDocuments / this.deleteDocumentsModel.length)
-  }
-
-  async deleteDocuments () {
-    this.deleteOngoing = true
-    this.deletedDocuments = 0
-    const projectId = this.SGET_currentProjectId as string
-
-    for (const document of this.deleteDocumentsModel) {
-      this.currentDocName = document.label
-
-      await documentApi.delete(projectId, document.type, document._id)
-
-      this.currentDocument = this.SGET_document(document._id)
-      const dataPass = { doc: this.currentDocument, treeAction: true }
-
-      // @ts-ignore
-      this.SSET_removeOpenedDocument(dataPass)
-      // @ts-ignore
-      this.SSET_removeDocument({ doc: this.currentDocument })
-
-      this.deletedDocuments++
+    if (filteredExistingInput.value.length > 0) {
+      refocusSelect().catch(e => console.log(e))
     }
+  })
+}
 
-    // Cleanup
-    this.deleteOngoing = false
-    this.resetLocalData()
-    this.populateDeleteObjectDialog()
-    this.$q.notify({
-      group: false,
-      type: "positive",
-      message: "Mass delete finished"
-    })
+/**
+ * Set up all data in to the dialog on popup load
+ */
+function populateDeleteObjectDialog () {
+  allDocumentBluePrints.value = blueprintsStore.getAllBlueprints
 
-    this.triggerDialogClose()
+  existingObjectsFullList.value = allDocumentsStore.getAllDocuments.docs
+}
+
+async function removeInput (scope: {
+  index: number
+  removeAtIndex: (index: number) => void
+}) {
+  scope.removeAtIndex(scope.index)
+
+  await nextTick()
+  /*eslint-disable */
+  // @ts-ignore
+  ref_deleteDocument.value?.hidePopup()
+  /* eslint-enable */
+}
+
+const deleteOngoing = ref(false)
+const deletedDocuments = ref(0)
+const currentDocName = ref("")
+const currentDocument = ref<I_ShortenedDocument | null>(null)
+
+const progressCounter = computed(() => {
+  return (deletedDocuments.value / deleteDocumentsModel.value.length)
+})
+
+async function deleteDocuments () {
+  deleteOngoing.value = true
+  deletedDocuments.value = 0
+  const projectId = projectStore.currentProjectId as string
+
+  for (const document of deleteDocumentsModel.value) {
+    currentDocName.value = document.label
+
+    await documentApi.delete(projectId, document.type, document._id)
+
+    currentDocument.value = allDocumentsStore.getDocument(document._id)
+    const dataPass = { doc: currentDocument.value, treeAction: true }
+
+    // @ts-ignore
+    openedDocumentsStore.removeDocument(dataPass)
+    // @ts-ignore
+    allDocumentsStore.removeDocument({ doc: currentDocument.value })
+
+    deletedDocuments.value++
   }
+
+  // Cleanup
+  deleteOngoing.value = false
+  resetLocalData()
+  populateDeleteObjectDialog()
+  q.notify({
+    group: false,
+    type: "positive",
+    message: "Mass delete finished"
+  })
+
+  triggerDialogClose()
 }
 </script>
 

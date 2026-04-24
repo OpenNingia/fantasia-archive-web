@@ -39,7 +39,7 @@
               @input="openExistingInput"
             >
               <template v-slot:append v-if="!hideAdvSearchCheatsheetButton">
-                <q-btn round dense flat icon="mdi-help-rhombus" @click.stop.prevent="SSET_setAdvSearchWindowVisible"
+                <q-btn round dense flat icon="mdi-help-rhombus" @click.stop.prevent="floatingWindowsStore.setAdvSearchWindowVisible"
                 >
                   <q-tooltip :delay="500">
                     Open search cheatsheet
@@ -244,9 +244,8 @@
 
 </template>
 
-<script lang="ts">
-
-import { Component, Emit, Prop, Watch } from "vue-property-decorator"
+<script setup lang="ts">
+import { ref, watch, nextTick, defineAsyncComponent } from "vue"
 import type { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import { advancedDocumentFilter } from "src/scripts/utilities/advancedDocumentFilter"
 import { extend, uid } from "quasar"
@@ -255,407 +254,305 @@ import { createNewWithParent } from "src/scripts/documentActions/createNewWithPa
 import { copyDocumentName, copyDocumentTextColor, copyDocumentBackgroundColor } from "src/scripts/documentActions/uniqueFieldCopy"
 import { copyDocument } from "src/scripts/documentActions/copyDocument"
 
-import DialogBase from "src/components/dialogs/_DialogBase"
 import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 
-@Component({
-  components: {
-    documentPreview: () => import("src/components/DocumentPreview.vue")
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+import { useRouter } from "vue-router"
+
+const documentPreview = defineAsyncComponent(() => import("src/components/DocumentPreview.vue"))
+
+const props = defineProps<{
+  dialogTrigger?: string
+  preventOpen?: boolean
+  quickInsertMode?: boolean
+}>()
+
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit", "signalDocumentSelected"])
+
+const router = useRouter()
+const { dialogsStore, blueprintsStore, allDocumentsStore, openedDocumentsStore, optionsStore, floatingWindowsStore, keybindsStore } = useAppStores()
+const { stripTags, retrieveIconColor, generateUID, sleep, openExistingDocumentRoute, openExistingDocumentRouteWithEdit, openDocumentPreviewPanel, determineKeyBind } = useDocumentHelpers()
+
+const dialogModel = ref(false)
+const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTabs = { right: "0px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTutorialTabContent = { right: "-55px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    openDialog(val)
   }
 })
-export default class ExistingDocumentDialog extends DialogBase {
-  @Prop({
-    default: false
-  }) readonly preventOpen!: boolean
 
-  /****************************************************************/
-  // DIALOG CONTROL
-  /****************************************************************/
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
 
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.isCloseAbleViaKeybind = false
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
+/****************************************************************/
+// COMPONENT SETTINGS
+/****************************************************************/
 
-      this.reloadOptions()
-      this.populateExistingObjectDialog().catch(e => console.log(e))
-    }
+const preventPreviewsPopups = ref(false)
+const hideAdvSearchCheatsheetButton = ref(false)
+const hideDeadCrossThrough = ref(false)
+const disableCloseAftertSelectQuickSearch = ref(false)
+const closeWithSameClick = ref(false)
+const textShadow = ref(false)
+const isCloseAbleViaKeybind = ref(false)
+
+watch(() => optionsStore.getOptions, () => {
+  reloadOptions()
+}, { immediate: true, deep: true })
+
+function reloadOptions () {
+  closeWithSameClick.value = optionsStore.getOptions.allowQuickPopupSameKeyClose
+  disableCloseAftertSelectQuickSearch.value = optionsStore.getOptions.disableCloseAftertSelectQuickSearch
+  includeCategories.value = !optionsStore.getOptions.disableQuickSearchCategoryPrecheck
+  textShadow.value = optionsStore.getOptions.textShadow
+  hideDeadCrossThrough.value = optionsStore.getOptions.hideDeadCrossThrough
+  hideAdvSearchCheatsheetButton.value = optionsStore.getOptions.hideAdvSearchCheatsheetButton
+  preventPreviewsPopups.value = optionsStore.getOptions.preventPreviewsPopups
+}
+
+/****************************************************************/
+// LOCAL KEYBINDS
+/****************************************************************/
+
+watch(() => keybindsStore.getCurrentKeyBindData, () => {
+  processKeyPush()
+}, { deep: true })
+
+function processKeyPush () {
+  if (determineKeyBind("quickExistingDocument") && dialogModel.value && closeWithSameClick.value && isCloseAbleViaKeybind.value && dialogsStore.getDialogsState) {
+    dialogModel.value = false
+    dialogsStore.setDialogState(false)
+    existingDocumentModel.value = []
   }
+}
 
-  /****************************************************************/
-  // COMPONENT SETTINGS
-  /****************************************************************/
+/****************************************************************/
+// PRE-FILTERING
+/****************************************************************/
 
-  /**
-   * Watch options and react to changes
-   */
-  @Watch("SGET_options", { immediate: true, deep: true })
-  onSettingsChange () {
-    this.reloadOptions()
+const includeCategories = ref(true)
+
+watch(includeCategories, () => {
+  preFilterDocuments()
+})
+
+function preFilterDocuments () {
+  existingObjectPrefilteredList.value = existingObjectsFullList.value
+    .filter(e => !((!includeCategories.value && e.isCategory)))
+}
+
+/****************************************************************/
+// SELECT LIST MANAGEMENT
+/****************************************************************/
+
+const existingObjectPrefilteredList = ref([] as I_ShortenedDocument[])
+const existingObjectsFullList = ref([] as I_ShortenedDocument[])
+const allDocumentBluePrints = ref([] as I_Blueprint[])
+const ref_existingDocument = ref<any>(null)
+
+async function populateExistingObjectDialog () {
+  allDocumentBluePrints.value = blueprintsStore.getAllBlueprints
+
+  existingObjectsFullList.value = allDocumentsStore.getAllDocuments.docs
+  preFilterDocuments()
+
+  await nextTick()
+
+  if (ref_existingDocument.value) {
+    await sleep(100)
+    ref_existingDocument.value.focus()
   }
+  isCloseAbleViaKeybind.value = true
+}
 
-  /**
-   * Reloads local options
-   */
-  reloadOptions () {
-    this.closeWithSameClick = this.SGET_options.allowQuickPopupSameKeyClose
-    this.disableCloseAftertSelectQuickSearch = this.SGET_options.disableCloseAftertSelectQuickSearch
-    this.includeCategories = !this.SGET_options.disableQuickSearchCategoryPrecheck
-    this.textShadow = this.SGET_options.textShadow
-    this.hideDeadCrossThrough = this.SGET_options.hideDeadCrossThrough
-    this.hideAdvSearchCheatsheetButton = this.SGET_options.hideAdvSearchCheatsheetButton
-    this.preventPreviewsPopups = this.SGET_options.preventPreviewsPopups
-  }
+const existingDocumentModel = ref<any[]>([])
+const filteredExistingInput = ref(null as unknown as I_ShortenedDocument[])
+const listCopy = ref<I_ShortenedDocument[]>([])
 
-  /**
-   * Determines if the "quick insert mode is on"
-   * This prevents the dialog from scrolling up if used within wisywig editors
-   */
-  @Prop({
-    default: false
-  }) readonly quickInsertMode!: boolean
+async function refocusSelect () {
+  await nextTick()
+  ref_existingDocument.value?.setOptionIndex(-1)
+  ref_existingDocument.value?.moveOptionSelection(1, true)
+}
 
-  /**
-   * Determines if the document previews should be disabled or not
-   */
-  preventPreviewsPopups = false
-
-  /**
-   * Hides the advanced search cheatsheet help button in relationship type fields.
-   */
-  hideAdvSearchCheatsheetButton = false
-
-  /**
-   * Determines if the "dead" document type should have a cross-text decoration or not
-   */
-  hideDeadCrossThrough = false
-
-  /**
-   * Determines if the popup shouldnt close after a document is selected from the dropdown list
-   */
-  disableCloseAftertSelectQuickSearch = false
-
-  /**
-   * Determines if the popup is closeable with the same keybind that summoned it
-   */
-  closeWithSameClick = false
-
-  /**
-   * Determines if text shadow will be shows for accesiblity reasons or not
-   */
-  textShadow = false
-
-  /**
-   * A local lock that prevents double-triggering and instant re-closing of the dialog via keybinds
-   */
-  isCloseAbleViaKeybind = false
-
-  /****************************************************************/
-  // LOCAL KEYBINDS
-  /****************************************************************/
-
-  /**
-   * Local keybinds
-   */
-  @Watch("SGET_getCurrentKeyBindData", { deep: true })
-  processKeyPush () {
-    // Keybind cheatsheet
-    if (this.determineKeyBind("quickExistingDocument") && this.dialogModel && this.closeWithSameClick && this.isCloseAbleViaKeybind && this.SGET_getDialogsState) {
-      this.dialogModel = false
-      this.SSET_setDialogState(false)
-      // @ts-ignore
-      this.existingDocumentModel = null
-    }
-  }
-
-  /****************************************************************/
-  // PRE-FILTERING
-  /****************************************************************/
-
-  /**
-   * Model for pre-filtering via categories
-   */
-  includeCategories = true
-
-  /**
-   * React to the category checkbox changes
-   */
-  @Watch("includeCategories")
-  reactToCategoryCheckboxChange () {
-    this.preFilterDocuments()
-  }
-
-  /**
-   * Prefilter documents based on what is in the checkbox
-   */
-  preFilterDocuments () {
-    this.existingObjectPrefilteredList = this.existingObjectsFullList
-      .filter(e => !((!this.includeCategories && e.isCategory)))
-  }
-
-  /****************************************************************/
-  // SELECT LIST MANAGEMENT
-  /****************************************************************/
-
-  /**
-   * Raw list of objects retrieved from the database
-   */
-  existingObjectPrefilteredList = [] as I_ShortenedDocument[]
-
-  /**
-   * Pre-filtered list based on the category inclussion or exlcussion
-   */
-  existingObjectsFullList = [] as I_ShortenedDocument[]
-
-  /**
-   * All currently loaded blueprints
-   */
-  allDocumentBluePrints = [] as I_Blueprint[]
-
-  /**
-   * Set up up all data in to the dialog on popup load
-   */
-  async populateExistingObjectDialog () {
-    this.allDocumentBluePrints = this.SGET_allBlueprints
-
-    this.existingObjectsFullList = this.SGET_allDocuments.docs
-    this.preFilterDocuments()
-
-    await this.$nextTick()
-
-    if (this.$refs.ref_existingDocument) {
-      /*eslint-disable */
-      await this.sleep(100)
-      // @ts-ignore 
-      this.$refs.ref_existingDocument.focus()
-      /* eslint-enable */
-    }
-    this.isCloseAbleViaKeybind = true
-  }
-
-  /**
-   * Currently being opened document
-   */
-  existingDocumentModel = []
-
-  /**
-   * Filtered list of items
-   */
-  filteredExistingInput = null as unknown as I_ShortenedDocument[]
-
-  /**
-   * Refocuses the first value in the selct upon filtering for intuitive keyboard control
-   */
-  async refocusSelect () {
-    await this.$nextTick()
-    /*eslint-disable */
-    // @ts-ignore 
-    this.$refs.ref_existingDocument.setOptionIndex(-1)
-    // @ts-ignore 
-    this.$refs.ref_existingDocument.moveOptionSelection(1, true) 
-    /* eslint-enable */
-  }
-
-  /**
-   * Local list copty for filtering in order to not mess up the original list
-   */
-  listCopy: I_ShortenedDocument[] = []
-
-  /**
-   * Filter the pre-filtered list
-   */
-  filterExistingSelect (val: string, update: (e: () => void) => void) {
-    if (val === "") {
-      update(() => {
-        this.filteredExistingInput = this.existingObjectPrefilteredList.filter((obj) => !obj.isMinor)
-        if (this.$refs.ref_existingDocument && this.filteredExistingInput.length > 0) {
-          this.refocusSelect().catch(e => console.log(e))
-        }
-      })
-      return
-    }
-
+function filterExistingSelect (val: string, update: (e: () => void) => void) {
+  if (val === "") {
     update(() => {
-      const needle = val.toLowerCase()
-      this.listCopy = extend(true, [], this.existingObjectPrefilteredList)
-      this.filteredExistingInput = advancedDocumentFilter(needle, this.listCopy, this.allDocumentBluePrints, this.existingObjectsFullList)
-
-      if (this.$refs.ref_existingDocument && this.filteredExistingInput.length > 0) {
-        this.refocusSelect().catch(e => console.log(e))
+      filteredExistingInput.value = existingObjectPrefilteredList.value.filter((obj) => !obj.isMinor)
+      if (ref_existingDocument.value && filteredExistingInput.value.length > 0) {
+        refocusSelect().catch(e => console.log(e))
       }
     })
+    return
   }
 
-  /****************************************************************/
-  // TRIGGER ACTIONS
-  /****************************************************************/
+  update(() => {
+    const needle = val.toLowerCase()
+    listCopy.value = extend(true, [], existingObjectPrefilteredList.value)
+    filteredExistingInput.value = advancedDocumentFilter(needle, listCopy.value, allDocumentBluePrints.value, existingObjectsFullList.value)
 
-  /**
-   * Opened the existing input in two modes
-   * Either as a focus with closure of the dialog.
-   * Or as a background tab without closing of the dialog.
-   */
-  openExistingInput (e: I_ShortenedDocument) {
-    // @ts-ignore
-    e = (Array.isArray(e)) ? e[0] : e
+    if (ref_existingDocument.value && filteredExistingInput.value.length > 0) {
+      refocusSelect().catch(e => console.log(e))
+    }
+  })
+}
 
-    // Signal to any listeners that care about this document being opened
-    this.signalDocumentSelected(e._id)
+/****************************************************************/
+// DIALOG CONTROL
+/****************************************************************/
 
-    // If the caller doesn't want to open the document, don't actually open the document
-    if (this.preventOpen) {
-      this.dialogModel = false
-      this.existingDocumentModel = []
-
+function openDialog (val: string | false) {
+  if (val) {
+    if (dialogsStore.getDialogsState) {
       return
     }
-    // Open document and close dialog
-    if (!this.disableCloseAftertSelectQuickSearch) {
-      this.dialogModel = false
+    isCloseAbleViaKeybind.value = false
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
 
-      if (!this.quickInsertMode) {
-      // @ts-ignore
-        this.openExistingDocumentRoute(e)
-      }
-      this.existingDocumentModel = []
+    reloadOptions()
+    populateExistingObjectDialog().catch(e => console.log(e))
+  }
+}
+
+/****************************************************************/
+// TRIGGER ACTIONS
+/****************************************************************/
+
+function openExistingInput (e: I_ShortenedDocument) {
+  // @ts-ignore
+  e = (Array.isArray(e)) ? e[0] : e
+
+  emit("signalDocumentSelected", e._id)
+
+  if (props.preventOpen) {
+    dialogModel.value = false
+    existingDocumentModel.value = []
+    return
+  }
+  if (!disableCloseAftertSelectQuickSearch.value) {
+    dialogModel.value = false
+
+    if (!props.quickInsertMode) {
+      openExistingDocumentRoute(e)
     }
-    // Open document and DO NOT close the dialog
-    else {
-      this.existingDocumentModel = []
-
-      const retrievedObject = (this.SGET_openedDocument(e._id)) || this.SGET_document(e._id)
-
-      const dataPass = {
-        doc: retrievedObject,
-        treeAction: false
-      }
-
-      // @ts-ignore
-      this.SSET_addOpenedDocument(dataPass)
-    }
+    existingDocumentModel.value = []
   }
+  else {
+    existingDocumentModel.value = []
 
-  /**
-   * Opened the existing input in two modes
-   * Either as a focus with closure of the dialog.
-   * Or as a background tab without closing of the dialog.
-   */
-  editExistingInput (e: I_ShortenedDocument) {
-    // @ts-ignore
-    e = (Array.isArray(e)) ? e[0] : e
-    // Open document and close dialog
-    if (!this.disableCloseAftertSelectQuickSearch) {
-      this.dialogModel = false
-      if (!this.quickInsertMode) {
-      // @ts-ignore
-        this.openExistingDocumentRouteWithEdit(e)
-      }
-      this.existingDocumentModel = []
-    }
-    // Open document and DO NOT close the dialog
-    else {
-      // @ts-ignore
-      this.existingDocumentModel = []
-
-      const retrievedObject = (this.SGET_openedDocument(e._id)) || this.SGET_document(e._id)
-
-      retrievedObject.hasEdits = true
-
-      const dataPass = {
-        doc: retrievedObject,
-        treeAction: false
-      }
-
-      // @ts-ignore
-      this.SSET_addOpenedDocument(dataPass)
-    }
-  }
-
-  documentPass = null as unknown as I_OpenedDocument
-
-  /****************************************************************/
-  // Add new document under parent
-  /****************************************************************/
-  addNewUnderParent (currentDoc: I_OpenedDocument) {
-    createNewWithParent(currentDoc, this)
-    this.dialogModel = false
-  }
-
-  /****************************************************************/
-  // Document field copying
-  /****************************************************************/
-
-  copyName (currentDoc: I_OpenedDocument) {
-    copyDocumentName(currentDoc)
-
-    this.dialogModel = false
-  }
-
-  copyTextColor (currentDoc: I_OpenedDocument) {
-    copyDocumentTextColor(currentDoc)
-
-    this.dialogModel = false
-  }
-
-  copyBackgroundColor (currentDoc: I_OpenedDocument) {
-    copyDocumentBackgroundColor(currentDoc)
-
-    this.dialogModel = false
-  }
-
-  copyTargetDocument (currentDoc: I_OpenedDocument) {
-    this.documentPass = extend(true, {}, currentDoc)
-
-    const blueprint = this.SGET_blueprint(this.documentPass.type)
-    const newDocument = copyDocument(this.documentPass, this.generateUID(), blueprint)
+    const retrievedObject = (openedDocumentsStore.getDocument(e._id)) || allDocumentsStore.getDocument(e._id)
 
     const dataPass = {
-      doc: newDocument,
+      doc: retrievedObject,
       treeAction: false
     }
 
     // @ts-ignore
-    this.SSET_addOpenedDocument(dataPass)
-    this.$router.push({
-      path: newDocument.url
-    }).catch((e: {name: string}) => {
-      const errorName : string = e.name
-      if (errorName === "NavigationDuplicated") {
-        return
-      }
-      console.log(e)
-    })
+    openedDocumentsStore.addDocument(dataPass)
+  }
+}
 
-    this.dialogModel = false
+function editExistingInput (e: I_ShortenedDocument) {
+  // @ts-ignore
+  e = (Array.isArray(e)) ? e[0] : e
+  if (!disableCloseAftertSelectQuickSearch.value) {
+    dialogModel.value = false
+    if (!props.quickInsertMode) {
+      openExistingDocumentRouteWithEdit(e)
+    }
+    existingDocumentModel.value = []
+  }
+  else {
+    existingDocumentModel.value = []
+
+    const retrievedObject = (openedDocumentsStore.getDocument(e._id)) || allDocumentsStore.getDocument(e._id)
+
+    // @ts-ignore
+    retrievedObject.hasEdits = true
+
+    const dataPass = {
+      doc: retrievedObject,
+      treeAction: false
+    }
+
+    // @ts-ignore
+    openedDocumentsStore.addDocument(dataPass)
+  }
+}
+
+const documentPass = ref(null as unknown as I_OpenedDocument)
+
+/****************************************************************/
+// Add new document under parent
+/****************************************************************/
+function addNewUnderParent (currentDoc: I_OpenedDocument) {
+  createNewWithParent(currentDoc, {} as any)
+  dialogModel.value = false
+}
+
+/****************************************************************/
+// Document field copying
+/****************************************************************/
+
+function copyName (currentDoc: I_OpenedDocument) {
+  copyDocumentName(currentDoc)
+  dialogModel.value = false
+}
+
+function copyTextColor (currentDoc: I_OpenedDocument) {
+  copyDocumentTextColor(currentDoc)
+  dialogModel.value = false
+}
+
+function copyBackgroundColor (currentDoc: I_OpenedDocument) {
+  copyDocumentBackgroundColor(currentDoc)
+  dialogModel.value = false
+}
+
+function copyTargetDocument (currentDoc: I_OpenedDocument) {
+  documentPass.value = extend(true, {}, currentDoc)
+
+  const blueprint = blueprintsStore.getBlueprint(documentPass.value.type)
+  const newDocument = copyDocument(documentPass.value, generateUID(), blueprint)
+
+  const dataPass = {
+    doc: newDocument,
+    treeAction: false
   }
 
-  setDocumentPreviewClose () {
-    this.documentPreviewClose = uid()
-  }
+  // @ts-ignore
+  openedDocumentsStore.addDocument(dataPass)
+  router.push({
+    path: newDocument.url
+  }).catch((e: {name: string}) => {
+    const errorName : string = e.name
+    if (errorName === "NavigationDuplicated") {
+      return
+    }
+    console.log(e)
+  })
 
-  documentPreviewClose = ""
+  dialogModel.value = false
+}
 
-  async triggerExport (node: {_id: string}) {
-    this.dialogModel = false
+const documentPreviewClose = ref("")
 
-    await this.sleep(100)
+function setDocumentPreviewClose () {
+  documentPreviewClose.value = uid()
+}
 
-    this.SSET_setExportDialogState([node._id])
-  }
+async function triggerExport (node: {_id: string}) {
+  dialogModel.value = false
 
-  // Runs when a document would be opened by this dialog
-  @Emit()
-  signalDocumentSelected (document: string) {
-    return document
-  }
+  await sleep(100)
+
+  dialogsStore.setExportDialogState([node._id])
 }
 </script>
 

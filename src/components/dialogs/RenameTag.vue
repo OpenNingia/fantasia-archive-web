@@ -48,119 +48,107 @@
     </q-dialog>
 </template>
 
-<script lang="ts">
-
-import { Component, Watch, Prop } from "vue-property-decorator"
-
-import DialogBase from "src/components/dialogs/_DialogBase"
+<script setup lang="ts">
+import { ref, computed, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 import { massRenameTag } from "src/scripts/documentActions/tagManager"
 import { saveDocument } from "src/scripts/databaseManager/documentManager"
-
 import { Loading, QSpinnerGears, extend } from "quasar"
 import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
 
-@Component({
-  components: { }
+const props = defineProps<{
+  dialogTrigger?: string
+  allTags?: string[]
+  documentIdList?: string[]
+  targetTag?: string
+}>()
+
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
+
+const { dialogsStore, allDocumentsStore, openedDocumentsStore } = useAppStores()
+const { sleep, mapShortDocument } = useDocumentHelpers()
+
+const dialogModel = ref(false)
+const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTabs = { right: "0px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTutorialTabContent = { right: "-55px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+watch(() => props.dialogTrigger, async (val) => {
+  if (val) {
+    if (dialogsStore.getDialogsState) {
+      return
+    }
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
+    newTagName.value = ""
+
+    await sleep(300)
+
+    renameTagInput.value?.focus()
+  }
 })
-export default class RenameTagPrompt extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  async openDialog (val: string|false) {
-    if (val) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
-      this.newTagName = ""
 
-      await this.sleep(300)
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
 
-      /*eslint-disable */
+const newTagName = ref("")
+const documentsCopy = ref<I_OpenedDocument[]>([])
+const renameTagInput = ref<any>(null)
+
+const isInvalid = computed(() => {
+  return newTagName.value.length <= 0
+})
+
+async function renameTags () {
+  if (isInvalid.value) return
+
+  Loading.show({
+    message: "<h4>Renaming tags in all affected documents...</h4>",
+    spinnerColor: "primary",
+    messageColor: "cultured",
+    spinnerSize: 120,
+    backgroundColor: "dark",
+    // @ts-ignore
+    spinner: QSpinnerGears
+  })
+
+  const documentList = (props.documentIdList ?? []).map(id => {
+    return allDocumentsStore.getDocument(id)
+  })
+
+  const updatedDocumentList = massRenameTag(newTagName.value, props.targetTag ?? "", props.allTags ?? [], documentList)
+
+  for (let index = 0; index < updatedDocumentList.length; index++) {
+    const allDocuments = openedDocumentsStore.getAllDocuments
+    documentsCopy.value = extend(true, [], allDocuments.docs)
+
+    // @ts-ignore
+    const savedDocument: {
+      documentCopy: I_OpenedDocument,
+      allOpenedDocuments: I_OpenedDocument[]
+    } = await saveDocument(
       // @ts-ignore
-      this.$refs.renameTagInput.focus()
-      /* eslint-enable */
-    }
+      updatedDocumentList[index],
+      documentsCopy.value,
+      allDocumentsStore.getAllDocuments.docs,
+      null,
+      {} as any,
+      true
+    ).catch((err: any) => console.log(err))
+
+    const updateTree = (index + 1 === updatedDocumentList.length)
+
+    const dataPass = { doc: savedDocument.documentCopy, treeAction: updateTree }
+    openedDocumentsStore.updateDocument(dataPass)
+
+    // @ts-ignore
+    allDocumentsStore.updateDocument({ doc: mapShortDocument(savedDocument.documentCopy, allDocumentsStore.getDocumentsByType(savedDocument.documentCopy.type).docs) })
   }
 
-  @Prop(({
-    default () {
-      return []
-    }
-  })) readonly allTags!: string[]
-
-  @Prop(({
-    default () {
-      return []
-    }
-  })) readonly documentIdList!: string[]
-
-  @Prop(({ default: "" })) readonly targetTag!: ""
-
-  /**
-   * Model for the new tag name
-   */
-  newTagName = ""
-
-  documentsCopy:I_OpenedDocument[] = []
-
-  get isInvalid () {
-    return this.newTagName.length <= 0
-  }
-
-  async renameTags () {
-    if (this.isInvalid) return
-
-    Loading.show({
-      message: "<h4>Renaming tags in all affected documents...</h4>",
-      spinnerColor: "primary",
-      messageColor: "cultured",
-      spinnerSize: 120,
-      backgroundColor: "dark",
-      // @ts-ignore
-      spinner: QSpinnerGears
-    })
-
-    const documentList = this.documentIdList.map(id => {
-      return this.SGET_document(id)
-    })
-
-    const updatedDocumentList = massRenameTag(this.newTagName, this.targetTag, this.allTags, documentList)
-
-    for (let index = 0; index < updatedDocumentList.length; index++) {
-      const allDocuments = this.SGET_allOpenedDocuments
-      this.documentsCopy = extend(true, [], allDocuments.docs)
-
-      // @ts-ignore
-      const savedDocument: {
-        documentCopy: I_OpenedDocument,
-        allOpenedDocuments: I_OpenedDocument[]
-      } = await saveDocument(
-        // @ts-ignore
-        updatedDocumentList[index],
-        this.documentsCopy,
-        this.SGET_allDocuments.docs,
-        null,
-        this,
-        true
-      ).catch((err:any) => console.log(err))
-
-      const updateTree = (index + 1 === updatedDocumentList.length)
-
-      // Update the opened document
-      const dataPass = { doc: savedDocument.documentCopy, treeAction: updateTree }
-      this.SSET_updateOpenedDocument(dataPass)
-
-      // Update non-openeddocuments
-      // @ts-ignore
-      this.SSET_updateDocument({ doc: this.mapShortDocument(savedDocument.documentCopy, this.SGET_allDocumentsByType(savedDocument.documentCopy.type).docs) })
-    }
-
-    Loading.hide()
-    this.triggerDialogClose()
-  }
+  Loading.hide()
+  triggerDialogClose()
 }
 </script>
 

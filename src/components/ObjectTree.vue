@@ -44,7 +44,7 @@
         dark
         debounce="200"
         v-model="treeFilter"
-        :disable="SGET_getDocumentPreviewVisible !== ''"
+        :disable="floatingWindowsStore.getDocumentPreviewVisible !== ''"
         label="Filter document tree..."
       >
         <template v-slot:append>
@@ -459,7 +459,7 @@
 
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
 interface NewObjectDocument {
   label: string
@@ -469,9 +469,9 @@ interface NewObjectDocument {
   specialLabel: string
 }
 
-import { Component, Watch } from "vue-property-decorator"
+import { ref, watch } from "vue"
+import { useRoute, useRouter } from "vue-router"
 
-import BaseClass from "src/BaseClass"
 import type { I_ExtraDocumentFields, I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import deleteDocumentCheckDialog from "src/components/dialogs/DeleteDocumentCheck.vue"
 import renameTagDialog from "src/components/dialogs/RenameTag.vue"
@@ -484,1032 +484,976 @@ import { createNewWithParent } from "src/scripts/documentActions/createNewWithPa
 import { copyDocumentName, copyDocumentTextColor, copyDocumentBackgroundColor } from "src/scripts/documentActions/uniqueFieldCopy"
 import { copyDocument } from "src/scripts/documentActions/copyDocument"
 
-@Component({
-  components: {
-    deleteDocumentCheckDialog,
-    renameTagDialog,
-    deleteTagDialog,
-    massDeleteDocumentsCheckDialog,
-    documentPreview: () => import("src/components/DocumentPreview.vue")
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+
+const route = useRoute()
+const router = useRouter()
+
+const {
+  blueprintsStore,
+  openedDocumentsStore,
+  allDocumentsStore,
+  keybindsStore,
+  dialogsStore,
+  optionsStore,
+  floatingWindowsStore,
+  projectStore
+} = useAppStores()
+
+const {
+  generateUID,
+  sleep,
+  retrieveFieldValue,
+  findRequestedOrActiveDocument,
+  addNewObjectRoute,
+  openExistingDocumentRoute,
+  openExistingDocumentRouteWithEdit,
+  openDocumentPreviewPanel,
+  determineKeyBind
+} = useDocumentHelpers()
+
+// lazy import documentPreview
+import documentPreview from "src/components/DocumentPreview.vue"
+
+/****************************************************************/
+// KEYBINDS MANAGEMENT
+/****************************************************************/
+const treeFilterRef = ref<HTMLInputElement | null>(null)
+
+watch(() => keybindsStore.getCurrentKeyBindData, () => {
+  // Focus left tree search
+  if (determineKeyBind("focusHierarchicalTree") && !dialogsStore.getDialogsState) {
+    const treeFilterDOM = treeFilterRef.value as unknown as HTMLInputElement
+    treeFilterDOM?.focus()
+  }
+
+  // Clear input in the left tree search
+  if (determineKeyBind("clearInputHierarchicalTree") && !dialogsStore.getDialogsState) {
+    resetTreeFilter()
+  }
+}, { deep: true })
+
+/****************************************************************/
+// GENERIC FUNCTIONALITY
+/****************************************************************/
+
+const projectName = ref("")
+
+// created
+checkProjectStatus()
+
+watch(() => projectStore.getProjectName, () => {
+  checkProjectStatus()
+})
+
+function checkProjectStatus () {
+  projectName.value = projectStore.getProjectName
+}
+
+const tagsAtTop = ref(false)
+const compactTags = ref(false)
+const noTags = ref(false)
+const noProjectName = ref(false)
+const invertTreeSorting = ref(false)
+const doNotcollaseTreeOptions = ref(false)
+const disableDocumentControlBar = ref(false)
+const textShadow = ref(false)
+const disableDocumentCounts = ref(false)
+const compactDocumentCount = ref(false)
+const invertCategoryPosition = ref(false)
+const doubleDashDocCount = ref(false)
+const hideDeadCrossThrough = ref(false)
+const hideTreeOrderNumbers = ref(false)
+const hideTreeExtraIcons = ref(false)
+const hideTreeIconAddUnder = ref(false)
+const hideTreeIconEdit = ref(false)
+const hideTreeIconView = ref(false)
+const preventPreviewsTree = ref(true)
+
+watch(() => optionsStore.getOptions, () => {
+  const options = optionsStore.getOptions
+  tagsAtTop.value = options.tagsAtTop
+  compactTags.value = options.compactTags
+  noTags.value = options.noTags
+  noProjectName.value = options.noProjectName
+  invertTreeSorting.value = options.invertTreeSorting
+  doNotcollaseTreeOptions.value = options.doNotcollaseTreeOptions
+  disableDocumentControlBar.value = options.disableDocumentControlBar
+  textShadow.value = options.textShadow
+  disableDocumentCounts.value = options.disableDocumentCounts
+  compactDocumentCount.value = options.compactDocumentCount
+  invertCategoryPosition.value = options.invertCategoryPosition
+  doubleDashDocCount.value = options.doubleDashDocCount
+  hideDeadCrossThrough.value = options.hideDeadCrossThrough
+  hideTreeOrderNumbers.value = options.hideTreeOrderNumbers
+  hideTreeExtraIcons.value = options.hideTreeExtraIcons
+  hideTreeIconAddUnder.value = options.hideTreeIconAddUnder
+  hideTreeIconEdit.value = options.hideTreeIconEdit
+  hideTreeIconView.value = options.hideTreeIconView
+  preventPreviewsTree.value = options.preventPreviewsTree
+  buildCurrentObjectTree()
+}, { immediate: true, deep: true })
+
+/****************************************************************/
+// HIERARCHICAL TREE - HELPERS AND MODELS
+/****************************************************************/
+
+watch(route, async () => {
+  // Wait for animations
+  await sleep(200)
+  if (openedDocumentsStore.getAllDocuments.docs.length > 0) {
+    const currentDoc = findRequestedOrActiveDocument() as unknown as I_OpenedDocument
+    selectedTreeNode.value = currentDoc._id
+  }
+  else {
+    selectedTreeNode.value = null
+  }
+}, { deep: true })
+
+watch(() => openedDocumentsStore.getAllDocuments, (val: { treeAction: boolean, docs: I_OpenedDocument[]}) => {
+  if (val.treeAction) {
+    buildCurrentObjectTree()
+    buildTreeExpands(val?.docs)
+    lastDocsSnapShot.value = extend(true, [], val.docs)
+  }
+  else if (val.docs.length !== lastDocsSnapShot.value.length) {
+    lastDocsSnapShot.value = extend(true, [], val.docs)
+  }
+}, { deep: true })
+
+const lastDocsSnapShot = ref<I_OpenedDocument[]>([])
+
+watch(() => allDocumentsStore.getAllDocuments, () => {
+  if (!allDocumentsStore.getFirstRunState) {
+    buildCurrentObjectTree()
+  }
+}, { deep: true })
+
+watch(() => allDocumentsStore.getFirstRunState, (val: boolean) => {
+  if (!val) {
+    buildCurrentObjectTree()
   }
 })
-export default class ObjectTree extends BaseClass {
-  /****************************************************************/
-  // KEYBINDS MANAGEMENT
-  /****************************************************************/
-  @Watch("SGET_getCurrentKeyBindData", { deep: true })
-  processKeyPush () {
-    // Focus left tree search
-    if (this.determineKeyBind("focusHierarchicalTree") && !this.SGET_getDialogsState) {
-      const treeFilterDOM = this.$refs.treeFilter as unknown as HTMLInputElement
-      treeFilterDOM.focus()
-    }
 
-    // Clear input in the left tree search
-    if (this.determineKeyBind("clearInputHierarchicalTree") && !this.SGET_getDialogsState) {
-      this.resetTreeFilter()
-    }
-  }
+const menuAddNewItem = ref({
+  icon: "mdi-plus",
+  label: "Add new object type"
+})
 
-  /****************************************************************/
-  // GENERIC FUNCTIONALITY
-  /****************************************************************/
+const hierarchicalTree = ref<{children: I_ShortenedDocument[], icon: string, label: string}[]>([])
 
-  projectName = ""
+const selectedTreeNode = ref<null | string>(null)
 
-  /**
-   * Load all blueprints and build the tree out of them
-   */
-  created () {
-    this.checkProjectStatus()
-  }
+const expandedTreeNodes = ref<string[]>([])
 
-  @Watch("SGET_getProjectName")
-  checkProjectStatus () {
-    this.projectName = this.SGET_getProjectName
-  }
+const treeFilter = ref("")
 
-  tagsAtTop = false
-  compactTags = false
-  noTags = false
-  noProjectName = false
-  invertTreeSorting = false
-  doNotcollaseTreeOptions = false
-  disableDocumentControlBar = false
-  textShadow = false
-  disableDocumentCounts = false
-  compactDocumentCount = false
-  invertCategoryPosition = false
-  doubleDashDocCount = false
-  hideDeadCrossThrough = false
-  hideTreeOrderNumbers = false
-  hideTreeExtraIcons = false
-  hideTreeIconAddUnder = false
-  hideTreeIconEdit = false
-  hideTreeIconView = false
-  preventPreviewsTree = true
+const treeRef = ref<any>(null)
 
-  @Watch("SGET_options", { immediate: true, deep: true })
-  onSettingsChange () {
-    const options = this.SGET_options
-    this.tagsAtTop = options.tagsAtTop
-    this.compactTags = options.compactTags
-    this.noTags = options.noTags
-    this.noProjectName = options.noProjectName
-    this.invertTreeSorting = options.invertTreeSorting
-    this.doNotcollaseTreeOptions = options.doNotcollaseTreeOptions
-    this.disableDocumentControlBar = options.disableDocumentControlBar
-    this.textShadow = options.textShadow
-    this.disableDocumentCounts = options.disableDocumentCounts
-    this.compactDocumentCount = options.compactDocumentCount
-    this.invertCategoryPosition = options.invertCategoryPosition
-    this.doubleDashDocCount = options.doubleDashDocCount
-    this.hideDeadCrossThrough = options.hideDeadCrossThrough
-    this.hideTreeOrderNumbers = options.hideTreeOrderNumbers
-    this.hideTreeExtraIcons = options.hideTreeExtraIcons
-    this.hideTreeIconAddUnder = options.hideTreeIconAddUnder
-    this.hideTreeIconEdit = options.hideTreeIconEdit
-    this.hideTreeIconView = options.hideTreeIconView
-    this.preventPreviewsTree = options.preventPreviewsTree
-    this.buildCurrentObjectTree()
-  }
+function resetTreeFilter () {
+  treeFilter.value = ""
+  const treeFilterDOM = treeFilterRef.value as unknown as HTMLInputElement
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  treeFilterDOM?.focus()
+}
 
-  /****************************************************************/
-  // HIERARCHICAL TREE - HELPERS AND MODELS
-  /****************************************************************/
+/****************************************************************/
+// HIERARCHICAL TREE - CONTENT CONSTRUCTION
+/****************************************************************/
 
-  @Watch("$route", { deep: true })
-  async reactToRouteChange () {
-    // Wait for animations
-    await this.sleep(200)
-    if (this.SGET_allOpenedDocuments.docs.length > 0) {
-      const currentDoc = this.findRequestedOrActiveDocument() as unknown as I_OpenedDocument
-      this.selectedTreeNode = currentDoc._id
-    }
-    else {
-      this.selectedTreeNode = null
-    }
-  }
+function sortDocuments (input: I_ShortenedDocument[]) {
+  input
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .sort((a, b) => {
+      let order1 = 0
+      let order2 = 0
 
-  /**
-   *
-   */
-  @Watch("SGET_allOpenedDocuments", { deep: true })
-  reactToDocumentListChange (val: { treeAction: boolean, docs: I_OpenedDocument[]}) {
-    if (val.treeAction) {
-      this.buildCurrentObjectTree()
-      this.buildTreeExpands(val?.docs)
-      this.lastDocsSnapShot = extend(true, [], val.docs)
-    }
-    else if (val.docs.length !== this.lastDocsSnapShot.length) {
-      this.lastDocsSnapShot = extend(true, [], val.docs)
-    }
-  }
-
-  lastDocsSnapShot:I_OpenedDocument[] = []
-
-  /**
-   *
-   */
-  @Watch("SGET_allDocuments", { deep: true })
-  reactToAllDocumentListChange (val: { docs: I_OpenedDocument[]}) {
-    if (!this.SGET_allDocumentsFirstRunState) {
-      this.buildCurrentObjectTree()
-    }
-  }
-
-  /**
-   *
-   */
-  @Watch("SGET_allDocumentsFirstRunState")
-  reactToFirstRunFinish (val: boolean) {
-    if (!val) {
-      this.buildCurrentObjectTree()
-    }
-  }
-
-  /**
-   * Generic wrapper for adding of new object types to the tree
-   */
-  menuAddNewItem = {
-    icon: "mdi-plus",
-    label: "Add new object type"
-  }
-
-  /**
-   * Contains all the data for the render in tree
-   */
-  hierarchicalTree: {children: I_ShortenedDocument[], icon: string, label: string}[] = []
-
-  /**
-   * A resetter for the currently selected node
-   */
-  selectedTreeNode = null as null | string
-
-  /**
-   * Holds all currently expanded notes
-   */
-  expandedTreeNodes: string[] = []
-
-  /**
-   * Filter model for the tree
-   */
-  treeFilter = ""
-
-  /**
-   * Resets the tree filter and refocuses the search box
-   */
-  resetTreeFilter () {
-    this.treeFilter = ""
-    const treeFilterDOM = this.$refs.treeFilter as unknown as HTMLInputElement
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    treeFilterDOM.focus()
-  }
-
-  /****************************************************************/
-  // HIERARCHICAL TREE - CONTENT CONSTRUCTION
-  /****************************************************************/
-
-  /**
-   * Sort the whole tree via alphabetical and custom numeric order
-   * @param input Hierartchical tree object to sort
-   */
-  sortDocuments (input: I_ShortenedDocument[]) {
-    input
-
-      // Sort by name
-      .sort((a, b) => a.label.localeCompare(b.label))
-
-      // Sort by custom order
-      .sort((a, b) => {
-        let order1 = 0
-        let order2 = 0
-
-        if (!this.invertTreeSorting) {
-          order1 = a.extraFields.find(e => e.id === "order")?.value
-          order2 = b.extraFields.find(e => e.id === "order")?.value
-        }
-        else {
-          order2 = a.extraFields.find(e => e.id === "order")?.value
-          order1 = b.extraFields.find(e => e.id === "order")?.value
-        }
-
-        if (order1 > order2) {
-          return 1
-        }
-        if (order1 < order2) {
-          return -1
-        }
-
-        return 0
-      })
-
-    // Put the number value on top of the list and alphabetical below them
-    input = [
-      ...input.filter(e => typeof e.extraFields.find(e => e.id === "order")?.value === "number"),
-      ...input.filter(e => typeof e.extraFields.find(e => e.id === "order")?.value !== "number")
-    ]
-
-    input.forEach((e, i) => {
-      // Run recursive if the node has any children
-      if (e.children.length > 0) {
-        input[i].children = this.sortDocuments(input[i].children)
+      if (!invertTreeSorting.value) {
+        order1 = a.extraFields.find(e => e.id === "order")?.value
+        order2 = b.extraFields.find(e => e.id === "order")?.value
       }
+      else {
+        order2 = a.extraFields.find(e => e.id === "order")?.value
+        order1 = b.extraFields.find(e => e.id === "order")?.value
+      }
+
+      if (order1 > order2) {
+        return 1
+      }
+      if (order1 < order2) {
+        return -1
+      }
+
+      return 0
     })
 
-    return input
+  input = [
+    ...input.filter(e => typeof e.extraFields.find(e => e.id === "order")?.value === "number"),
+    ...input.filter(e => typeof e.extraFields.find(e => e.id === "order")?.value !== "number")
+  ]
+
+  input.forEach((e, i) => {
+    if (e.children.length > 0) {
+      input[i].children = sortDocuments(input[i].children)
+    }
+  })
+
+  return input
+}
+
+function buildTreeHierarchy (input: I_ShortenedDocument[]) {
+  const map: number[] = []
+  let node
+  const roots = []
+  let i
+
+  for (i = 0; i < input.length; i += 1) {
+    map[input[i]._id] = i
   }
 
-  /**
-   * Builds proper hiearachy for flat array of documents
-   * @param input Non-hierarchical tree to build the hiearachy out of
-   */
-  buildTreeHierarchy (input: I_ShortenedDocument[]) {
-    const map: number[] = []
-    let node
-    const roots = []
-    let i
-
-    for (i = 0; i < input.length; i += 1) {
-      // Initialize the map
-      map[input[i]._id] = i
-    }
-
-    for (i = 0; i < input.length; i += 1) {
-      node = input[i]
-      if (node.parentDoc !== false) {
-      // If there are any dangling branches check that map[node.parentDoc] exists
-        if (input[map[node.parentDoc]]) {
-          input[map[node.parentDoc]].children.push(node)
-        }
-        else {
-          roots.push(node)
-        }
+  for (i = 0; i < input.length; i += 1) {
+    node = input[i]
+    if (node.parentDoc !== false) {
+      if (input[map[node.parentDoc]]) {
+        input[map[node.parentDoc]].children.push(node)
       }
       else {
         roots.push(node)
       }
     }
-
-    const sortedRoots = this.sortDocuments(roots)
-
-    return sortedRoots
-  }
-
-  mapImportantExtraFields (extraFields: I_ExtraDocumentFields[]) {
-    const impotantFieldIDList: string[] = [
-      "name",
-      "parentDoc",
-      "documentColor",
-      "documentBackgroundColor",
-      "finishedSwitch",
-      "minorSwitch",
-      "deadSwitch",
-      "categorySwitch",
-      "order",
-      "tags",
-      "otherNames"
-    ]
-    extraFields = extraFields.filter(field => {
-      return impotantFieldIDList.includes(field.id)
-    })
-    return extraFields
-  }
-
-  /**
-   * List of all possible new objects
-   */
-  newObjectList:NewObjectDocument[] = []
-
-  @Watch("SGET_getProjectLoadedStatus")
-  reactToProjectLoaded () {
-    if (this.SGET_getProjectLoadedStatus) {
-      this.buildCurrentObjectTree()
+    else {
+      roots.push(node)
     }
   }
 
-  /**
-   * Builds a brand new sparkling hearchy tree out of available data
-   */
-  buildCurrentObjectTree () {
-    if (!this.SGET_getProjectLoadedStatus) {
-      return
+  const sortedRoots = sortDocuments(roots)
+
+  return sortedRoots
+}
+
+function mapImportantExtraFields (extraFields: I_ExtraDocumentFields[]) {
+  const impotantFieldIDList: string[] = [
+    "name",
+    "parentDoc",
+    "documentColor",
+    "documentBackgroundColor",
+    "finishedSwitch",
+    "minorSwitch",
+    "deadSwitch",
+    "categorySwitch",
+    "order",
+    "tags",
+    "otherNames"
+  ]
+  extraFields = extraFields.filter(field => {
+    return impotantFieldIDList.includes(field.id)
+  })
+  return extraFields
+}
+
+const newObjectList = ref<NewObjectDocument[]>([])
+
+watch(() => projectStore.getProjectLoadedStatus, () => {
+  if (projectStore.getProjectLoadedStatus) {
+    buildCurrentObjectTree()
+  }
+})
+
+function buildCurrentObjectTree () {
+  if (!projectStore.getProjectLoadedStatus) {
+    return
+  }
+
+  hierarchicalTree.value = []
+
+  const moduleCategories: {
+    label: string
+    maxOrder: number
+  }[] = []
+
+  const allBlueprings = blueprintsStore.getAllBlueprints
+  let treeObject: any[] = []
+
+  let allTreeDocuments: I_ShortenedDocument[] = []
+
+  // @ts-ignore
+  newObjectList.value = blueprintsStore.getAllBlueprints.map(blueprint => {
+    return {
+      label: blueprint.namePlural,
+      icon: blueprint.icon,
+      order: blueprint.order,
+      _id: blueprint._id,
+      specialLabel: blueprint.nameSingular
+    }
+  }).sort((a, b) => {
+    if (a.order < b.order) {
+      return 1
     }
 
-    this.hierarchicalTree = []
+    if (a.order > b.order) {
+      return -1
+    }
+    return 0
+  })
 
-    const moduleCategories: {
-      label: string
-      maxOrder: number
-    }[] = []
+  for (const blueprint of allBlueprings) {
+    const allDocuments = allDocumentsStore.getDocumentsByType(blueprint._id)
+    let allDocumentsRows: I_ShortenedDocument[] = []
 
-    const allBlueprings = this.SGET_allBlueprints
-    let treeObject: any[] = []
+    if (allDocuments && allDocuments.docs) {
+      allDocumentsRows = allDocuments.docs
+        .map((doc) => {
+          const parentDocID = doc.extraFields.find(e => e.id === "parentDoc")?.value.value as unknown as {_id: string}
+          const color = doc.extraFields.find(e => e.id === "documentColor")?.value as unknown as string
+          const bgColor = doc.extraFields.find(e => e.id === "documentBackgroundColor")?.value as unknown as string
 
-    let allTreeDocuments: I_ShortenedDocument[] = []
+          const isCategory = doc.extraFields.find(e => e.id === "categorySwitch")?.value as unknown as boolean
+          const isMinor = doc.extraFields.find(e => e.id === "minorSwitch")?.value as unknown as boolean
+          const isDead = doc.extraFields.find(e => e.id === "deadSwitch")?.value as unknown as boolean
+
+          return {
+            label: doc.extraFields.find(e => e.id === "name")?.value,
+            icon: (isCategory) ? "fas fa-folder-open" : doc.icon,
+            isCategory: !!(isCategory),
+            isMinor: isMinor,
+            isDead: isDead,
+            sticker: doc.extraFields.find(e => e.id === "order")?.value,
+            parentDoc: (parentDocID) ? parentDocID._id : false,
+            handler: openExistingDocumentRoute,
+            expandable: true,
+            color: color,
+            bgColor: bgColor,
+            type: doc.type,
+            children: [],
+            hasEdits: false,
+            isNew: false,
+            url: doc.url,
+            extraFields: (doc?.extraFields) ? mapImportantExtraFields(doc.extraFields) : [],
+            _id: doc._id,
+            key: doc._id
+          } as I_ShortenedDocument
+        })
+    }
+    const documentCount = allDocumentsRows.filter(e => !e.isCategory).length
+    const categoryCount = allDocumentsRows.filter(e => e.isCategory).length
+    const allCount = allDocumentsRows.length
 
     // @ts-ignore
-    this.newObjectList = this.SGET_allBlueprints.map(blueprint => {
+    allTreeDocuments = [...allTreeDocuments, ...extend(true, [], allDocumentsRows)]
+
+    const hierarchicalTreeContent = buildTreeHierarchy(allDocumentsRows)
+
+    const treeRow = {
+      label: blueprint.namePlural,
+      icon: blueprint.icon,
+      order: blueprint.order,
+      _id: blueprint._id,
+      key: blueprint._id,
+      handler: addNewObjectRoute,
+      specialLabel: blueprint.nameSingular.toLowerCase(),
+      isRoot: true,
+      cat: blueprint.category,
+      allCount: allCount,
+      documentCount: documentCount,
+      categoryCount: categoryCount,
+      children: [
+        ...hierarchicalTreeContent,
+        {
+          label: `Add new ${blueprint.nameSingular.toLowerCase()}`,
+          icon: "mdi-plus",
+          handler: addNewObjectRoute,
+          children: false,
+          key: `${blueprint._id}_add`,
+          _id: blueprint._id,
+          specialLabel: blueprint.nameSingular.toLowerCase()
+
+        }
+      ]
+    }
+
+    const matchedCategoryIndex = moduleCategories.findIndex(e => e.label === blueprint.category)
+
+    if (matchedCategoryIndex < 0) {
+      moduleCategories.push({
+        label: blueprint.category,
+        maxOrder: blueprint.order
+      })
+    }
+    else if (moduleCategories[matchedCategoryIndex].maxOrder < blueprint.order) {
+      moduleCategories[matchedCategoryIndex].maxOrder = blueprint.order
+    }
+
+    treeObject.push(treeRow)
+  }
+
+  treeObject.sort((a, b) => {
+    if (a.order < b.order) {
+      return 1
+    }
+
+    if (a.order > b.order) {
+      return -1
+    }
+    return 0
+  })
+
+  moduleCategories.sort((a, b) => {
+    if (a.maxOrder < b.maxOrder) {
+      return 1
+    }
+
+    if (a.maxOrder > b.maxOrder) {
+      return -1
+    }
+    return 0
+  })
+
+  if (!noTags.value) {
+    const tagList = tagListBuildFromBlueprints(allDocumentsStore.getAllDocuments.docs)
+
+    let allTagsCount = 0
+    let allTagsCategories = 0
+    let allTagsDocuments = 0
+
+    allTags.value = tagList
+
+    let tagNodeList = tagList.map((tag: string) => {
+      const tagDocs = allTreeDocuments
+        .filter(doc => {
+          const docTags = doc.extraFields.find(e => e.id === "tags")?.value as unknown as string[]
+          return (docTags && docTags.includes(tag))
+        })
+        .map((doc: I_ShortenedDocument) => {
+        // @ts-ignore
+          doc.key = `${tag}${doc._id}`
+          return doc
+        })
+        .sort((a, b) => a.label.localeCompare(b.label))
+
+      const documentCount = tagDocs.filter(e => !e.isCategory).length
+      const categoryCount = tagDocs.filter(e => e.isCategory).length
+      const allCount = tagDocs.length
+
+      allTagsCount += allCount
+      allTagsCategories += categoryCount
+      allTagsDocuments += documentCount
+
       return {
-        label: blueprint.namePlural,
-        icon: blueprint.icon,
-        order: blueprint.order,
-        _id: blueprint._id,
-        specialLabel: blueprint.nameSingular
-      }
-    }).sort((a, b) => {
-      if (a.order < b.order) {
-        return 1
-      }
-
-      if (a.order > b.order) {
-        return -1
-      }
-      return 0
-    })
-
-    // Process all documents, build hieararchy out of the and sort them via name and custom order
-    for (const blueprint of allBlueprings) {
-      const allDocuments = this.SGET_allDocumentsByType(blueprint._id)
-      let allDocumentsRows: I_ShortenedDocument[] = []
-
-      if (allDocuments && allDocuments.docs) {
-        allDocumentsRows = allDocuments.docs
-          .map((doc) => {
-            const parentDocID = doc.extraFields.find(e => e.id === "parentDoc")?.value.value as unknown as {_id: string}
-            const color = doc.extraFields.find(e => e.id === "documentColor")?.value as unknown as string
-            const bgColor = doc.extraFields.find(e => e.id === "documentBackgroundColor")?.value as unknown as string
-
-            const isCategory = doc.extraFields.find(e => e.id === "categorySwitch")?.value as unknown as boolean
-            const isMinor = doc.extraFields.find(e => e.id === "minorSwitch")?.value as unknown as boolean
-            const isDead = doc.extraFields.find(e => e.id === "deadSwitch")?.value as unknown as boolean
-
-            return {
-              label: doc.extraFields.find(e => e.id === "name")?.value,
-              icon: (isCategory) ? "fas fa-folder-open" : doc.icon,
-              isCategory: !!(isCategory),
-              isMinor: isMinor,
-              isDead: isDead,
-              sticker: doc.extraFields.find(e => e.id === "order")?.value,
-              parentDoc: (parentDocID) ? parentDocID._id : false,
-              handler: this.openExistingDocumentRoute,
-              expandable: true,
-              color: color,
-              bgColor: bgColor,
-              type: doc.type,
-              children: [],
-              hasEdits: false,
-              isNew: false,
-              url: doc.url,
-              extraFields: (doc?.extraFields) ? this.mapImportantExtraFields(doc.extraFields) : [],
-              _id: doc._id,
-              key: doc._id
-            } as I_ShortenedDocument
-          })
-      }
-      const documentCount = allDocumentsRows.filter(e => !e.isCategory).length
-      const categoryCount = allDocumentsRows.filter(e => e.isCategory).length
-      const allCount = allDocumentsRows.length
-
-      // @ts-ignore
-      allTreeDocuments = [...allTreeDocuments, ...extend(true, [], allDocumentsRows)]
-
-      const hierarchicalTreeContent = this.buildTreeHierarchy(allDocumentsRows)
-
-      const treeRow = {
-        label: blueprint.namePlural,
-        icon: blueprint.icon,
-        order: blueprint.order,
-        _id: blueprint._id,
-        key: blueprint._id,
-        handler: this.addNewObjectRoute,
-        specialLabel: blueprint.nameSingular.toLowerCase(),
-        isRoot: true,
-        cat: blueprint.category,
+        label: `${tag}`,
+        icon: "mdi-tag",
+        _id: `tag-${tag}`,
+        key: `tag-${tag}`,
         allCount: allCount,
         documentCount: documentCount,
         categoryCount: categoryCount,
-        children: [
-          ...hierarchicalTreeContent,
-          {
-            label: `Add new ${blueprint.nameSingular.toLowerCase()}`,
-            icon: "mdi-plus",
-            handler: this.addNewObjectRoute,
-            children: false,
-            key: `${blueprint._id}_add`,
-            _id: blueprint._id,
-            specialLabel: blueprint.nameSingular.toLowerCase()
-
-          }
-        ]
+        isRoot: !compactTags.value,
+        isTag: true,
+        children: sortDocuments(tagDocs)
       }
-
-      const matchedCategoryIndex = moduleCategories.findIndex(e => e.label === blueprint.category)
-
-      if (matchedCategoryIndex < 0) {
-        moduleCategories.push({
-          label: blueprint.category,
-          maxOrder: blueprint.order
-        })
-      }
-      else if (moduleCategories[matchedCategoryIndex].maxOrder < blueprint.order) {
-        moduleCategories[matchedCategoryIndex].maxOrder = blueprint.order
-      }
-
-      treeObject.push(treeRow)
-    }
-
-    // Sort the top level of the blueprints
-    treeObject.sort((a, b) => {
-      if (a.order < b.order) {
-        return 1
-      }
-
-      if (a.order > b.order) {
-        return -1
-      }
-      return 0
     })
 
-    // Sort the top level of the super-categories
-    moduleCategories.sort((a, b) => {
-      if (a.maxOrder < b.maxOrder) {
-        return 1
-      }
-
-      if (a.maxOrder > b.maxOrder) {
-        return -1
-      }
-      return 0
-    })
-
-    if (!this.noTags) {
-      const tagList = tagListBuildFromBlueprints(this.SGET_allDocuments.docs)
-
-      let allTags = 0
-      let allTagsCategories = 0
-      let allTagsDocuments = 0
-
-      this.allTags = tagList
-
-      let tagNodeList = tagList.map((tag: string) => {
-        const tagDocs = allTreeDocuments
-          .filter(doc => {
-            const docTags = doc.extraFields.find(e => e.id === "tags")?.value as unknown as string[]
-            return (docTags && docTags.includes(tag))
-          })
-          .map((doc:I_ShortenedDocument) => {
-          // @ts-ignore
-            doc.key = `${tag}${doc._id}`
-            // @ts-ignore
-            // doc.isTag = true
-            return doc
-          })
-          .sort((a, b) => a.label.localeCompare(b.label))
-
-        const documentCount = tagDocs.filter(e => !e.isCategory).length
-        const categoryCount = tagDocs.filter(e => e.isCategory).length
-        const allCount = tagDocs.length
-
-        allTags += allCount
-        allTagsCategories += categoryCount
-        allTagsDocuments += documentCount
-
-        return {
-          label: `${tag}`,
+    if (compactTags.value && tagNodeList.length > 0) {
+      tagNodeList = [
+        {
+          label: "Tags",
           icon: "mdi-tag",
-          _id: `tag-${tag}`,
-          key: `tag-${tag}`,
-          allCount: allCount,
-          documentCount: documentCount,
-          categoryCount: categoryCount,
-          isRoot: !this.compactTags,
+          _id: "tagsList",
+          key: "tagList",
+          isRoot: true,
+          allCount: allTagsCount,
+          documentCount: allTagsDocuments,
+          categoryCount: allTagsCategories,
           isTag: true,
-          children: this.sortDocuments(tagDocs)
-        }
-      })
-
-      if (this.compactTags && tagNodeList.length > 0) {
-        tagNodeList = [
-          {
-            label: "Tags",
-            icon: "mdi-tag",
-            _id: "tagsList",
-            key: "tagList",
-            isRoot: true,
-            allCount: allTags,
-            documentCount: allTagsDocuments,
-            categoryCount: allTagsCategories,
-            isTag: true,
-            isTagWrapper: true,
-            // @ts-ignore
-            children: tagNodeList.map(e => {
-              e.isRoot = false
-              return e
-            })
-          }
-        ]
-
-        /*  if (this.firstTimeRender) {
-          this.expandedTreeNodes = [...new Set([
-            ...this.expandedTreeNodes,
-            "tagList"
-          ])]
-        } */
-      }
-
-      treeObject = [...tagNodeList, ...treeObject]
-    }
-
-    treeObject = [
-      ...(this.tagsAtTop) ? treeObject.filter(branch => branch.isTag) : [],
-      ...moduleCategories.map(cat => {
-        return {
-          label: cat.label,
-          icon: "mdi-database",
-          _id: `module-${cat.label}`,
-          key: `module-${cat.label}`,
-          isModule: true,
+          isTagWrapper: true,
           // @ts-ignore
-          children: treeObject.filter(e => e.cat === cat.label)
+          children: tagNodeList.map(e => {
+            e.isRoot = false
+            return e
+          })
         }
-      }),
-      ...(this.tagsAtTop) ? [] : treeObject.filter(branch => branch.isTag)
-    ]
-
-    if (this.firstTimeRender && moduleCategories.length > 0) {
-      this.expandedTreeNodes = [...new Set([
-        ...this.expandedTreeNodes,
-        ...moduleCategories.map(e => `module-${e.label}`)
-      ])]
-
-      this.firstTimeRender = false
+      ]
     }
 
-    // Assign the finished object to the render model
-    treeObject.forEach(cat => this.recursivelyFreezeChildren(cat.children))
-    // @ts-ignore
-    this.hierarchicalTree = treeObject
+    treeObject = [...tagNodeList, ...treeObject]
   }
 
-  firstTimeRender = true
-
-  recursivelyFreezeChildren (children: {children: []}) {
-    Object.freeze(children)
-    if (children.children) {
-      // @ts-ignore
-      this.recursivelyFreezeChildren(children.children)
-    }
-  }
-
-  processNodeNewDocumentButton (node: {
-    key: string
-    _id: string
-    children: []
-    type: string
-    isRoot: boolean
-    specialLabel: string|boolean
-  }) {
-    // If this is top level blueprint
-    if (node.isRoot) {
-      // @ts-ignore
-      this.addNewObjectRoute(node)
-    }
-    // If this is a custom document
-    else {
-      const routeObject = {
-        _id: node.type,
-        parent: node._id
+  treeObject = [
+    ...(tagsAtTop.value) ? treeObject.filter(branch => branch.isTag) : [],
+    ...moduleCategories.map(cat => {
+      return {
+        label: cat.label,
+        icon: "mdi-database",
+        _id: `module-${cat.label}`,
+        key: `module-${cat.label}`,
+        isModule: true,
+        // @ts-ignore
+        children: treeObject.filter(e => e.cat === cat.label)
       }
-      // @ts-ignore
-      this.addNewObjectRoute(routeObject)
-    }
+    }),
+    ...(tagsAtTop.value) ? [] : treeObject.filter(branch => branch.isTag)
+  ]
+
+  if (firstTimeRender.value && moduleCategories.length > 0) {
+    expandedTreeNodes.value = [...new Set([
+      ...expandedTreeNodes.value,
+      ...moduleCategories.map(e => `module-${e.label}`)
+    ])]
+
+    firstTimeRender.value = false
   }
 
-  processNodeNewUnderTag (node: {
-    key: string
-    _id: string
-    children: []
-    type: string
-    isRoot: boolean
-    label: string
-    specialLabel: string|boolean
-  }, documentType: {_id: string}) {
+  treeObject.forEach(cat => recursivelyFreezeChildren(cat.children))
+  // @ts-ignore
+  hierarchicalTree.value = treeObject
+}
+
+const firstTimeRender = ref(true)
+
+function recursivelyFreezeChildren (children: {children: []}) {
+  Object.freeze(children)
+  if (children.children) {
+    // @ts-ignore
+    recursivelyFreezeChildren(children.children)
+  }
+}
+
+function processNodeNewDocumentButton (node: {
+  key: string
+  _id: string
+  children: []
+  type: string
+  isRoot: boolean
+  specialLabel: string|boolean
+}) {
+  if (node.isRoot) {
+    // @ts-ignore
+    addNewObjectRoute(node)
+  }
+  else {
     const routeObject = {
-      _id: documentType._id,
-      tag: node.label
+      _id: node.type,
+      parent: node._id
     }
-
     // @ts-ignore
-    this.addNewObjectRoute(routeObject)
+    addNewObjectRoute(routeObject)
+  }
+}
+
+function processNodeNewUnderTag (node: {
+  key: string
+  _id: string
+  children: []
+  type: string
+  isRoot: boolean
+  label: string
+  specialLabel: string|boolean
+}, documentType: {_id: string}) {
+  const routeObject = {
+    _id: documentType._id,
+    tag: node.label
   }
 
-  buildTreeExpands (newDocs: I_OpenedDocument[]) {
-    const expandIDs: string[] = []
+  // @ts-ignore
+  addNewObjectRoute(routeObject)
+}
 
-    let newDocsSnapshot: I_OpenedDocument[] = extend(true, [], newDocs)
+function buildTreeExpands (newDocs: I_OpenedDocument[]) {
+  const expandIDs: string[] = []
 
-    // Check for parent changes
-    newDocsSnapshot.forEach((s, index) => {
-      const oldParentDoc = this.lastDocsSnapShot.find(doc => doc._id === s._id)
-      // Fizzle if the parent doesn't exist in the old version
-      if (!oldParentDoc) {
-        return false
-      }
+  let newDocsSnapshot: I_OpenedDocument[] = extend(true, [], newDocs)
 
-      const oldParentDocField = this.retrieveFieldValue(oldParentDoc, "parentDoc")
-      // @ts-ignore
-      const oldParentDocID = (oldParentDocField?.value) ? oldParentDocField.value.value : ""
-
-      const newParentDocField = this.retrieveFieldValue(s, "parentDoc")
-
-      // @ts-ignore
-      const newParentDocID = (newParentDocField?.value) ? newParentDocField.value.value : ""
-      if ((newParentDocID !== oldParentDocID) || (newParentDocID && oldParentDoc.isNew)) {
-        expandIDs.push(newParentDocID)
-      }
-    })
-
-    // Process top level documents
-    newDocsSnapshot.forEach(s => {
-      const newParentDocField = this.retrieveFieldValue(s, "parentDoc")
-      const oldParentDoc = this.lastDocsSnapShot.find(doc => doc._id === s._id)
-      // @ts-ignore
-      const oldParentDocField = this.retrieveFieldValue(oldParentDoc, "parentDoc")
-
-      // @ts-ignore
-      const oldParentDocID = (oldParentDocField?.value) ? oldParentDocField.value.value : false
-
-      // @ts-ignore
-      const newParentDocID = (newParentDocField?.value) ? newParentDocField.value.value : false
-
-      if (!newParentDocID && oldParentDocID !== newParentDocID) {
-        expandIDs.push(s.type)
-      }
-    })
-
-    // @ts-ignore
-    newDocsSnapshot = null
-
-    expandIDs.forEach(s => {
-      this.recursivelyExpandNodeUpwards(s)
-    })
-  }
-
-  recursivelyExpandNodeUpwards (nodeID: string) {
-    const treeDOM = this.$refs.tree as unknown as {
-      setExpanded: (key:string, state: boolean)=> void
-      getNodeByKey: (key:string)=> void
+  newDocsSnapshot.forEach((s, index) => {
+    const oldParentDoc = lastDocsSnapShot.value.find(doc => doc._id === s._id)
+    if (!oldParentDoc) {
+      return false
     }
 
+    const oldParentDocField = retrieveFieldValue(oldParentDoc, "parentDoc")
     // @ts-ignore
-    this.expandedTreeNodes = [...new Set([
-      ...this.expandedTreeNodes,
-      nodeID
+    const oldParentDocID = (oldParentDocField?.value) ? oldParentDocField.value.value : ""
+
+    const newParentDocField = retrieveFieldValue(s, "parentDoc")
+
+    // @ts-ignore
+    const newParentDocID = (newParentDocField?.value) ? newParentDocField.value.value : ""
+    if ((newParentDocID !== oldParentDocID) || (newParentDocID && oldParentDoc.isNew)) {
+      expandIDs.push(newParentDocID)
+    }
+  })
+
+  newDocsSnapshot.forEach(s => {
+    const newParentDocField = retrieveFieldValue(s, "parentDoc")
+    const oldParentDoc = lastDocsSnapShot.value.find(doc => doc._id === s._id)
+    // @ts-ignore
+    const oldParentDocField = retrieveFieldValue(oldParentDoc, "parentDoc")
+
+    // @ts-ignore
+    const oldParentDocID = (oldParentDocField?.value) ? oldParentDocField.value.value : false
+
+    // @ts-ignore
+    const newParentDocID = (newParentDocField?.value) ? newParentDocField.value.value : false
+
+    if (!newParentDocID && oldParentDocID !== newParentDocID) {
+      expandIDs.push(s.type)
+    }
+  })
+
+  // @ts-ignore
+  newDocsSnapshot = null
+
+  expandIDs.forEach(s => {
+    recursivelyExpandNodeUpwards(s)
+  })
+}
+
+function recursivelyExpandNodeUpwards (nodeID: string) {
+  const treeDOM = treeRef.value as unknown as {
+    setExpanded: (key:string, state: boolean)=> void
+    getNodeByKey: (key:string)=> void
+  }
+
+  // @ts-ignore
+  expandedTreeNodes.value = [...new Set([
+    ...expandedTreeNodes.value,
+    nodeID
+  ])]
+
+  const currentTreeNode = (treeDOM?.getNodeByKey(nodeID)) as unknown as {parentDoc: string, type: string}
+
+  if (currentTreeNode?.parentDoc) {
+    recursivelyExpandNodeUpwards(currentTreeNode.parentDoc)
+  }
+  else if (currentTreeNode?.type) {
+    // @ts-ignore
+    expandedTreeNodes.value = [...new Set([
+      ...expandedTreeNodes.value,
+      currentTreeNode.type
     ])]
+  }
+}
 
-    const currentTreeNode = (treeDOM.getNodeByKey(nodeID)) as unknown as {parentDoc: string, type: string}
-
-    // Dig into the upper hierarchy
-    if (currentTreeNode?.parentDoc) {
-      this.recursivelyExpandNodeUpwards(currentTreeNode.parentDoc)
-    }
-    // If we are at the top of the tree, expand the top category
-    else if (currentTreeNode?.type) {
-      // @ts-ignore
-      this.expandedTreeNodes = [...new Set([
-        ...this.expandedTreeNodes,
-        currentTreeNode.type
-      ])]
-    }
+function recursivelyExpandNodeDownwards (nodeID: string, tagParent = false) {
+  const treeDOM = treeRef.value as unknown as {
+    setExpanded: (key:string, state: boolean)=> void
+    getNodeByKey: (key:string)=> void
   }
 
-  recursivelyExpandNodeDownwards (nodeID: string, tagParent = false) {
-    const treeDOM = this.$refs.tree as unknown as {
-      setExpanded: (key:string, state: boolean)=> void
-      getNodeByKey: (key:string)=> void
+  // @ts-ignore
+  expandedTreeNodes.value = [...new Set([
+    ...expandedTreeNodes.value,
+    nodeID
+  ])]
+
+  const currentTreeNode = (treeDOM?.getNodeByKey(nodeID)) as unknown as {children: any[], type: string, isTag: boolean}
+
+  if (currentTreeNode?.children && currentTreeNode?.children.length > 0) {
+    for (const child of currentTreeNode.children) {
+      recursivelyExpandNodeDownwards(child.key, tagParent)
     }
-
+  }
+  else if (currentTreeNode?.type && !tagParent) {
     // @ts-ignore
-    this.expandedTreeNodes = [...new Set([
-      ...this.expandedTreeNodes,
-      nodeID
+    expandedTreeNodes.value = [...new Set([
+      ...expandedTreeNodes.value,
+      currentTreeNode.type
     ])]
+  }
+}
 
-    const currentTreeNode = (treeDOM.getNodeByKey(nodeID)) as unknown as {children: any[], type: string, isTag: boolean}
+function processNodeLabelMiddleClick (node: {
+  key: string
+  _id: string
+  children: []
+  type: string
+  isRoot: boolean
+  isTag: boolean
+  isModule: boolean
+  specialLabel: string|boolean
+}) {
+  if ((node.isRoot && node.isTag) || node.isModule) {
+    return
+  }
 
-    // Dig into the upper hierarchy
-    if (currentTreeNode?.children && currentTreeNode?.children.length > 0) {
-      for (const child of currentTreeNode.children) {
-        this.recursivelyExpandNodeDownwards(child.key, tagParent)
+  if (!node.specialLabel && !node.isRoot) {
+    // @ts-ignore
+    openExistingDocumentRoute(node)
+  }
+  else {
+    addNewObjectRoute(node)
+  }
+}
+
+function processNodeClick (node: {
+  key: string
+  children: []
+  specialLabel: string|boolean
+}) {
+  if (node.children.length > 0) {
+    expandeCollapseNode(node)
+  }
+  else if (!node.specialLabel) {
+    // @ts-ignore
+    openExistingDocumentRoute(node)
+  }
+  else {
+    // @ts-ignore
+    addNewObjectRoute(node)
+  }
+}
+
+function expandeCollapseNode (node: {key: string, children: []}) {
+  const treeDOM = treeRef.value as unknown as {
+    setExpanded: (key:string, state: boolean)=> void,
+    isExpanded: (key:string)=> boolean
+  }
+
+  const isExpanded = treeDOM?.isExpanded(node.key)
+
+  if (isExpanded) {
+    collapseAllNodes(node)
+  }
+  else {
+    treeDOM?.setExpanded(node.key, true)
+  }
+}
+
+function determineNodeColor (node: {color: string, isTag: boolean, isRoot: boolean, isModule: boolean}) {
+  // @ts-ignore
+  return (node?.isTag || node?.isModule) ? colors.getBrand("primary") : node.color
+}
+
+function collapseAllNodes (node: {key: string, children: []}) {
+  if (node.children && !doNotcollaseTreeOptions.value) {
+    for (const child of node.children) {
+      if (expandedTreeNodes.value.includes(node.key)) {
+        collapseAllNodes(child)
       }
     }
-    // If we are at the top of the tree, expand the top category
-    else if (currentTreeNode?.type && !tagParent) {
-      // @ts-ignore
-      this.expandedTreeNodes = [...new Set([
-        ...this.expandedTreeNodes,
-        currentTreeNode.type
-      ])]
+  }
+  if (expandedTreeNodes.value.includes(node.key)) {
+    expandedTreeNodes.value = expandedTreeNodes.value.filter(n => n !== node.key)
+  }
+}
+
+function collapseAllNodesForce (node: {key: string, children: []}) {
+  if (node.children) {
+    for (const child of node.children) {
+      if (expandedTreeNodes.value.includes(node.key)) {
+        collapseAllNodesForce(child)
+      }
     }
   }
+  if (expandedTreeNodes.value.includes(node.key)) {
+    expandedTreeNodes.value = expandedTreeNodes.value.filter(n => n !== node.key)
+  }
+}
 
-  processNodeLabelMiddleClick (node: {
-    key: string
-    _id: string
-    children: []
-    type: string
-    isRoot: boolean
-    isTag: boolean
-    isModule: boolean
-    specialLabel: string|boolean
-  }) {
-    if ((node.isRoot && node.isTag) || node.isModule) {
+function determineCategoryString (node: {
+  documentCount: string
+  categoryCount: string
+}) {
+  let extraDivider = ""
+  if (doubleDashDocCount.value) {
+    extraDivider = "|"
+  }
+
+  if (compactDocumentCount.value) {
+    return `(<span class="docCount">${node.documentCount}</span>)`
+  }
+  if (invertCategoryPosition.value) {
+    return `(<span class="catCount">${node.categoryCount}</span>&nbsp;|${extraDivider}&nbsp;<span class="docCount">${node.documentCount}</span>)`
+  }
+  else {
+    return `(<span class="docCount">${node.documentCount}</span>&nbsp;|${extraDivider}&nbsp;<span class="catCount">${node.categoryCount}</span>)`
+  }
+}
+
+/****************************************************************/
+// Document field copying
+/****************************************************************/
+
+function copyName (currentDoc: I_OpenedDocument) {
+  copyDocumentName(currentDoc)
+}
+
+function copyTextColor (currentDoc: I_OpenedDocument) {
+  copyDocumentTextColor(currentDoc)
+}
+
+function copyBackgroundColor (currentDoc: I_OpenedDocument) {
+  copyDocumentBackgroundColor(currentDoc)
+}
+
+/****************************************************************/
+// Document copy
+/****************************************************************/
+
+const documentPass = ref(null as unknown as I_OpenedDocument)
+
+function copyTargetDocument (currentDoc: I_OpenedDocument) {
+  documentPass.value = extend(true, {}, allDocumentsStore.getDocument(currentDoc._id))
+
+  const blueprint = blueprintsStore.getBlueprint(documentPass.value.type)
+  const newDocument = copyDocument(documentPass.value, generateUID(), blueprint)
+
+  const dataPass = {
+    doc: newDocument,
+    treeAction: false
+  }
+
+  // @ts-ignore
+  openedDocumentsStore.addDocument(dataPass)
+  router.push({
+    path: newDocument.url
+  }).catch((e: {name: string}) => {
+    const errorName: string = e.name
+    if (errorName === "NavigationDuplicated") {
       return
     }
+    console.log(e)
+  })
+}
 
-    if (!node.specialLabel && !node.isRoot) {
+/****************************************************************/
+// Add new document under parent
+/****************************************************************/
+function addNewUnderParent (currentDoc: I_OpenedDocument) {
+  createNewWithParent(currentDoc, {
+    addNewObjectRoute: (obj: any) => router.push({ path: `/project/display-content/${obj._id}/${uid()}`, query: { parent: obj.parent ?? "", tag: obj.tag ?? "" } }).catch(console.log)
+  })
+}
+
+function triggerExport (node: {_id: string}) {
+  dialogsStore.setExportDialogState([node._id])
+}
+
+function massExportDocuments (node: { children: { _id: string}[]}) {
+  /*eslint-disable */
+  // @ts-ignore
+  const exExportIDs: string[] = (flatten(node.children))
+    .filter((e: {extraFields?: string}) => e?.extraFields)
+    .map((e: {_id: string}) => e._id)
+  /* eslint-enable */
+
+  dialogsStore.setExportDialogState(exExportIDs)
+}
+
+/****************************************************************/
+// Delete dialog
+/****************************************************************/
+
+const deleteObjectDialogTrigger = ref<string | false>(false)
+function deleteObjectDialogClose () {
+  deleteObjectDialogTrigger.value = false
+}
+
+function deleteObjectAssignUID () {
+  deleteObjectDialogTrigger.value = generateUID()
+}
+
+const toDeleteID = ref("")
+const toDeleteType = ref("")
+
+function deleteTabDocument (targetDocument: I_OpenedDocument) {
+  toDeleteID.value = targetDocument._id
+  toDeleteType.value = targetDocument.type
+  deleteObjectAssignUID()
+}
+
+/****************************************************************/
+// Rename tag dialog
+/****************************************************************/
+
+const renameTagDialogTrigger = ref<string | false>(false)
+function renameTagDialogClose () {
+  renameTagDialogTrigger.value = false
+}
+
+function renameTagAssignUID () {
+  renameTagDialogTrigger.value = generateUID()
+}
+
+function renameTag (node: { label: string, children: { _id: string}[]}) {
+  toRenameTag.value = node.label
+  toRenameTagDocumentIdList.value = node.children.map(child => child._id)
+
+  renameTagAssignUID()
+}
+
+const toRenameTag = ref("")
+const toRenameTagDocumentIdList = ref<string[]>([])
+
+/****************************************************************/
+// Delete tag dialog
+/****************************************************************/
+
+const deleteTagDialogTrigger = ref<string | false>(false)
+function deleteTagDialogClose () {
+  deleteTagDialogTrigger.value = false
+}
+
+function deleteTagAssignUID () {
+  deleteTagDialogTrigger.value = generateUID()
+}
+
+function deleteTag (node: { label: string, children: { _id: string}[]}) {
+  toDeleteTag.value = node.label
+  toDeleteTagDocumentIdList.value = node.children.map(child => child._id)
+
+  deleteTagAssignUID()
+}
+
+const toDeleteTag = ref("")
+const toDeleteTagDocumentIdList = ref<string[]>([])
+
+function setDocumentPreviewClose () {
+  documentPreviewClose.value = uid()
+}
+
+const documentPreviewClose = ref("")
+
+const allTags = ref<string[]>([])
+
+/****************************************************************/
+// Mass delete documents dialog
+/****************************************************************/
+
+const massDocumentDelteDialogTrigger = ref<string | false>(false)
+function massDocumentDelteDialogClose () {
+  massDocumentDelteDialogTrigger.value = false
+}
+
+function massDocumentDelteDialogAssignUID () {
+  massDocumentDelteDialogTrigger.value = generateUID()
+}
+
+function flatten (data: { children: { _id: string}[]}) {
+  /*eslint-disable */
+  // @ts-ignore
+  return data.reduce((r, { children, ...rest }) => {
+    r.push(rest)
+    if (children) {
       // @ts-ignore
-      this.openExistingDocumentRoute(node)
+      r.push(...flatten(children))
     }
-    else {
-      this.addNewObjectRoute(node)
-    }
-  }
+    return r
+  }, [])
+  /* eslint-enable */
+}
 
-  processNodeClick (node: {
-    key: string
-    children: []
-    specialLabel: string|boolean
-  }) {
-    // If this is a category or has children
-    if (node.children.length > 0) {
-      this.expandeCollapseNode(node)
-    }
-    // If this lacks a "special label" - AKA anything that isn't the "Add new XY" node
-    else if (!node.specialLabel) {
-      // @ts-ignore
-      this.openExistingDocumentRoute(node)
-    }
-    // If this lacks a "special label" - AKA if this is the "Add new XY" node
-    else {
-      // @ts-ignore
-      this.addNewObjectRoute(node)
-    }
-  }
+const toDeleteIDs = ref<string[]>([])
 
-  expandeCollapseNode (node: {key: string, children: []}) {
-    const treeDOM = this.$refs.tree as unknown as {
-      setExpanded: (key:string, state: boolean)=> void,
-      isExpanded: (key:string)=> boolean
-    }
+function massDeleteDocuments (node: { children: { _id: string}[]}) {
+  /*eslint-disable */
+  // @ts-ignore
+  const toDeleteDocumentIDs: string[] = (flatten(node.children))
+    .filter((e: {extraFields?: string}) => e?.extraFields)
+    .map((e: {_id: string}) => e._id)
+  /* eslint-enable */
 
-    const isExpanded = treeDOM.isExpanded(node.key)
-
-    if (isExpanded) {
-      this.collapseAllNodes(node)
-    }
-    else {
-      treeDOM.setExpanded(node.key, true)
-    }
-  }
-
-  determineNodeColor (node: {color: string, isTag: boolean, isRoot: boolean, isModule: boolean}) {
-    // @ts-ignore
-    return (node?.isTag || node?.isModule) ? colors.getBrand("primary") : node.color
-  }
-
-  collapseAllNodes (node: {key: string, children: []}) {
-    if (node.children && !this.doNotcollaseTreeOptions) {
-      for (const child of node.children) {
-        if (this.expandedTreeNodes.includes(node.key)) {
-          this.collapseAllNodes(child)
-        }
-      }
-    }
-    if (this.expandedTreeNodes.includes(node.key)) {
-      this.expandedTreeNodes = this.expandedTreeNodes.filter(n => n !== node.key)
-    }
-  }
-
-  collapseAllNodesForce (node: {key: string, children: []}) {
-    if (node.children) {
-      for (const child of node.children) {
-        if (this.expandedTreeNodes.includes(node.key)) {
-          this.collapseAllNodesForce(child)
-        }
-      }
-    }
-    if (this.expandedTreeNodes.includes(node.key)) {
-      this.expandedTreeNodes = this.expandedTreeNodes.filter(n => n !== node.key)
-    }
-  }
-
-  determineCategoryString (node: {
-    documentCount: string
-    categoryCount: string
-  }) {
-    let extraDivider = ""
-    if (this.doubleDashDocCount) {
-      extraDivider = "|"
-    }
-
-    if (this.compactDocumentCount) {
-      return `(<span class="docCount">${node.documentCount}</span>)`
-    }
-    if (this.invertCategoryPosition) {
-      return `(<span class="catCount">${node.categoryCount}</span>&nbsp;|${extraDivider}&nbsp;<span class="docCount">${node.documentCount}</span>)`
-    }
-    else {
-      return `(<span class="docCount">${node.documentCount}</span>&nbsp;|${extraDivider}&nbsp;<span class="catCount">${node.categoryCount}</span>)`
-    }
-  }
-
-  /****************************************************************/
-  // Document field copying
-  /****************************************************************/
-
-  copyName (currentDoc: I_OpenedDocument) {
-    copyDocumentName(currentDoc)
-  }
-
-  copyTextColor (currentDoc: I_OpenedDocument) {
-    copyDocumentTextColor(currentDoc)
-  }
-
-  copyBackgroundColor (currentDoc: I_OpenedDocument) {
-    copyDocumentBackgroundColor(currentDoc)
-  }
-
-  /****************************************************************/
-  // Document copy
-  /****************************************************************/
-
-  documentPass = null as unknown as I_OpenedDocument
-
-  copyTargetDocument (currentDoc: I_OpenedDocument) {
-    this.documentPass = extend(true, {}, this.SGET_document(currentDoc._id))
-
-    const blueprint = this.SGET_blueprint(this.documentPass.type)
-    const newDocument = copyDocument(this.documentPass, this.generateUID(), blueprint)
-
-    const dataPass = {
-      doc: newDocument,
-      treeAction: false
-    }
-
-    // @ts-ignore
-    this.SSET_addOpenedDocument(dataPass)
-    this.$router.push({
-      path: newDocument.url
-    }).catch((e: {name: string}) => {
-      const errorName : string = e.name
-      if (errorName === "NavigationDuplicated") {
-        return
-      }
-      console.log(e)
-    })
-  }
-
-  /****************************************************************/
-  // Add new document under parent
-  /****************************************************************/
-  addNewUnderParent (currentDoc: I_OpenedDocument) {
-    createNewWithParent(currentDoc, this)
-  }
-
-  triggerExport (node: {_id: string}) {
-    this.SSET_setExportDialogState([node._id])
-  }
-
-  massExportDocuments (node: { children: { _id: string}[]}) {
-    /*eslint-disable */
-    // @ts-ignore
-    const exExportIDs: string[] = (this.flatten(node.children))
-      .filter((e: {extraFields?: string}) => e?.extraFields)
-      .map((e: {_id: string}) => e._id)
-    /* eslint-enable */
-
-    this.SSET_setExportDialogState(exExportIDs)
-  }
-
-  /****************************************************************/
-  // Delete dialog
-  /****************************************************************/
-
-  deleteObjectDialogTrigger: string | false = false
-  deleteObjectDialogClose () {
-    this.deleteObjectDialogTrigger = false
-  }
-
-  deleteObjectAssignUID () {
-    this.deleteObjectDialogTrigger = this.generateUID()
-  }
-
-  toDeleteID = ""
-  toDeleteType = ""
-
-  deleteTabDocument (targetDocument: I_OpenedDocument) {
-    this.toDeleteID = targetDocument._id
-    this.toDeleteType = targetDocument.type
-    this.deleteObjectAssignUID()
-  }
-
-  /****************************************************************/
-  // Rename tag dialog
-  /****************************************************************/
-
-  renameTagDialogTrigger: string | false = false
-  renameTagDialogClose () {
-    this.renameTagDialogTrigger = false
-  }
-
-  renameTagAssignUID () {
-    this.renameTagDialogTrigger = this.generateUID()
-  }
-
-  renameTag (node: { label: string, children: { _id: string}[]}) {
-    this.toRenameTag = node.label
-    this.toRenameTagDocumentIdList = node.children.map(child => child._id)
-
-    this.renameTagAssignUID()
-  }
-
-  toRenameTag = ""
-  toRenameTagDocumentIdList: string[] = []
-
-  /****************************************************************/
-  // Delete tag dialog
-  /****************************************************************/
-
-  deleteTagDialogTrigger: string | false = false
-  deleteTagDialogClose () {
-    this.deleteTagDialogTrigger = false
-  }
-
-  deleteTagAssignUID () {
-    this.deleteTagDialogTrigger = this.generateUID()
-  }
-
-  deleteTag (node: { label: string, children: { _id: string}[]}) {
-    this.toDeleteTag = node.label
-    this.toDeleteTagDocumentIdList = node.children.map(child => child._id)
-
-    this.deleteTagAssignUID()
-  }
-
-  toDeleteTag = ""
-  toDeleteTagDocumentIdList: string[] = []
-
-  setDocumentPreviewClose () {
-    this.documentPreviewClose = uid()
-  }
-
-  documentPreviewClose = ""
-
-  allTags: string[] = []
-
-  /****************************************************************/
-  // Mass delete documents dialog
-  /****************************************************************/
-
-  massDocumentDelteDialogTrigger: string | false = false
-  massDocumentDelteDialogClose () {
-    this.massDocumentDelteDialogTrigger = false
-  }
-
-  massDocumentDelteDialogAssignUID () {
-    this.massDocumentDelteDialogTrigger = this.generateUID()
-  }
-
-  flatten (data: { children: { _id: string}[]}) {
-    /*eslint-disable */
-    // @ts-ignore
-    return data.reduce((r, { children, ...rest }) => {
-      r.push(rest)
-      if (children) {
-        // @ts-ignore
-        r.push(...this.flatten(children))
-      }
-      return r
-    }, [])
-    /* eslint-enable */
-  }
-
-  toDeleteIDs: string[] = []
-
-  massDeleteDocuments (node: { children: { _id: string}[]}) {
-    /*eslint-disable */
-    // @ts-ignore
-    const toDeleteDocumentIDs: string[] = (this.flatten(node.children))
-      .filter((e: {extraFields?: string}) => e?.extraFields)
-      .map((e: {_id: string}) => e._id)
-    /* eslint-enable */
-
-    this.toDeleteIDs = toDeleteDocumentIDs
-    this.massDocumentDelteDialogAssignUID()
-  }
+  toDeleteIDs.value = toDeleteDocumentIDs
+  massDocumentDelteDialogAssignUID()
 }
 </script>
 

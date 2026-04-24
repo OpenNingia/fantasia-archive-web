@@ -43,59 +43,61 @@
 
 </template>
 
-<script lang="ts">
-import { Component, Emit, Prop, Watch } from "vue-property-decorator"
+<script setup lang="ts">
+import { ref, computed, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import type { I_ExtraFields } from "src/interfaces/I_Blueprint"
 
-import FieldBase from "src/components/fields/_FieldBase"
+const props = defineProps<{
+  inputDataBluePrint: I_ExtraFields
+  editMode?: boolean
+  inputDataValue?: boolean
+}>()
 
-@Component({
-  components: { }
-})
-export default class Field_Switch extends FieldBase {
-  /****************************************************************/
-  // BASIC FIELD DATA
-  /****************************************************************/
+const emit = defineEmits(["signalInput"])
 
-  /**
-   * Already existing value in the input field (IF one is there right now)
-   */
-  @Prop({ default: false }) readonly inputDataValue!: boolean
+const { optionsStore, projectStore } = useAppStores()
 
-  /****************************************************************/
-  // INPUT HANDLING
-  /****************************************************************/
+const isDarkMode = ref(false)
+const disableDocumentToolTips = ref(false)
+const textShadow = ref(false)
+const hideDeadCrossThrough = ref(false)
+const hideAdvSearchCheatsheetButton = ref(false)
+const preventPreviewsDocuments = ref(false)
+const agressiveRelationshipFilter = ref(false)
 
-  /**
-   * Watch changes to the prefilled data already existing in the field and update local input accordingly
-   */
-  @Watch("inputDataValue", { immediate: true })
-  reactToInputChanges () {
-    this.localInput = (typeof this.inputDataValue === "boolean") ? this.inputDataValue : false
-  }
+const inputIcon = computed(() => props.inputDataBluePrint?.icon)
+const toolTip = computed(() => props.inputDataBluePrint?.tooltip)
+const isMasterOnlyField = computed(() => props.inputDataBluePrint?.masterOnly === true)
+const canEditMasterOnlyField = computed(() => projectStore.currentUserRole === "master")
 
-  /**
-   * Model for the local input
-   */
-  localInput: null|boolean = null
+watch(() => optionsStore.getOptions, (options) => {
+  isDarkMode.value = options.darkMode
+  disableDocumentToolTips.value = options.disableDocumentToolTips
+  textShadow.value = options.textShadow
+  hideDeadCrossThrough.value = options.hideDeadCrossThrough
+  hideAdvSearchCheatsheetButton.value = options.hideAdvSearchCheatsheetButton
+  preventPreviewsDocuments.value = options.preventPreviewsDocuments
+  agressiveRelationshipFilter.value = options.agressiveRelationshipFilter
+}, { immediate: true, deep: true })
 
-  /**
-   * Debounce timer to prevent buggy input sync
-   */
-  pullTimer = null as any
+// Input handling
+const localInput = ref<null | boolean>(null)
 
-  processInput () {
-    clearTimeout(this.pullTimer)
-    this.pullTimer = setTimeout(() => {
-      this.signalInput()
-    }, 500)
-  }
+watch(() => props.inputDataValue, () => {
+  localInput.value = (typeof props.inputDataValue === "boolean") ? props.inputDataValue : false
+}, { immediate: true })
 
-  /**
-   * Signals the input change to the document body parent component
-   */
-  @Emit()
-  signalInput () {
-    return this.localInput
-  }
+let pullTimer = null as any
+
+function processInput () {
+  clearTimeout(pullTimer)
+  pullTimer = setTimeout(() => {
+    signalInput()
+  }, 500)
+}
+
+function signalInput () {
+  emit("signalInput", localInput.value)
 }
 </script>

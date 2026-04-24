@@ -302,11 +302,10 @@
   </q-page>
 </template>
 
-<script lang="ts">
-import { Component, Watch } from "vue-property-decorator"
-
-import BaseClass from "src/BaseClass"
+<script setup lang="ts">
+import { ref, watch } from "vue"
 import { Loading, colors, uid, extend } from "quasar"
+import { useRouter } from "vue-router"
 import newDocumentDialog from "src/components/dialogs/NewDocument.vue"
 import { retrieveLastOpenedDocuments } from "src/scripts/projectManagement/projectManagent"
 import { tipsTricks } from "src/scripts/utilities/tipsTricks"
@@ -317,402 +316,365 @@ import { copyDocument } from "src/scripts/documentActions/copyDocument"
 import { createNewWithParent } from "src/scripts/documentActions/createNewWithParent"
 import deleteDocumentCheckDialog from "src/components/dialogs/DeleteDocumentCheck.vue"
 import documentPreview from "src/components/DocumentPreview.vue"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 
-@Component({
-  components: {
-    newDocumentDialog,
-    deleteDocumentCheckDialog,
-    documentPreview
+const router = useRouter()
+const {
+  blueprintsStore,
+  openedDocumentsStore,
+  allDocumentsStore,
+  dialogsStore,
+  optionsStore,
+  projectStore
+} = useAppStores()
+
+const {
+  generateUID,
+  sleep,
+  stripTags,
+  openExistingDocumentRoute,
+  openExistingDocumentRouteWithEdit,
+  openDocumentPreviewPanel,
+  addNewObjectRoute
+} = useDocumentHelpers()
+
+/****************************************************************/
+// LOCAL SETTINGS
+/****************************************************************/
+
+const hideDeadCrossThrough = ref(false)
+const preventPreviewsDocuments = ref(false)
+const hidePlushes = ref(false)
+const disableDocumentControlBar = ref(false)
+const hideTooltipsProject = ref(false)
+
+watch(() => optionsStore.getOptions, (options) => {
+  hideTooltipsProject.value = options.hideTooltipsProject
+  hidePlushes.value = options.hidePlushes
+  disableDocumentControlBar.value = options.disableDocumentControlBar
+  hideDeadCrossThrough.value = options.hideDeadCrossThrough
+  preventPreviewsDocuments.value = options.preventPreviewsDocuments
+}, { immediate: true, deep: true })
+
+/****************************************************************/
+// BASIC DATA & FUNCTIONALITY
+/****************************************************************/
+
+const projectName = ref("")
+const tipTrickMessage = ref("")
+const plusheForm = ref("")
+
+// Setup equivalent of created()
+projectName.value = projectStore.getProjectName
+Loading.hide()
+tipTrickMessage.value = tipsTricks[Math.floor(Math.random() * tipsTricks.length)]
+plusheForm.value = summonAllPlusheForms[Math.floor(Math.random() * summonAllPlusheForms.length)]
+
+if (projectStore.getProjectLoadedStatus) {
+  loadGraphData().catch(e => console.log(e))
+  loadLastOpenedList().catch(e => console.log(e))
+}
+
+watch(() => projectStore.getProjectName, (val) => {
+  projectName.value = val
+})
+
+watch(() => projectStore.getProjectLoadedStatus, (val) => {
+  if (val) {
+    loadGraphData().catch(e => console.log(e))
+    loadLastOpenedList().catch(e => console.log(e))
   }
 })
-export default class ProjectScreen extends BaseClass {
-  /****************************************************************/
-  // LOCAL SETTINGS
-  /****************************************************************/
 
-  /**
-   * React to changes on the options store
-   */
-  @Watch("SGET_options", { immediate: true, deep: true })
-  onSettingsChange () {
-    const options = this.SGET_options
-    this.hideTooltipsProject = options.hideTooltipsProject
-    this.hidePlushes = options.hidePlushes
-    this.disableDocumentControlBar = options.disableDocumentControlBar
+/****************************************************************/
+// GRAPH FUNCTIONALITY
+/****************************************************************/
 
-    this.hideDeadCrossThrough = this.SGET_options.hideDeadCrossThrough
-    this.preventPreviewsDocuments = this.SGET_options.preventPreviewsDocuments
-  }
+const allDocuments = ref(0)
+const graphDataLoaded = ref(false)
+const graphDataShowing = ref(false)
 
-  hideDeadCrossThrough = false
+/**
+ * Graph series data
+ */
+const series = ref([{
+  name: "Documents",
+  data: [] as number[]
+}])
 
-  preventPreviewsDocuments = false
+/**
+ * Empty chart options
+ * This needs to load after load, otherwise the graph doesn't reload properly if the settings for dark/light mode change
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const chartOptions = ref({} as any)
 
-  /**
-   * Hides the mascot... nooo :(
-   */
-  hidePlushes = false
-
-  /**
-   * Determines if the document control bar is show or hidden
-   */
-  disableDocumentControlBar = false
-
-  /**
-   * Determines if the project overview help hint should show or not
-   */
-  hideTooltipsProject = false
-
-  /****************************************************************/
-  // BASIC DATA & FUNCTIONALITY
-  /****************************************************************/
-
-  /**
-   * Setup of the page
-   */
-  created () {
-    this.projectName = this.SGET_getProjectName
-    Loading.hide()
-
-    this.tipTrickMessage = tipsTricks[Math.floor(Math.random() * tipsTricks.length)]
-    this.plusheForm = summonAllPlusheForms[Math.floor(Math.random() * summonAllPlusheForms.length)]
-
-    if (this.SGET_getProjectLoadedStatus) {
-      this.loadGraphData().catch(e => console.log(e))
-      this.loadLastOpenedList().catch(e => console.log(e))
-    }
-  }
-
-  @Watch("SGET_getProjectName")
-  checkProjectStatus () {
-    this.projectName = this.SGET_getProjectName
-  }
-
-  @Watch("SGET_getProjectLoadedStatus")
-  reactToProjectLoaded () {
-    if (this.SGET_getProjectLoadedStatus) {
-      this.loadGraphData().catch(e => console.log(e))
-      this.loadLastOpenedList().catch(e => console.log(e))
-    }
-  }
-
-  /**
-   * Name of the current project
-   */
-  projectName = ""
-
-  /**
-   * Loaded trivia message
-   */
-  tipTrickMessage = ""
-
-  /**
-   * Current form the majestic Fantasia desided to take this fine day!
-   */
-  plusheForm = ""
-
-  /****************************************************************/
-  // GRAPH FUNCTIONALITY
-  /****************************************************************/
-
-  /**
-   * Amount of all documents
-   */
-  allDocuments = 0
-
-  /**
-   * Determines if the graph data finished loaded
-   */
-  graphDataLoaded = false
-
-  /**
-   * Determines if the graph is showing or not
-   */
-  graphDataShowing = false
-
-  /**
-   * Loads graph data
-   */
-  async loadGraphData () {
-    this.populateChartOptions()
-
-    const allBlueprings = this.SGET_allBlueprints
-
-    // Retrieve all documents
-    for (const blueprint of allBlueprings) {
-      const docCount = this.SGET_allDocumentsByType(blueprint._id).docs.length
-
-      this.allDocuments = this.allDocuments + docCount
-
-      this.series[0].data.push(docCount)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      this.chartOptions.xaxis.categories.push(blueprint.namePlural)
-    }
-    this.graphDataLoaded = true
-
-    await this.sleep(600)
-    this.graphDataShowing = true
-  }
-
-  /****************************************************************/
-  // Add new document under parent
-  /****************************************************************/
-  addNewUnderParent (currentDoc: I_ShortenedDocument) {
-    createNewWithParent(currentDoc, this)
-  }
-
-  @Watch("SGET_allDocuments", { deep: true })
-  reactToAllDocumentListChange () {
-    if (!this.SGET_allDocumentsFirstRunState) {
-      this.loadLastOpenedList().catch(e => console.log(e))
-    }
-  }
-
-  /**
-   * Loads graph data
-   */
-  async loadLastOpenedList () {
-    const idList = await retrieveLastOpenedDocuments(this.SGET_currentProjectId)
-    this.lastOpenedDocuments = idList.map(id => this.SGET_document(id)).filter(e => (e))
-  }
-
-  lastOpenedDocuments: I_ShortenedDocument[] = []
-
-  copyName (currentDoc: I_ShortenedDocument) {
-    copyDocumentName(currentDoc)
-  }
-
-  copyTextColor (currentDoc: I_ShortenedDocument) {
-    copyDocumentTextColor(currentDoc)
-  }
-
-  copyBackgroundColor (currentDoc: I_ShortenedDocument) {
-    copyDocumentBackgroundColor(currentDoc)
-  }
-
-  documentPass = null as unknown as I_ShortenedDocument
-
-  copyTargetDocument (currentDoc: I_ShortenedDocument) {
-    this.documentPass = extend(true, {}, currentDoc)
-
-    const blueprint = this.SGET_blueprint(this.documentPass.type)
-    const newDocument = copyDocument(this.documentPass, this.generateUID(), blueprint)
-
-    const dataPass = {
-      doc: newDocument,
-      treeAction: false
-    }
-
-    // @ts-ignore
-    this.SSET_addOpenedDocument(dataPass)
-    this.$router.push({
-      path: newDocument.url
-    }).catch((e: {name: string}) => {
-      const errorName : string = e.name
-      if (errorName === "NavigationDuplicated") {
-        return
-      }
-      console.log(e)
-    })
-  }
-
-  /**
-   * Opened the existing input
-   */
-  openExistingInput (e: I_ShortenedDocument) {
-    // @ts-ignore
-    e = (Array.isArray(e)) ? e[0] : e
-    this.openExistingDocumentRoute(e)
-  }
-
-  /**
-   * Opened the existing input in two modes
-   * Either as a focus with closure of the dialog.
-   * Or as a background tab without closing of the dialog.
-   */
-  editExistingInput (e: I_ShortenedDocument) {
-    // @ts-ignore
-    e = (Array.isArray(e)) ? e[0] : e
-    // @ts-ignore
-    this.openExistingDocumentRouteWithEdit(e)
-  }
-
-  triggerExport (node: {_id: string}) {
-    this.SSET_setExportDialogState([node._id])
-  }
-
-  setDocumentPreviewClose () {
-    this.documentPreviewClose = uid()
-  }
-
-  documentPreviewClose = ""
-  /**
-   * Graph series data
-   */
-  series = [{
-    name: "Documents",
-    data: [] as number[]
-  }]
-
-  /**
-   * Empty chart options
-   * This needs to load after load, otherwise the graph doesn't reload properly if the settings for dark/light mode change
-   */
-  chartOptions = {} as any
-
-  /**
-   * Loads up proper chart options into the object
-   */
-  populateChartOptions () {
-    this.chartOptions = {
-      colors: [colors.getBrand("primary")],
-      animations: {
-        enabled: true,
-        easing: "easeinout",
-        speed: 1000
+/**
+ * Loads up proper chart options into the object
+ */
+function populateChartOptions () {
+  chartOptions.value = {
+    colors: [colors.getBrand("primary")],
+    animations: {
+      enabled: true,
+      easing: "easeinout",
+      speed: 1000
+    },
+    grid: {
+      show: false
+    },
+    states: {
+      hover: {
+        filter: {
+          type: "none"
+        }
       },
-      grid: {
+      active: {
+        filter: {
+          type: "none"
+        }
+      }
+    },
+    chart: {
+      height: 350,
+      type: "bar",
+      toolbar: {
+        show: false
+      }
+    },
+    plotOptions: {
+      bar: {
+        borderRadius: 4,
+        dataLabels: {
+          position: "center" // top, center, bottom
+        }
+      }
+    },
+    dataLabels: {
+      dropShadow: {
+        enabled: true,
+        top: 1,
+        left: 1,
+        blur: 1,
+        color: "#000",
+        opacity: 0.65
+      },
+      enabled: true,
+      formatter: function (val: string) {
+        return val
+      },
+      offsetY: 20,
+      style: {
+        fontSize: "14px",
+        fontFamily: "Roboto, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif;",
+        colors: ["#fff"]
+      }
+    },
+    xaxis: {
+      categories: [] as string[],
+      position: "bottom",
+      labels: {
+        style: {
+          fontFamily: "Roboto, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif;",
+          colors: colors.getBrand("accent"),
+          cssClass: "docCountLabel"
+        }
+      },
+      axisBorder: {
+        show: true
+      },
+      axisTicks: {
         show: false
       },
-      states: {
-        hover: {
-          filter: {
-            type: "none"
-          }
-        },
-        active: {
-          filter: {
-            type: "none"
-          }
-        }
+      tooltip: {
+        enabled: false
       },
-      chart: {
-        height: 350,
-        type: "bar",
-        toolbar: {
-          show: false
-        }
-      },
-      plotOptions: {
-        bar: {
-          borderRadius: 4,
-          dataLabels: {
-            position: "center" // top, center, bottom
+      crosshairs: {
+        fill: {
+          type: "gradient",
+          gradient: {
+            colorFrom: "transparent",
+            colorTo: "transparent",
+            stops: [0, 100],
+            opacityFrom: 0,
+            opacityTo: 0
           }
         }
+      }
+    },
+    yaxis: {
+      axisBorder: {
+        show: false
       },
-      dataLabels: {
-        dropShadow: {
-          enabled: true,
-          top: 1,
-          left: 1,
-          blur: 1,
-          color: "#000",
-          opacity: 0.65
-        },
-        enabled: true,
+      tooltip: {
+        enabled: false
+      },
+      axisTicks: {
+        show: false
+      },
+      labels: {
+        show: false,
         formatter: function (val: string) {
           return val
         },
-        offsetY: 20,
         style: {
           fontSize: "14px",
           fontFamily: "Roboto, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif;",
-          colors: ["#fff"]
-        }
-      },
-      xaxis: {
-        categories: [] as string[],
-        position: "bottom",
-        labels: {
-          style: {
-            fontFamily: "Roboto, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif;",
-            colors: colors.getBrand("accent"),
-            cssClass: "docCountLabel"
-          }
-        },
-        axisBorder: {
-          show: true
-        },
-        axisTicks: {
-          show: false
-        },
-        tooltip: {
-          enabled: false
-        },
-        crosshairs: {
-
-          fill: {
-            type: "gradient",
-            gradient: {
-              colorFrom: "transparent",
-              colorTo: "transparent",
-              stops: [0, 100],
-              opacityFrom: 0,
-              opacityTo: 0
-            }
-          }
-        }
-      },
-      yaxis: {
-        axisBorder: {
-          show: false
-        },
-        tooltip: {
-          enabled: false
-        },
-        axisTicks: {
-          show: false
-        },
-        labels: {
-          show: false,
-          formatter: function (val: string) {
-            return val
-          },
-          style: {
-            fontSize: "14px",
-            fontFamily: "Roboto, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif;",
-            colors: "#dcdcdc"
-          }
+          colors: "#dcdcdc"
         }
       }
     }
   }
+}
 
-  /****************************************************************/
-  // NEW DOCUMENT DIALOG
-  /****************************************************************/
+/**
+ * Loads graph data
+ */
+async function loadGraphData () {
+  populateChartOptions()
 
-  newObjectDialogTrigger: string | false = false
-  newObjectDialogClose () {
-    this.newObjectDialogTrigger = false
+  const allBlueprints = blueprintsStore.getAllBlueprints
+
+  // Retrieve all documents
+  for (const blueprint of allBlueprints) {
+    const docCount = (allDocumentsStore.getDocumentsByType(blueprint._id)?.docs ?? []).length
+
+    allDocuments.value = allDocuments.value + docCount
+
+    series.value[0].data.push(docCount)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    chartOptions.value.xaxis.categories.push(blueprint.namePlural)
+  }
+  graphDataLoaded.value = true
+
+  await sleep(600)
+  graphDataShowing.value = true
+}
+
+/****************************************************************/
+// Add new document under parent
+/****************************************************************/
+function addNewUnderParent (currentDoc: I_ShortenedDocument) {
+  createNewWithParent(currentDoc, { addNewObjectRoute })
+}
+
+watch(() => allDocumentsStore.getAllDocuments, () => {
+  if (!allDocumentsStore.getFirstRunState) {
+    loadLastOpenedList().catch(e => console.log(e))
+  }
+}, { deep: true })
+
+/**
+ * Loads last opened documents list
+ */
+async function loadLastOpenedList () {
+  const idList = await retrieveLastOpenedDocuments(projectStore.currentProjectId)
+  lastOpenedDocuments.value = idList.map(id => allDocumentsStore.getDocument(id)).filter(e => !!e) as I_ShortenedDocument[]
+}
+
+const lastOpenedDocuments = ref<I_ShortenedDocument[]>([])
+
+function copyName (currentDoc: I_ShortenedDocument) {
+  copyDocumentName(currentDoc)
+}
+
+function copyTextColor (currentDoc: I_ShortenedDocument) {
+  copyDocumentTextColor(currentDoc)
+}
+
+function copyBackgroundColor (currentDoc: I_ShortenedDocument) {
+  copyDocumentBackgroundColor(currentDoc)
+}
+
+const documentPass = ref<I_ShortenedDocument | null>(null)
+
+function copyTargetDocument (currentDoc: I_ShortenedDocument) {
+  documentPass.value = extend(true, {}, currentDoc)
+
+  const blueprint = blueprintsStore.getBlueprint(documentPass.value!.type)
+  const newDocument = copyDocument(documentPass.value!, generateUID(), blueprint!)
+
+  const dataPass = {
+    doc: newDocument,
+    treeAction: false
   }
 
-  newObjectAssignUID () {
-    this.newObjectDialogTrigger = this.generateUID()
-  }
+  openedDocumentsStore.addDocument(dataPass)
+  router.push({
+    path: newDocument.url
+  }).catch((e: { name: string }) => {
+    const errorName: string = e.name
+    if (errorName === "NavigationDuplicated") {
+      return
+    }
+    console.log(e)
+  })
+}
 
-  /****************************************************************/
-  // Delete dialog
-  /****************************************************************/
+/**
+ * Opens the existing document
+ */
+function openExistingInput (e: I_ShortenedDocument) {
+  // @ts-ignore
+  e = (Array.isArray(e)) ? e[0] : e
+  openExistingDocumentRoute(e)
+}
 
-  deleteObjectDialogTrigger: string | false = false
-  deleteObjectDialogClose () {
-    this.deleteObjectDialogTrigger = false
-  }
+/**
+ * Opens the existing document in edit mode
+ */
+function editExistingInput (e: I_ShortenedDocument) {
+  // @ts-ignore
+  e = (Array.isArray(e)) ? e[0] : e
+  openExistingDocumentRouteWithEdit(e)
+}
 
-  deleteObjectAssignUID () {
-    this.deleteObjectDialogTrigger = this.generateUID()
-  }
+function triggerExport (node: { _id: string }) {
+  dialogsStore.setExportDialogState([node._id])
+}
 
-  toDeleteID = ""
-  toDeleteType = ""
+const documentPreviewClose = ref("")
 
-  deleteTabDocument (targetDocument: I_ShortenedDocument) {
-    this.toDeleteID = targetDocument._id
-    this.toDeleteType = targetDocument.type
-    this.deleteObjectAssignUID()
-  }
+function setDocumentPreviewClose () {
+  documentPreviewClose.value = uid()
+}
+
+/****************************************************************/
+// NEW DOCUMENT DIALOG
+/****************************************************************/
+
+const newObjectDialogTrigger = ref<string | false>(false)
+
+function newObjectDialogClose () {
+  newObjectDialogTrigger.value = false
+}
+
+function newObjectAssignUID () {
+  newObjectDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Delete dialog
+/****************************************************************/
+
+const deleteObjectDialogTrigger = ref<string | false>(false)
+
+function deleteObjectDialogClose () {
+  deleteObjectDialogTrigger.value = false
+}
+
+function deleteObjectAssignUID () {
+  deleteObjectDialogTrigger.value = generateUID()
+}
+
+const toDeleteID = ref("")
+const toDeleteType = ref("")
+
+function deleteTabDocument (targetDocument: I_ShortenedDocument) {
+  toDeleteID.value = targetDocument._id
+  toDeleteType.value = targetDocument.type
+  deleteObjectAssignUID()
 }
 </script>
 

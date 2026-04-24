@@ -141,7 +141,7 @@
             icon="mdi-clipboard-text-outline"
             color="primary"
             outline
-            @click="SSET_setNoteCorkboardWindowVisible"
+            @click="floatingWindowsStore.setNoteCorkboardWindowVisible()"
           >
             <q-tooltip
               :delay="500"
@@ -185,7 +185,7 @@
           </q-btn>
 
           <template
-            v-if="SGET_allOpenedDocuments.docs.length > 0  && this.$route.path !== '/project'"
+            v-if="openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
           >
             <q-separator vertical inset color="accent" />
 
@@ -215,7 +215,7 @@
             color="primary"
             outline
             @click="toggleEditMode"
-            v-if="currentyEditable && SGET_allOpenedDocuments.docs.length > 0  && this.$route.path !== '/project'"
+            v-if="currentyEditable && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
           >
             <q-tooltip
               :delay="500"
@@ -231,7 +231,7 @@
             :color="(!hasEdits) ? 'teal-14' : 'primary'"
             outline
             @click="saveCurrentDocument(true)"
-            v-if="!currentyEditable && SGET_allOpenedDocuments.docs.length > 0  && this.$route.path !== '/project'"
+            v-if="!currentyEditable && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
           >
             <q-tooltip
               :delay="500"
@@ -248,7 +248,7 @@
             :color="(!hasEdits) ? 'teal-14' : 'primary'"
             outline
             @click="saveCurrentDocument(false)"
-            v-if="!currentyEditable && SGET_allOpenedDocuments.docs.length > 0  && this.$route.path !== '/project'"
+            v-if="!currentyEditable && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
           >
             <q-tooltip
               :delay="500"
@@ -265,7 +265,7 @@
             color="primary"
             outline
             @click="openThisDocumentInSidebar"
-            v-if="!currentlyNew && SGET_allOpenedDocuments.docs.length > 0  && this.$route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
           >
             <q-tooltip
               :delay="500"
@@ -282,7 +282,7 @@
             color="primary"
             outline
             @click="addNewUnderParent"
-            v-if="!currentlyNew && SGET_allOpenedDocuments.docs.length > 0  && this.$route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
           >
             <q-tooltip
               :delay="500"
@@ -299,7 +299,7 @@
             color="primary"
             outline
             @click="copyTargetDocument"
-            v-if="!currentlyNew && SGET_allOpenedDocuments.docs.length > 0 && this.$route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0 && route.path !== '/project'"
           >
             <q-tooltip
               :delay="500"
@@ -312,7 +312,7 @@
           </q-btn>
 
            <q-separator vertical inset color="accent"
-            v-if="!currentlyNew && SGET_allOpenedDocuments.docs.length > 0  && this.$route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
           />
 
           <q-btn
@@ -320,7 +320,7 @@
             icon="mdi-database-export-outline"
             @click="triggerExport"
             outline
-            v-if="!currentlyNew && SGET_allOpenedDocuments.docs.length > 0  && this.$route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
             >
               <q-tooltip
                 :delay="500"
@@ -341,7 +341,7 @@
             </q-btn>
 
           <q-separator vertical inset color="accent"
-            v-if="!currentlyNew && SGET_allOpenedDocuments.docs.length > 0  && this.$route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
           />
 
           <q-btn
@@ -349,7 +349,7 @@
             color="secondary"
             outline
             @click="deleteObjectAssignUID"
-            v-if="!currentlyNew && SGET_allOpenedDocuments.docs.length > 0  && this.$route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
           >
             <q-tooltip
               :delay="500"
@@ -368,11 +368,11 @@
   </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, watch } from "vue"
+import { useRoute, useRouter } from "vue-router"
+import { useQuasar } from "quasar"
 
-import { Component, Watch } from "vue-property-decorator"
-
-import BaseClass from "src/BaseClass"
 import newDocumentDialog from "src/components/dialogs/NewDocument.vue"
 import existingDocumentDialog from "src/components/dialogs/ExistingDocument.vue"
 import deleteDocumentCheckDialog from "src/components/dialogs/DeleteDocumentCheck.vue"
@@ -385,470 +385,481 @@ import { extend, Loading, QSpinnerGears } from "quasar"
 import { saveDocument } from "src/scripts/databaseManager/documentManager"
 import { createNewWithParent } from "src/scripts/documentActions/createNewWithParent"
 import { copyDocument } from "src/scripts/documentActions/copyDocument"
-
 import { saveProject } from "src/scripts/projectManagement/projectManagent"
 
-@Component({
-  components: {
-    newDocumentDialog,
-    existingDocumentDialog,
-    deleteDocumentCheckDialog,
-    advancedSearchGuideDialog,
-    keybindCheatsheetDialog,
-    tipsTricksTriviaDialog
-  }
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+
+const route = useRoute()
+const router = useRouter()
+const q = useQuasar()
+
+const {
+  blueprintsStore,
+  openedDocumentsStore,
+  allDocumentsStore,
+  keybindsStore,
+  dialogsStore,
+  optionsStore,
+  floatingWindowsStore,
+  projectStore
+} = useAppStores()
+
+const {
+  generateUID,
+  sleep,
+  findRequestedOrActiveDocument,
+  openDocumentPreviewPanel,
+  toggleHierarchicalTree,
+  mapShortDocument,
+  determineKeyBind
+} = useDocumentHelpers()
+
+/****************************************************************/
+// Basic state
+/****************************************************************/
+
+const projectExists = ref<undefined | string | boolean>(false)
+const projectName = ref("")
+
+const disableDocumentControlBar = ref(false)
+const disableDocumentControlBarGuides = ref(false)
+const hideHierarchyTree = ref(false)
+
+watch(() => optionsStore.getOptions, () => {
+  const options = optionsStore.getOptions
+  disableDocumentControlBar.value = options.disableDocumentControlBar
+  disableDocumentControlBarGuides.value = options.disableDocumentControlBarGuides
+  hideHierarchyTree.value = options.hideHierarchyTree
+}, { immediate: true, deep: true })
+
+// created
+checkProjectStatus()
+
+watch(() => projectStore.getProjectName, () => {
+  checkProjectStatus()
 })
-export default class DocumentControl extends BaseClass {
-  projectExists: undefined | string | boolean = false
-  projectName = ""
 
-  disableDocumentControlBar = false
-  disableDocumentControlBarGuides = false
+function checkProjectStatus () {
+  projectName.value = projectStore.getProjectName
+  projectExists.value = (projectStore.getProjectName.length > 0)
+}
 
-  @Watch("SGET_options", { immediate: true, deep: true })
-  onSettingsChange () {
-    const options = this.SGET_options
-    this.disableDocumentControlBar = options.disableDocumentControlBar
-    this.disableDocumentControlBarGuides = options.disableDocumentControlBarGuides
-    this.hideHierarchyTree = options.hideHierarchyTree
+/****************************************************************/
+// Keybinds management
+/****************************************************************/
+
+watch(() => keybindsStore.getCurrentKeyBindData, async () => {
+  // Quick new document
+  if (determineKeyBind("quickNewDocument") && !dialogsStore.getDialogsState) {
+    newObjectAssignUID()
   }
 
-  hideHierarchyTree = false
-
-  created () {
-    this.checkProjectStatus()
+  // Quick open existing document
+  if (determineKeyBind("quickExistingDocument") && !dialogsStore.getDialogsState) {
+    existingObjectAssignUID()
   }
 
-  @Watch("SGET_getProjectName")
-  checkProjectStatus () {
-    this.projectName = this.SGET_getProjectName
-    this.projectExists = (this.SGET_getProjectName.length > 0)
+  // Quick open existing document
+  if (determineKeyBind("openDocInSide") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+    openThisDocumentInSidebar()
   }
 
-  /****************************************************************/
-  // Keybinds management
-  /****************************************************************/
-
-  /**
-   * Local keybinds
-   */
-  @Watch("SGET_getCurrentKeyBindData", { deep: true })
-  async processKeyPush () {
-    // Quick new document
-    if (this.determineKeyBind("quickNewDocument") && !this.SGET_getDialogsState) {
-      this.newObjectAssignUID()
-    }
-
-    // Quick open existing document
-    if (this.determineKeyBind("quickExistingDocument") && !this.SGET_getDialogsState) {
-      this.existingObjectAssignUID()
-    }
-
-    // Quick open existing document
-    if (this.determineKeyBind("openDocInSide") && !this.currentlyNew && this.SGET_allOpenedDocuments.docs.length > 0 && !this.SGET_getDialogsState && this.$route.path !== "/project") {
-      this.openThisDocumentInSidebar()
-    }
-
-    // Delete dialog - CTRL + D
-    if (this.determineKeyBind("deleteDocument") && !this.currentlyNew && this.SGET_allOpenedDocuments.docs.length > 0 && !this.SGET_getDialogsState && this.$route.path !== "/project") {
-      this.deleteObjectAssignUID()
-    }
-
-    // Export document - NONE
-    if (this.determineKeyBind("exportDocument") && this.currentyEditable && this.SGET_allOpenedDocuments.docs.length > 0 && !this.SGET_getDialogsState && this.$route.path !== "/project") {
-      this.triggerExport()
-    }
-
-    // Edit document - CTRL + E
-    if (this.determineKeyBind("editDocument") && !this.currentlyNew && this.SGET_allOpenedDocuments.docs.length > 0 && !this.SGET_getDialogsState && this.$route.path !== "/project") {
-      this.toggleEditMode()
-    }
-
-    // Save document - CTRL + S
-    if (this.determineKeyBind("saveDocument") && !this.currentyEditable && this.SGET_allOpenedDocuments.docs.length > 0 && !this.SGET_getDialogsState && this.$route.path !== "/project") {
-      setTimeout(() => {
-        this.saveCurrentDocument(false).catch(e => console.log(e))
-      }, 500)
-    }
-
-    // Save document without exiting edit mode - CTRL + ALT + S
-    if (this.determineKeyBind("saveDocumentNoExit") && !this.currentyEditable && this.SGET_allOpenedDocuments.docs.length > 0 && !this.SGET_getDialogsState && this.$route.path !== "/project") {
-      setTimeout(() => {
-        this.saveCurrentDocument(true).catch(e => console.log(e))
-      }, 500)
-    }
-
-    // Mass document save - CTRL + SHIFT + S
-    if (this.determineKeyBind("saveDocumentMass") && this.SGET_allOpenedDocuments.docs.length > 0 && !this.SGET_getDialogsState && this.$route.path !== "/project") {
-      setTimeout(() => {
-        this.massSave().catch(e => console.log(e))
-      }, 500)
-    }
-
-    // Save document and mark it as finished - NONE
-    if (this.determineKeyBind("saveDocumentTickFinish") && !this.currentyEditable && this.SGET_allOpenedDocuments.docs.length > 0 && !this.SGET_getDialogsState && this.$route.path !== "/project") {
-      setTimeout(() => {
-        this.saveCurrentDocument(false, true).catch(e => console.log(e))
-      }, 500)
-    }
-
-    // Add new under parent - CTRL + SHIFT + N
-    if (this.determineKeyBind("addUnderParent") && !this.currentlyNew && this.SGET_allOpenedDocuments.docs.length > 0 && !this.SGET_getDialogsState && this.$route.path !== "/project") {
-      await this.sleep(100)
-      this.addNewUnderParent()
-    }
-
-    // Copy document - CTRL + ALT + C
-    if (this.determineKeyBind("copyDocument") && !this.currentlyNew && this.SGET_allOpenedDocuments.docs.length > 0 && !this.SGET_getDialogsState && this.$route.path !== "/project") {
-      await this.sleep(100)
-      this.copyTargetDocument()
-    }
-
-    // Toggle hierarchical tree - CTRL + ALT + SHIFT + T
-    if (this.determineKeyBind("toggleHierarchicalTree")) {
-      // @ts-ignore
-      this.toggleHierarchicalTree()
-    }
+  // Delete dialog - CTRL + D
+  if (determineKeyBind("deleteDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+    deleteObjectAssignUID()
   }
 
-  /****************************************************************/
-  // Advanced search guide dialog
-  /****************************************************************/
-
-  advancedSearchGuideDialogTrigger: string | false = false
-  advancedSearchGuideDialogClose () {
-    this.advancedSearchGuideDialogTrigger = false
+  // Export document - NONE
+  if (determineKeyBind("exportDocument") && currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+    triggerExport()
   }
 
-  advancedSearchGuideAssignUID () {
-    this.advancedSearchGuideDialogTrigger = this.generateUID()
+  // Edit document - CTRL + E
+  if (determineKeyBind("editDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+    toggleEditMode()
   }
 
-  /****************************************************************/
-  // Keybings cheatsheet dialog
-  /****************************************************************/
-
-  keybindsDialogTrigger: string | false = false
-  keybindsDialogClose () {
-    this.keybindsDialogTrigger = false
+  // Save document - CTRL + S
+  if (determineKeyBind("saveDocument") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+    setTimeout(() => {
+      saveCurrentDocument(false).catch(e => console.log(e))
+    }, 500)
   }
 
-  keybindsDialogAssignUID () {
-    this.keybindsDialogTrigger = this.generateUID()
+  // Save document without exiting edit mode - CTRL + ALT + S
+  if (determineKeyBind("saveDocumentNoExit") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+    setTimeout(() => {
+      saveCurrentDocument(true).catch(e => console.log(e))
+    }, 500)
   }
 
-  /****************************************************************/
-  // Delete dialog
-  /****************************************************************/
-
-  deleteObjectDialogTrigger: string | false = false
-  deleteObjectDialogClose () {
-    this.deleteObjectDialogTrigger = false
+  // Mass document save - CTRL + SHIFT + S
+  if (determineKeyBind("saveDocumentMass") && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+    setTimeout(() => {
+      massSave().catch(e => console.log(e))
+    }, 500)
   }
 
-  deleteObjectAssignUID () {
-    this.deleteObjectDialogTrigger = this.generateUID()
+  // Save document and mark it as finished - NONE
+  if (determineKeyBind("saveDocumentTickFinish") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+    setTimeout(() => {
+      saveCurrentDocument(false, true).catch(e => console.log(e))
+    }, 500)
   }
 
-  /****************************************************************/
-  // New document dialog
-  /****************************************************************/
-
-  newObjectDialogTrigger: string | false = false
-  newObjectDialogClose () {
-    this.newObjectDialogTrigger = false
+  // Add new under parent - CTRL + SHIFT + N
+  if (determineKeyBind("addUnderParent") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+    await sleep(100)
+    addNewUnderParent()
   }
 
-  newObjectAssignUID () {
-    this.newObjectDialogTrigger = this.generateUID()
+  // Copy document - CTRL + ALT + C
+  if (determineKeyBind("copyDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+    await sleep(100)
+    copyTargetDocument()
   }
 
-  /****************************************************************/
-  // Existing document dialog
-  /****************************************************************/
-
-  existingObjectDialogTrigger: string | false = false
-  existingObjectDialogClose () {
-    this.existingObjectDialogTrigger = false
+  // Toggle hierarchical tree - CTRL + ALT + SHIFT + T
+  if (determineKeyBind("toggleHierarchicalTree")) {
+    toggleHierarchicalTree()
   }
+}, { deep: true })
 
-  existingObjectAssignUID () {
-    this.existingObjectDialogTrigger = this.generateUID()
-  }
+/****************************************************************/
+// Advanced search guide dialog
+/****************************************************************/
 
-  /****************************************************************/
-  // Tips, Tricka & Trivia dialog
-  /****************************************************************/
+const advancedSearchGuideDialogTrigger = ref<string | false>(false)
+function advancedSearchGuideDialogClose () {
+  advancedSearchGuideDialogTrigger.value = false
+}
 
-  tipsTricksDialogTrigger: string | false = false
-  tipsTricksDialogClose () {
-    this.tipsTricksDialogTrigger = false
-  }
+function advancedSearchGuideAssignUID () {
+  advancedSearchGuideDialogTrigger.value = generateUID()
+}
 
-  tipsTricksAssignUID () {
-    this.tipsTricksDialogTrigger = this.generateUID()
-  }
+/****************************************************************/
+// Keybinds cheatsheet dialog
+/****************************************************************/
 
-  /****************************************************************/
-  // Save project
-  /****************************************************************/
-  commenceSave () {
-    const projectName = this.SGET_getProjectName
-    const setup = {
-      message: "<h4>Saving current project...</h4>",
-      spinnerColor: "primary",
-      messageColor: "cultured",
-      spinnerSize: 120,
-      backgroundColor: "dark",
-      // @ts-ignore
-      spinner: QSpinnerGears
-    }
-    saveProject(this.SGET_currentProjectId as string, Loading, setup, this.$q)
-  }
+const keybindsDialogTrigger = ref<string | false>(false)
+function keybindsDialogClose () {
+  keybindsDialogTrigger.value = false
+}
 
-  /****************************************************************/
-  // Add new document under parent
-  /****************************************************************/
-  addNewUnderParent () {
-    const currentDoc = this.findRequestedOrActiveDocument() as I_OpenedDocument
-    createNewWithParent(currentDoc, this)
-  }
+function keybindsDialogAssignUID () {
+  keybindsDialogTrigger.value = generateUID()
+}
 
-  /****************************************************************/
-  // Open current document in sidebar
-  /****************************************************************/
-  openThisDocumentInSidebar () {
-    const currentDoc = this.findRequestedOrActiveDocument() as I_OpenedDocument
-    this.openDocumentPreviewPanel(currentDoc._id)
-  }
+/****************************************************************/
+// Delete dialog
+/****************************************************************/
 
-  /****************************************************************/
-  // Document copy
-  /****************************************************************/
-  documentPass = null as unknown as I_OpenedDocument
+const deleteObjectDialogTrigger = ref<string | false>(false)
+function deleteObjectDialogClose () {
+  deleteObjectDialogTrigger.value = false
+}
 
-  copyTargetDocument () {
-    this.documentPass = extend(true, {}, this.findRequestedOrActiveDocument())
+function deleteObjectAssignUID () {
+  deleteObjectDialogTrigger.value = generateUID()
+}
 
-    const blueprint = this.SGET_blueprint(this.documentPass.type)
-    const newDocument = copyDocument(this.documentPass, this.generateUID(), blueprint)
+/****************************************************************/
+// New document dialog
+/****************************************************************/
 
-    const dataPass = {
-      doc: newDocument,
-      treeAction: false
-    }
+const newObjectDialogTrigger = ref<string | false>(false)
+function newObjectDialogClose () {
+  newObjectDialogTrigger.value = false
+}
 
+function newObjectAssignUID () {
+  newObjectDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Existing document dialog
+/****************************************************************/
+
+const existingObjectDialogTrigger = ref<string | false>(false)
+function existingObjectDialogClose () {
+  existingObjectDialogTrigger.value = false
+}
+
+function existingObjectAssignUID () {
+  existingObjectDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Tips, Tricks & Trivia dialog
+/****************************************************************/
+
+const tipsTricksDialogTrigger = ref<string | false>(false)
+function tipsTricksDialogClose () {
+  tipsTricksDialogTrigger.value = false
+}
+
+function tipsTricksAssignUID () {
+  tipsTricksDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Save project
+/****************************************************************/
+function commenceSave () {
+  const setup = {
+    message: "<h4>Saving current project...</h4>",
+    spinnerColor: "primary",
+    messageColor: "cultured",
+    spinnerSize: 120,
+    backgroundColor: "dark",
     // @ts-ignore
-    this.SSET_addOpenedDocument(dataPass)
-    this.$router.push({
-      path: newDocument.url
-    }).catch((e: {name: string}) => {
-      const errorName : string = e.name
-      if (errorName === "NavigationDuplicated") {
-        return
-      }
-      console.log(e)
-    })
+    spinner: QSpinnerGears
+  }
+  saveProject(projectStore.currentProjectId as string, Loading, setup, q)
+}
+
+/****************************************************************/
+// Add new document under parent
+/****************************************************************/
+function addNewUnderParent () {
+  const currentDoc = findRequestedOrActiveDocument() as I_OpenedDocument
+  createNewWithParent(currentDoc, {
+    addNewObjectRoute: (obj: any) => router.push({ path: `/project/display-content/${obj._id}/${generateUID()}`, query: { parent: obj.parent ?? "", tag: obj.tag ?? "" } }).catch(console.log)
+  })
+}
+
+/****************************************************************/
+// Open current document in sidebar
+/****************************************************************/
+function openThisDocumentInSidebar () {
+  const currentDoc = findRequestedOrActiveDocument() as I_OpenedDocument
+  openDocumentPreviewPanel(currentDoc._id)
+}
+
+/****************************************************************/
+// Document copy
+/****************************************************************/
+const documentPass = ref(null as unknown as I_OpenedDocument)
+
+function copyTargetDocument () {
+  documentPass.value = extend(true, {}, findRequestedOrActiveDocument())
+
+  const blueprint = blueprintsStore.getBlueprint(documentPass.value.type)
+  const newDocument = copyDocument(documentPass.value, generateUID(), blueprint)
+
+  const dataPass = {
+    doc: newDocument,
+    treeAction: false
   }
 
-  /****************************************************************/
-  // Toggle edit mode & Save document
-  /****************************************************************/
-  toggleEditMode () {
-    const currentDoc = this.findRequestedOrActiveDocument()
-    if (currentDoc && !currentDoc.editMode) {
-      const dataCopy: I_OpenedDocument = extend(true, {}, currentDoc)
-      dataCopy.editMode = true
-      const dataPass = { doc: dataCopy, treeAction: false }
-      this.SSET_updateOpenedDocument(dataPass)
+  // @ts-ignore
+  openedDocumentsStore.addDocument(dataPass)
+  router.push({
+    path: newDocument.url
+  }).catch((e: {name: string}) => {
+    const errorName: string = e.name
+    if (errorName === "NavigationDuplicated") {
+      return
     }
+    console.log(e)
+  })
+}
+
+/****************************************************************/
+// Toggle edit mode & Save document
+/****************************************************************/
+function toggleEditMode () {
+  const currentDoc = findRequestedOrActiveDocument()
+  if (currentDoc && !currentDoc.editMode) {
+    const dataCopy: I_OpenedDocument = extend(true, {}, currentDoc)
+    dataCopy.editMode = true
+    const dataPass = { doc: dataCopy, treeAction: false }
+    openedDocumentsStore.updateDocument(dataPass)
+  }
+}
+
+const documentsCopy = ref(null as unknown as I_OpenedDocument[])
+
+async function saveCurrentDocument (editMode: boolean, saveAsFinished = false) {
+  if (document.activeElement && editMode === false) {
+    (document.activeElement as HTMLElement).blur()
   }
 
-  documentsCopy = null as unknown as I_OpenedDocument[]
+  const currentDoc = findRequestedOrActiveDocument() as I_OpenedDocument
 
-  async saveCurrentDocument (editMode: boolean, saveAsFinished = false) {
-    if (document.activeElement && editMode === false) {
-      (document.activeElement as HTMLElement).blur()
+  // @ts-ignore
+  const isNew = currentDoc.isNew
+
+  const allDocuments = openedDocumentsStore.getAllDocuments
+
+  documentsCopy.value = extend(true, [], allDocuments.docs)
+  if (currentDoc) {
+    const docCopy: I_OpenedDocument = extend(true, [], currentDoc)
+
+    if (saveAsFinished) {
+      const isFinishedInded = docCopy.extraFields.findIndex(e => e.id === "finishedSwitch")
+      docCopy.extraFields[isFinishedInded].value = true
     }
-
-    const currentDoc = this.findRequestedOrActiveDocument() as I_OpenedDocument
-
-    // @ts-ignore
-    const isNew = currentDoc.isNew
-
-    const allDocuments = this.SGET_allOpenedDocuments
-
-    this.documentsCopy = extend(true, [], allDocuments.docs)
-    if (currentDoc) {
-      const docCopy:I_OpenedDocument = extend(true, [], currentDoc)
-
-      if (saveAsFinished) {
-        const isFinishedInded = docCopy.extraFields.findIndex(e => e.id === "finishedSwitch")
-        docCopy.extraFields[isFinishedInded].value = true
-      }
-
-      // @ts-ignore
-      const savedDocument: {
-        documentCopy: I_OpenedDocument,
-        allOpenedDocuments: I_OpenedDocument[]
-      } = await saveDocument(docCopy, this.documentsCopy, this.SGET_allDocuments.docs, editMode, this).catch(err => console.log(err))
-
-      // Update the opened document
-      const dataPass = { doc: savedDocument.documentCopy, treeAction: true }
-      this.SSET_updateOpenedDocument(dataPass)
-
-      // Update document
-      if (!isNew) {
-        // @ts-ignore
-        this.SSET_updateDocument({ doc: this.mapShortDocument(savedDocument.documentCopy, this.SGET_allDocumentsByType(savedDocument.documentCopy.type).docs) })
-      }
-      // Add new document
-      else {
-        // @ts-ignore
-        this.SSET_addDocument({ doc: this.mapShortDocument(savedDocument.documentCopy, this.SGET_allDocumentsByType(savedDocument.documentCopy.type).docs) })
-      }
-
-      // Update all others
-      for (const doc of savedDocument.allOpenedDocuments) {
-        // Update the opened document
-        const dataPass = { doc: doc, treeAction: true }
-        this.SSET_updateOpenedDocument(dataPass)
-
-        // @ts-ignore
-        this.SSET_updateDocument({ doc: this.mapShortDocument(doc, this.SGET_allDocumentsByType(doc.type).docs) })
-      }
-
-      this.$q.notify({
-        group: false,
-        type: "positive",
-        message: "Document successfully saved"
-      })
-    }
-  }
-
-  @Watch("$route", { immediate: true, deep: true })
-  onUrlChange () {
-    this.checkEditability()
-    this.checkNew()
-    this.checkHasEdits()
-  }
-
-  @Watch("SGET_allOpenedDocuments", { deep: true })
-  onDocChange () {
-    this.checkEditability()
-    this.checkNew()
-    this.checkHasEdits()
-  }
-
-  hasEdits = false
-
-  checkHasEdits () {
-    const currentDocument = this.findRequestedOrActiveDocument()
-
-    if (currentDocument && !currentDocument.hasEdits) {
-      this.hasEdits = true
-    }
-    else {
-      this.hasEdits = false
-    }
-  }
-
-  checkEditability () {
-    const currentDocument = this.findRequestedOrActiveDocument()
-
-    if (currentDocument && !currentDocument.editMode) {
-      this.currentyEditable = true
-    }
-    else {
-      this.currentyEditable = false
-    }
-  }
-
-  checkNew () {
-    const currentDocument = this.findRequestedOrActiveDocument()
-
-    if (currentDocument && currentDocument.isNew) {
-      this.currentlyNew = true
-    }
-    else {
-      this.currentlyNew = false
-    }
-  }
-
-  currentyEditable = false
-  currentlyNew = false
-
-  openedDocsWithEdits: I_OpenedDocument[]= []
-
-  async massSave () {
-    this.openedDocsWithEdits = this.SGET_allOpenedDocuments.docs.filter(doc => doc.hasEdits)
-
-    const setup = {
-      message: "<h4>Saving all opened documents...</h4>",
-      spinnerColor: "primary",
-      messageColor: "cultured",
-      spinnerSize: 120,
-      backgroundColor: "dark",
-      // @ts-ignore
-      spinner: QSpinnerGears
-    }
-
-    // @ts-ignore
-    Loading.show(setup)
-    for (const document of this.openedDocsWithEdits) {
-      await this.saveOpenedDocument(document)
-    }
-
-    await this.sleep(3000)
-    Loading.hide()
-  }
-
-  async saveOpenedDocument (document: I_OpenedDocument) {
-    const docCopy:I_OpenedDocument = extend(true, [], document)
-    const allOpenedDocuments:I_OpenedDocument[] = extend(true, [], this.SGET_allOpenedDocuments)
-
-    // @ts-ignore
-    const isNew = document.isNew
 
     // @ts-ignore
     const savedDocument: {
       documentCopy: I_OpenedDocument,
       allOpenedDocuments: I_OpenedDocument[]
-    } = await saveDocument(docCopy, allOpenedDocuments, this.SGET_allDocuments.docs, false, this, true)
+    } = await saveDocument(docCopy, documentsCopy.value, allDocumentsStore.getAllDocuments.docs, editMode, { SGET_allDocuments: allDocumentsStore.getAllDocuments, SGET_allDocumentsByType: (id: string) => allDocumentsStore.getDocumentsByType(id), SSET_updateDocument: (p: any) => allDocumentsStore.updateDocument(p), SSET_addDocument: (p: any) => allDocumentsStore.addDocument(p) }).catch(err => console.log(err))
 
     // Update the opened document
     const dataPass = { doc: savedDocument.documentCopy, treeAction: true }
-    this.SSET_updateOpenedDocument(dataPass)
+    openedDocumentsStore.updateDocument(dataPass)
 
     // Update document
     if (!isNew) {
       // @ts-ignore
-      this.SSET_updateDocument({ doc: this.mapShortDocument(savedDocument.documentCopy, this.SGET_allDocumentsByType(savedDocument.documentCopy.type).docs) })
+      allDocumentsStore.updateDocument({ doc: mapShortDocument(savedDocument.documentCopy, allDocumentsStore.getDocumentsByType(savedDocument.documentCopy.type).docs) })
     }
     // Add new document
     else {
       // @ts-ignore
-      this.SSET_addDocument({ doc: this.mapShortDocument(savedDocument.documentCopy, this.SGET_allDocumentsByType(savedDocument.documentCopy.type).docs) })
+      allDocumentsStore.addDocument({ doc: mapShortDocument(savedDocument.documentCopy, allDocumentsStore.getDocumentsByType(savedDocument.documentCopy.type).docs) })
     }
 
     // Update all others
     for (const doc of savedDocument.allOpenedDocuments) {
-      // Update the opened document
       const dataPass = { doc: doc, treeAction: true }
-      this.SSET_updateOpenedDocument(dataPass)
+      openedDocumentsStore.updateDocument(dataPass)
 
       // @ts-ignore
-      this.SSET_updateDocument({ doc: this.mapShortDocument(doc, this.SGET_allDocumentsByType(doc.type).docs) })
+      allDocumentsStore.updateDocument({ doc: mapShortDocument(doc, allDocumentsStore.getDocumentsByType(doc.type).docs) })
     }
-  }
 
-  triggerExport () {
-    const currentDocument = this.findRequestedOrActiveDocument()
+    q.notify({
+      group: false,
+      type: "positive",
+      message: "Document successfully saved"
+    })
+  }
+}
+
+watch(route, () => {
+  checkEditability()
+  checkNew()
+  checkHasEdits()
+}, { immediate: true, deep: true })
+
+watch(() => openedDocumentsStore.getAllDocuments, () => {
+  checkEditability()
+  checkNew()
+  checkHasEdits()
+}, { deep: true })
+
+const hasEdits = ref(false)
+
+function checkHasEdits () {
+  const currentDocument = findRequestedOrActiveDocument()
+
+  if (currentDocument && !currentDocument.hasEdits) {
+    hasEdits.value = true
+  }
+  else {
+    hasEdits.value = false
+  }
+}
+
+function checkEditability () {
+  const currentDocument = findRequestedOrActiveDocument()
+
+  if (currentDocument && !currentDocument.editMode) {
+    currentyEditable.value = true
+  }
+  else {
+    currentyEditable.value = false
+  }
+}
+
+function checkNew () {
+  const currentDocument = findRequestedOrActiveDocument()
+
+  if (currentDocument && currentDocument.isNew) {
+    currentlyNew.value = true
+  }
+  else {
+    currentlyNew.value = false
+  }
+}
+
+const currentyEditable = ref(false)
+const currentlyNew = ref(false)
+
+const openedDocsWithEdits = ref<I_OpenedDocument[]>([])
+
+async function massSave () {
+  openedDocsWithEdits.value = openedDocumentsStore.getAllDocuments.docs.filter(doc => doc.hasEdits)
+
+  const setup = {
+    message: "<h4>Saving all opened documents...</h4>",
+    spinnerColor: "primary",
+    messageColor: "cultured",
+    spinnerSize: 120,
+    backgroundColor: "dark",
     // @ts-ignore
-    const prepickedID = currentDocument._id
-
-    this.SSET_setExportDialogState([prepickedID])
+    spinner: QSpinnerGears
   }
+
+  // @ts-ignore
+  Loading.show(setup)
+  for (const doc of openedDocsWithEdits.value) {
+    await saveOpenedDocument(doc)
+  }
+
+  await sleep(3000)
+  Loading.hide()
+}
+
+async function saveOpenedDocument (doc: I_OpenedDocument) {
+  const docCopy: I_OpenedDocument = extend(true, [], doc)
+  const allOpenedDocuments: I_OpenedDocument[] = extend(true, [], openedDocumentsStore.getAllDocuments)
+
+  // @ts-ignore
+  const isNew = doc.isNew
+
+  // @ts-ignore
+  const savedDocument: {
+    documentCopy: I_OpenedDocument,
+    allOpenedDocuments: I_OpenedDocument[]
+  } = await saveDocument(docCopy, allOpenedDocuments, allDocumentsStore.getAllDocuments.docs, false, { SGET_allDocuments: allDocumentsStore.getAllDocuments, SGET_allDocumentsByType: (id: string) => allDocumentsStore.getDocumentsByType(id), SSET_updateDocument: (p: any) => allDocumentsStore.updateDocument(p), SSET_addDocument: (p: any) => allDocumentsStore.addDocument(p) }, true)
+
+  // Update the opened document
+  const dataPass = { doc: savedDocument.documentCopy, treeAction: true }
+  openedDocumentsStore.updateDocument(dataPass)
+
+  // Update document
+  if (!isNew) {
+    // @ts-ignore
+    allDocumentsStore.updateDocument({ doc: mapShortDocument(savedDocument.documentCopy, allDocumentsStore.getDocumentsByType(savedDocument.documentCopy.type).docs) })
+  }
+  // Add new document
+  else {
+    // @ts-ignore
+    allDocumentsStore.addDocument({ doc: mapShortDocument(savedDocument.documentCopy, allDocumentsStore.getDocumentsByType(savedDocument.documentCopy.type).docs) })
+  }
+
+  // Update all others
+  for (const d of savedDocument.allOpenedDocuments) {
+    const dataPass = { doc: d, treeAction: true }
+    openedDocumentsStore.updateDocument(dataPass)
+
+    // @ts-ignore
+    allDocumentsStore.updateDocument({ doc: mapShortDocument(d, allDocumentsStore.getDocumentsByType(d.type).docs) })
+  }
+}
+
+function triggerExport () {
+  const currentDocument = findRequestedOrActiveDocument()
+  // @ts-ignore
+  const prepickedID = currentDocument._id
+
+  dialogsStore.setExportDialogState([prepickedID])
 }
 </script>
 

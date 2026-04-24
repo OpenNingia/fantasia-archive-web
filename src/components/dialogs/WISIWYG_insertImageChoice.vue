@@ -94,67 +94,75 @@
     </q-dialog>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch } from "vue-property-decorator"
-
-import DialogBase from "src/components/dialogs/_DialogBase"
+import { ref, watch, nextTick } from "vue"
+import { useQuasar } from "quasar"
+import { useAppStores } from "src/composables/useAppStores"
 import { fileApi } from "src/services/api/fileApi"
 
-@Component({
-  components: { }
+const props = defineProps<{ dialogTrigger?: string }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit", "passing-image-link"])
+
+const q = useQuasar()
+const { dialogsStore, projectStore } = useAppStores()
+
+const dialogModel = ref(false)
+const startupInput = ref(true)
+const externalLink = ref("")
+const fileInput = ref<HTMLInputElement | null>(null)
+const externalLinkRef = ref<any>(null)
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    openDialog()
+  }
 })
-export default class WISIWYG_insertImageChoice extends DialogBase {
-  @Watch("dialogTrigger")
-  checkForOpenedProject (val: string|false) {
-    if (val) {
-      this.openDialog()
-    }
+
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+function openDialog () {
+  if (dialogsStore.getDialogsState) {
+    return
   }
+  dialogsStore.setDialogState(true)
+  dialogModel.value = true
+  startupInput.value = true
+  externalLink.value = ""
+}
 
-  openDialog () {
-    if (this.SGET_getDialogsState) {
-      return
-    }
-    this.SSET_setDialogState(true)
-    this.dialogModel = true
-    this.startupInput = true
-    this.externalLink = ""
+function triggerFileInput () {
+  fileInput.value?.click()
+}
+
+async function handleFileUpload (event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+
+  try {
+    const projectId = projectStore.currentProjectId as string
+    const uploaded = await fileApi.upload(projectId, file)
+    passImageLink(fileApi.fileUrl(uploaded.id))
   }
-
-  startupInput = true
-  externalLink = ""
-
-  triggerFileInput () {
-    (this.$refs.fileInput as HTMLInputElement).click()
+  catch (err) {
+    console.error("Image upload failed", err)
+    q.notify({ type: "negative", message: "Image upload failed" })
   }
+}
 
-  async handleFileUpload (event: Event) {
-    const file = (event.target as HTMLInputElement).files?.[0]
-    if (!file) return
+async function openOnlineImageInput () {
+  startupInput.value = false
+  await nextTick()
+  // @ts-ignore
+  externalLinkRef.value?.focus()
+}
 
-    try {
-      const projectId = this.SGET_currentProjectId as string
-      const uploaded = await fileApi.upload(projectId, file)
-      this.passImageLink(fileApi.fileUrl(uploaded.id))
-    }
-    catch (err) {
-      console.error("Image upload failed", err)
-      this.$q.notify({ type: "negative", message: "Image upload failed" })
-    }
-  }
-
-  async openOnlineImageInput () {
-    this.startupInput = false
-    await this.$nextTick()
-    // @ts-ignore
-    this.$refs.externalLinkRef.focus()
-  }
-
-  passImageLink (link: string) {
-    this.$emit("passing-image-link", link)
-    this.triggerDialogClose()
-  }
+function passImageLink (link: string) {
+  emit("passing-image-link", link)
+  triggerDialogClose()
 }
 </script>
 

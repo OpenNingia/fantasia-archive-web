@@ -24,59 +24,58 @@
     </q-dialog>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch, Prop } from "vue-property-decorator"
-
-import DialogBase from "src/components/dialogs/_DialogBase"
+import { ref, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
 
-@Component({
-  components: { }
+const props = defineProps<{ dialogTrigger?: string; dialogDocument: I_OpenedDocument }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
+
+const { dialogsStore, openedDocumentsStore } = useAppStores()
+const { retrieveFieldValue } = useDocumentHelpers()
+
+const dialogModel = ref(false)
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    checkForCloseOpenedDocument()
+  }
 })
-export default class CloseDocumentCheckDialog extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val) {
-      this.checkForCloseOpenedDocument()
+
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+/**
+ * Determine if the document has edits or not. Based on this either skip this dialog altogether or show it.
+ */
+function checkForCloseOpenedDocument () {
+  const input = props.dialogDocument
+  if (input?.hasEdits) {
+    if (dialogsStore.getDialogsState) {
+      return
     }
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
   }
-
-  /**
-   * Current document being processed by the dialog
-   */
-  @Prop() readonly dialogDocument!: I_OpenedDocument
-
-  /**
-   * Determine if the document has edits or not. Based on this either skip this dialog altogether or show it.
-   */
-  checkForCloseOpenedDocument () {
-    const input = this.dialogDocument
-    if (input?.hasEdits) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
-    }
-    else {
-      this.closeDocument(input)
-    }
+  else {
+    closeDocument(input)
   }
+}
 
-  /**
-   * Closes the document and removes it from the list
-   */
-  closeDocument (input: I_OpenedDocument) {
-    const dataPass = { doc: input, treeAction: false }
-    this.SSET_removeOpenedDocument(dataPass)
+/**
+ * Closes the document and removes it from the list
+ */
+function closeDocument (input: I_OpenedDocument) {
+  const dataPass = { doc: input, treeAction: false }
+  openedDocumentsStore.removeDocument(dataPass)
 
-    this.dialogModel = false
-    this.SSET_setDialogState(false)
-  }
+  dialogModel.value = false
+  dialogsStore.setDialogState(false)
 }
 </script>
 

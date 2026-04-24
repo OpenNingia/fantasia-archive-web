@@ -69,105 +69,112 @@
 
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch } from "vue-property-decorator"
-
-import DialogBase from "src/components/dialogs/_DialogBase"
+import { ref, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 import type { I_KeyPressObject } from "src/interfaces/I_KeypressObject"
-@Component({
-  components: { }
-})
-export default class KeybindCheatsheet extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
 
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
+const props = defineProps<{ dialogTrigger?: string }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
-      // Remap the cheetcheet based on available input settings
-      // @ts-ignore
-      this.localCheatSheet = this.SGET_getCurrentKeyBindData.defaults.map((bind, index) => {
-        const userKb = this.SGET_getCurrentKeyBindData.userKeybinds.find(userKb => userKb.id === bind.id)
-        const mappedKeybind = (
-          userKb &&
-          userKb.which
-        )
-          // If user keybind
-          ? {
-            altKey: userKb.altKey,
-            ctrlKey: userKb.ctrlKey,
-            shiftKey: userKb.shiftKey,
-            which: userKb.which,
-            id: bind.id,
-            tooltip: bind.tooltip,
-            note: bind.note
-          }
-          // If default keybind
-          : {
-            altKey: bind.altKey,
-            ctrlKey: bind.ctrlKey,
-            shiftKey: bind.shiftKey,
-            which: bind.which,
-            id: bind.id,
-            tooltip: bind.tooltip,
-            note: bind.note
-          }
+const { dialogsStore, keybindsStore } = useAppStores()
+const { retrieveKeybindString } = useDocumentHelpers()
 
-        return {
-          name: mappedKeybind.tooltip,
-          id: mappedKeybind.id,
-          keybind: this.retrieveKeybindString(mappedKeybind)
+const dialogModel = ref(false)
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    if (dialogsStore.getDialogsState) {
+      return
+    }
+
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
+
+    // Remap the cheatsheet based on available input settings
+    // @ts-ignore
+    localCheatSheet.value = keybindsStore.getCurrentKeyBindData.defaults.map((bind, index) => {
+      const userKb = keybindsStore.getCurrentKeyBindData.userKeybinds.find(userKb => userKb.id === bind.id)
+      const mappedKeybind = (
+        userKb &&
+        userKb.which
+      )
+        // If user keybind
+        ? {
+          altKey: userKb.altKey,
+          ctrlKey: userKb.ctrlKey,
+          shiftKey: userKb.shiftKey,
+          which: userKb.which,
+          id: bind.id,
+          tooltip: bind.tooltip,
+          note: bind.note
         }
-      })
-    }
+        // If default keybind
+        : {
+          altKey: bind.altKey,
+          ctrlKey: bind.ctrlKey,
+          shiftKey: bind.shiftKey,
+          which: bind.which,
+          id: bind.id,
+          tooltip: bind.tooltip,
+          note: bind.note
+        }
+
+      return {
+        name: mappedKeybind.tooltip,
+        id: mappedKeybind.id,
+        keybind: retrieveKeybindString(mappedKeybind)
+      }
+    })
   }
+})
 
-  /**
-   * Local, remaped cheatsheet
-   */
-  localCheatSheet: I_KeyPressObject[] = []
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
 
-  /**
-   * Keybinds table string filter
-   */
-  filter = ""
+const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
 
-  /**
-   * Keybinds table pagination settings
-   */
-  pagination = {
-    rowsPerPage: 0
+/**
+ * Local, remapped cheatsheet
+ */
+const localCheatSheet = ref<I_KeyPressObject[]>([])
+
+/**
+ * Keybinds table string filter
+ */
+const filter = ref("")
+
+/**
+ * Keybinds table pagination settings
+ */
+const pagination = ref({
+  rowsPerPage: 0
+})
+
+/**
+ * Keybinds table settings
+ */
+const keybindListCollums = [
+  {
+    name: "name",
+    required: true,
+    label: "Action",
+    align: "left",
+    field: (row: {name: string}) => row.name,
+    format: (val: string) => `${val}`,
+    sortable: true
+  },
+  {
+    name: "keybind",
+    align: "left",
+    label: "Keybind",
+    field: "userKeybind"
   }
-
-  /**
-   * Keybinds table settings
-   */
-  keybindListCollums = [
-    {
-      name: "name",
-      required: true,
-      label: "Action",
-      align: "left",
-      field: (row: {name: string}) => row.name,
-      format: (val: string) => `${val}`,
-      sortable: true
-    },
-    {
-      name: "keybind",
-      align: "left",
-      label: "Keybind",
-      field: "userKeybind"
-    }
-  ]
-}
+]
 </script>
 
 <style lang="scss">

@@ -40,7 +40,7 @@
       dense
       dark
       popup-content-class="menuResizer"
-      :ref="`multiSelectField${this.inputDataBluePrint.id}`"
+      :ref="`multiSelectField${inputDataBluePrint.id}`"
       menu-anchor="bottom middle"
       menu-self="top middle"
       class="multiSelect"
@@ -138,122 +138,109 @@
 
 </template>
 
-<script lang="ts">
-import { Component, Emit, Prop, Watch } from "vue-property-decorator"
+<script setup lang="ts">
+import { ref, computed, watch, nextTick } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+import type { I_ExtraFields } from "src/interfaces/I_Blueprint"
 
-import FieldBase from "src/components/fields/_FieldBase"
+const props = defineProps<{
+  inputDataBluePrint: I_ExtraFields
+  editMode?: boolean
+  inputDataValue?: []
+}>()
 
-@Component({
-  components: { }
-})
-export default class Field_MultiSelect extends FieldBase {
-  /****************************************************************/
-  // BASIC FIELD DATA
-  /****************************************************************/
+const emit = defineEmits(["signalInput"])
 
-  /**
-   * Already existing value in the input field (IF one is there right now)
-   */
-  @Prop({
-    default: () => {
-      return []
-    }
-  }) readonly inputDataValue!: []
+const { optionsStore, projectStore } = useAppStores()
+const { stripTags } = useDocumentHelpers()
 
-  /****************************************************************/
-  // INPUT HANDLING
-  /****************************************************************/
+const isDarkMode = ref(false)
+const disableDocumentToolTips = ref(false)
+const textShadow = ref(false)
+const hideDeadCrossThrough = ref(false)
+const hideAdvSearchCheatsheetButton = ref(false)
+const preventPreviewsDocuments = ref(false)
+const agressiveRelationshipFilter = ref(false)
 
-  /**
-   * Watch changes to the prefilled data already existing in the field and update local input accordingly
-   */
-  @Watch("inputDataValue", { deep: true, immediate: true })
-  reactToInputChanges () {
-    this.localInput = (this.inputDataValue) ? this.inputDataValue : []
+const inputIcon = computed(() => props.inputDataBluePrint?.icon)
+const toolTip = computed(() => props.inputDataBluePrint?.tooltip)
+const isMasterOnlyField = computed(() => props.inputDataBluePrint?.masterOnly === true)
+const canEditMasterOnlyField = computed(() => projectStore.currentUserRole === "master")
+
+watch(() => optionsStore.getOptions, (options) => {
+  isDarkMode.value = options.darkMode
+  disableDocumentToolTips.value = options.disableDocumentToolTips
+  textShadow.value = options.textShadow
+  hideDeadCrossThrough.value = options.hideDeadCrossThrough
+  hideAdvSearchCheatsheetButton.value = options.hideAdvSearchCheatsheetButton
+  preventPreviewsDocuments.value = options.preventPreviewsDocuments
+  agressiveRelationshipFilter.value = options.agressiveRelationshipFilter
+}, { immediate: true, deep: true })
+
+// Input handling
+const localInput = ref([] as any[])
+const extraInput = ref<string[]>([])
+const multiSelectFieldRef = ref<any>(null)
+
+watch(() => props.inputDataValue, () => {
+  localInput.value = (props.inputDataValue) ? props.inputDataValue : []
+}, { deep: true, immediate: true })
+
+watch(() => props.inputDataBluePrint, () => {
+  if (props.inputDataBluePrint?.predefinedSelectValues) {
+    extraInput.value = props.inputDataBluePrint?.predefinedSelectValues
   }
+}, { deep: true, immediate: true })
 
-  /**
-   * Model for the local input
-   */
-  localInput = []
+async function defocusSelectRef () {
+  await nextTick()
+  /*eslint-disable */
+  // @ts-ignore
+  multiSelectFieldRef.value?.setOptionIndex(-1)
+  /* eslint-enable */
+}
 
-  /**
-   * List of extra input values
-   */
-  extraInput: string[] = []
-
-  /**
-   * Load data into the extra input
-   */
-  @Watch("inputDataBluePrint", { deep: true, immediate: true })
-  populateExtraInput () {
-    if (this.inputDataBluePrint?.predefinedSelectValues) {
-      this.extraInput = this.inputDataBluePrint?.predefinedSelectValues
-    }
-  }
-
-  /**
-   * Defocus after filtering to avoid un-intuitive focus
-   */
-  async defocusSelectRef () {
-    await this.$nextTick()
-    /*eslint-disable */
-    // @ts-ignore
-    this.$refs[`multiSelectField${this.inputDataBluePrint.id}`].setOptionIndex(-1)     
-    /* eslint-enable */
-  }
-
-  /**
-   * Filter the input list
-   */
-  filterFn (val: string, update: (fn: any) => void) {
-    if (val === "") {
-      update(() => {
-        if (this.inputDataBluePrint?.predefinedSelectValues) {
-          this.extraInput = this.inputDataBluePrint.predefinedSelectValues
-        }
-      })
-      this.defocusSelectRef().catch(e => console.log(e))
-      return
-    }
-
+function filterFn (val: string, update: (fn: any) => void) {
+  if (val === "") {
     update(() => {
-      if (this.inputDataBluePrint?.predefinedSelectValues) {
-        const needle = val.toLowerCase()
-        this.extraInput = this.inputDataBluePrint.predefinedSelectValues.filter(v => v.toLowerCase().indexOf(needle) > -1)
+      if (props.inputDataBluePrint?.predefinedSelectValues) {
+        extraInput.value = props.inputDataBluePrint.predefinedSelectValues
       }
-      this.defocusSelectRef().catch(e => console.log(e))
     })
+    defocusSelectRef().catch(e => console.log(e))
+    return
   }
 
-  moveItem (index: number, direction: "up" | "down") {
-    const to = (direction === "up") ? index - 1 : index + 1
-    const from = index
+  update(() => {
+    if (props.inputDataBluePrint?.predefinedSelectValues) {
+      const needle = val.toLowerCase()
+      extraInput.value = props.inputDataBluePrint.predefinedSelectValues.filter(v => v.toLowerCase().indexOf(needle) > -1)
+    }
+    defocusSelectRef().catch(e => console.log(e))
+  })
+}
 
-    this.localInput.splice(to, 0, this.localInput.splice(from, 1)[0])
+function moveItem (index: number, direction: "up" | "down") {
+  const to = (direction === "up") ? index - 1 : index + 1
+  const from = index
 
-    this.processInput()
-  }
+  localInput.value.splice(to, 0, localInput.value.splice(from, 1)[0])
 
-  /**
-   * Debounce timer to prevent buggy input sync
-   */
-  pullTimer = null as any
+  processInput()
+}
 
-  processInput () {
-    clearTimeout(this.pullTimer)
-    this.pullTimer = setTimeout(() => {
-      this.signalInput()
-    }, 500)
-  }
+let pullTimer = null as any
 
-  /**
-   * Signals the input change to the document body parent component
-   */
-  @Emit()
-  signalInput () {
-    return this.localInput
-  }
+function processInput () {
+  clearTimeout(pullTimer)
+  pullTimer = setTimeout(() => {
+    signalInput()
+  }, 500)
+}
+
+function signalInput () {
+  emit("signalInput", localInput.value)
 }
 </script>
 

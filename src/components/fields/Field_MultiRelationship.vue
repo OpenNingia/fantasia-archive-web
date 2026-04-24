@@ -195,7 +195,7 @@
       style="flex-grow: 1;"
       popup-content-class="menuResizer"
       dense
-      :ref="`multiRelationshipField${this.inputDataBluePrint.id}`"
+      :ref="`multiRelationshipField${inputDataBluePrint.id}`"
       :options="filterList"
       use-input
       :option-disable="opt => Object(opt) === opt ? disabledIDList.includes(opt._id) : true"
@@ -212,7 +212,7 @@
       @input="selectValue"
     >
     <template v-slot:append>
-        <q-btn round dense flat v-slot:append v-if="!hideAdvSearchCheatsheetButton" icon="mdi-help-rhombus" @click.stop.prevent="SSET_setAdvSearchWindowVisible"
+        <q-btn round dense flat v-slot:append v-if="!hideAdvSearchCheatsheetButton" icon="mdi-help-rhombus" @click.stop.prevent="floatingWindowsStore.setAdvSearchWindowVisible"
         >
           <q-tooltip :delay="500">
             Open search cheatsheet
@@ -553,10 +553,12 @@
 
 </template>
 
-<script lang="ts">
-import { Component, Emit, Prop, Watch } from "vue-property-decorator"
+<script setup lang="ts">
+import { ref, computed, watch, nextTick } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+import type { I_ExtraFields } from "src/interfaces/I_Blueprint"
 
-import FieldBase from "src/components/fields/_FieldBase"
 import { advancedDocumentFilter } from "src/scripts/utilities/advancedDocumentFilter"
 import { extend, uid } from "quasar"
 import type { I_ShortenedDocument, I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
@@ -564,570 +566,423 @@ import type { I_FieldRelationship, I_RelationshipPair } from "src/interfaces/I_F
 import { createNewWithParent } from "src/scripts/documentActions/createNewWithParent"
 import { copyDocumentName, copyDocumentTextColor, copyDocumentBackgroundColor } from "src/scripts/documentActions/uniqueFieldCopy"
 import { copyDocument } from "src/scripts/documentActions/copyDocument"
+import { useRouter } from "vue-router"
 
-import { namespace } from "vuex-class"
+const props = defineProps<{
+  inputDataBluePrint: I_ExtraFields
+  editMode?: boolean
+  specialZIndex?: number
+  quickInsertMode?: boolean
+  recursive?: boolean
+  sideDocumentPreview?: boolean
+  inputDataValue?: I_RelationshipPair
+  currentId?: string
+}>()
 
-const Dialogs = namespace("dialogsModule")
-@Component({
-  components: {
-    documentPreview: () => import("src/components/DocumentPreview.vue")
-  }
+const emit = defineEmits(["signalInput", "menuMode", "menuEnter", "menuLeave", "setNewParentId"])
+
+const { optionsStore, projectStore, blueprintsStore, openedDocumentsStore, allDocumentsStore, dialogsStore, floatingWindowsStore } = useAppStores()
+const { stripTags, retrieveIconColor, openExistingDocumentRoute, openExistingDocumentRouteWithEdit, openDocumentPreviewPanel, generateUID } = useDocumentHelpers()
+const router = useRouter()
+
+const isDarkMode = ref(false)
+const disableDocumentToolTips = ref(false)
+const textShadow = ref(false)
+const hideDeadCrossThrough = ref(false)
+const hideAdvSearchCheatsheetButton = ref(false)
+const preventPreviewsDocuments = ref(false)
+const agressiveRelationshipFilter = ref(false)
+
+const inputIcon = computed(() => props.inputDataBluePrint?.icon)
+const toolTip = computed(() => props.inputDataBluePrint?.tooltip)
+const isMasterOnlyField = computed(() => props.inputDataBluePrint?.masterOnly === true)
+const canEditMasterOnlyField = computed(() => projectStore.currentUserRole === "master")
+
+watch(() => optionsStore.getOptions, (options) => {
+  isDarkMode.value = options.darkMode
+  disableDocumentToolTips.value = options.disableDocumentToolTips
+  textShadow.value = options.textShadow
+  hideDeadCrossThrough.value = options.hideDeadCrossThrough
+  hideAdvSearchCheatsheetButton.value = options.hideAdvSearchCheatsheetButton
+  preventPreviewsDocuments.value = options.preventPreviewsDocuments
+  agressiveRelationshipFilter.value = options.agressiveRelationshipFilter
+}, { immediate: true, deep: true })
+
+const specialZIndex = computed(() => props.specialZIndex ?? 999)
+
+const isOneWayRelationship = computed(() => {
+  return (props.inputDataBluePrint.type === "singleToNoneRelationship" || props.inputDataBluePrint.type === "manyToNoneRelationship")
 })
-export default class Field_MultiRelationship extends FieldBase {
-  /****************************************************************/
-  // BASIC FIELD DATA
-  /****************************************************************/
 
-  @Prop({ default: 999 }) readonly specialZIndex!: number
+// Input handling
+const localInput = ref([] as unknown as I_FieldRelationship[])
+const inputNotes = ref<{ pairedId: string; value: string; }[]>([])
+const allTypeDocuments = ref<I_ShortenedDocument[]>([])
+const filterList = ref<I_ShortenedDocument[]>([])
+const disabledIDList = ref<string[]>([])
+const documentPreviewClose = ref("")
+const docToFind = ref(null as unknown as I_OpenedDocument)
+const documentPass = ref(null as unknown as I_OpenedDocument)
 
-  /**
-   * Determines if the "quick insert mode is on"
-   * This prevents the dialog from scrolling up if used within wisywig editors
-   */
-  @Prop({
-    default: false
-  }) readonly quickInsertMode!: boolean
+watch(() => props.inputDataValue, (val) => {
+  const localCopy: I_RelationshipPair = extend(true, {}, val)
+  localInput.value = (localCopy?.value) ? localCopy.value : []
 
-  /**
-   * Prevent document preview in already existing previews
-   */
-  @Prop({ default: false }) readonly recursive!: true
+  const notes = (!localCopy?.addedValues) ? [] : localCopy.addedValues
+  inputNotes.value = notes.filter((single: { pairedId: string }) => localInput.value.find(e => single.pairedId === e._id))
+  checkNotes()
 
-  /**
-   * Prevent document preview in already existing previews
-   */
-  @Prop({ default: false }) readonly sideDocumentPreview!: true
+  reloadObjectListAndCheckIfValueExists()
+}, { deep: true, immediate: true })
 
-  /**
-   * Already existing value in the input field (IF one is there right now)
-   */
-  @Prop({
-    default: () => {
-      return []
-    }
-  }) readonly inputDataValue!: I_RelationshipPair
+watch(() => props.inputDataBluePrint, () => {
+  reloadObjectListAndCheckIfValueExists()
+}, { deep: true, immediate: true })
 
-  /**
-   * ID of the document this field belongs to
-   */
-  @Prop({ default: "" }) readonly currentId!: ""
+watch(() => props.currentId, () => {
+  reloadObjectListAndCheckIfValueExists()
+})
 
-  /**
-   * Determines if this is a one or two way relationship
-   */
-  get isOneWayRelationship () {
-    return (this.inputDataBluePrint.type === "singleToNoneRelationship" || this.inputDataBluePrint.type === "manyToNoneRelationship")
-  }
+async function removeInput (scope: {
+  index: number
+  removeAtIndex: (index: number) => void
+}) {
+  scope.removeAtIndex(scope.index)
 
-  /****************************************************************/
-  // INPUT HANDLING
-  /****************************************************************/
+  await nextTick()
+  /*eslint-disable */
+  // @ts-ignore
+  multiRelationshipFieldRef.value?.hidePopup()
+  /* eslint-enable */
+}
 
-  async removeInput (scope: {
-    index: number
-    removeAtIndex: (index: number) => void
-  }) {
-    scope.removeAtIndex(scope.index)
+const multiRelationshipFieldRef = ref<any>(null)
 
-    await this.$nextTick()
-    /*eslint-disable */
+function retrieveNoteText (id: string) {
+  const pairedNote = inputNotes.value.find(e => e.pairedId === id)
+  return (pairedNote && pairedNote.value.length > 0) ? `(${pairedNote.value})` : ""
+}
+
+async function refocusSelect () {
+  await nextTick()
+  /*eslint-disable */
+  // @ts-ignore
+  multiRelationshipFieldRef.value?.setOptionIndex(-1)
+
+  if (agressiveRelationshipFilter.value) {
     // @ts-ignore
-    this.$refs[`multiRelationshipField${this.inputDataBluePrint.id}`].hidePopup()
-    /* eslint-enable */
+    multiRelationshipFieldRef.value?.moveOptionSelection(1, true)
+  }
+  /* eslint-enable */
+}
+
+function filterSelect (val: string, update: (e: () => void) => void) {
+  if (val === "") {
+    update(() => {
+      filterList.value = allTypeDocuments.value
+        .filter((obj) => !obj.isMinor && obj._id !== props.currentId)
+
+      if (multiRelationshipFieldRef.value && filterList.value.length > 0) {
+        refocusSelect().catch(e => console.log(e))
+      }
+    })
+    return
   }
 
-  /**
-   * Watch changes to the prefilled data already existing in the field and update local input accordingly
-   * Also reload the local object list
-   */
-  @Watch("inputDataValue", { deep: true, immediate: true })
-  reactToInputChanges (val : I_RelationshipPair) {
-    const localCopy: I_RelationshipPair = extend(true, {}, val)
-    this.localInput = (localCopy?.value) ? localCopy.value : []
+  update(() => {
+    const needle = val.toLowerCase()
+    filterList.value = extend(true, [], allTypeDocuments.value)
 
-    const notes = (!localCopy?.addedValues) ? [] : localCopy.addedValues
-    this.inputNotes = notes.filter(single => this.localInput.find(e => single.pairedId === e._id))
-    this.checkNotes()
-
-    this.reloadObjectListAndCheckIfValueExists()
-  }
-
-  /**
-   * Reload the local object list based on blueprint changes
-   */
-  @Watch("inputDataBluePrint", { deep: true, immediate: true })
-  reactToBlueprintChanges () {
-    this.reloadObjectListAndCheckIfValueExists()
-  }
-
-  /**
-   * Reload the local object list based on current document ID changes
-   */
-  @Watch("currentId")
-  reactToIDChanges () {
-    this.reloadObjectListAndCheckIfValueExists()
-  }
-
-  /**
-   * Model for the local input
-   */
-  localInput = [] as unknown as I_FieldRelationship[]
-
-  /**
-   * List of notes paired to the local input
-   */
-  inputNotes: { pairedId: string; value: string; }[] = []
-
-  /**
-   * Retrieves note text
-   */
-  retrieveNoteText (id: string) {
-    const pairedNote = this.inputNotes.find(e => e.pairedId === id)
-    return (pairedNote && pairedNote.value.length > 0) ? `(${pairedNote.value})` : ""
-  }
-
-  /**
-   * A list of all retrieved documents without the current one
-   */
-  allTypeDocuments: I_ShortenedDocument[] = []
-
-  /**
-   * A copy of the list for the filter feed
-   * A copy is needed here as the list gets modified as the filter returns highlights and similar
-   */
-  filterList: I_ShortenedDocument[] = []
-
-  /**
-   * Refocus after filtering to avoid un-intuitive focusing
-   */
-  async refocusSelect () {
-    await this.$nextTick()
-    /*eslint-disable */
     // @ts-ignore
-    this.$refs[`multiRelationshipField${this.inputDataBluePrint.id}`].setOptionIndex(-1)
+    filterList.value = advancedDocumentFilter(needle, filterList.value, blueprintsStore.getAllBlueprints, allDocumentsStore.getAllDocuments.docs)
+      .filter((obj: I_ShortenedDocument) => obj._id !== props.currentId)
 
-    if(this.agressiveRelationshipFilter){
-      // @ts-ignore
-      this.$refs[`multiRelationshipField${this.inputDataBluePrint.id}`].moveOptionSelection(1, true)
+    if (multiRelationshipFieldRef.value && filterList.value.length > 0) {
+      refocusSelect().catch(e => console.log(e))
+    }
+  })
+}
+
+function reloadObjectListAndCheckIfValueExists () {
+  if (props.inputDataBluePrint?.relationshipSettings && (props.currentId ?? "").length > 0) {
+    const allDbObjects = allDocumentsStore.getDocumentsByTypeWithoutCategories(props.inputDataBluePrint.relationshipSettings.connectedObjectType)
+
+    allDbObjects.docs.forEach((doc) => {
+      const objectDoc = doc as unknown as I_ShortenedDocument
+
+      const pairedField = (props.inputDataBluePrint?.relationshipSettings?.connectedField) || ""
+      let isDisabled = false
+
+      if (pairedField.length > 0) {
+        const pairedFieldObject = objectDoc.extraFields.find(f => f.id === pairedField)
+
+        const pairingType = props.inputDataBluePrint.type
+        if (
+          pairedFieldObject !== undefined &&
+          pairedFieldObject !== null &&
+          pairedFieldObject?.value !== undefined &&
+          pairedFieldObject?.value !== null &&
+          typeof pairedFieldObject?.value !== "string" &&
+          pairedFieldObject?.value?.value !== undefined &&
+          pairedFieldObject?.value?.value !== null &&
+          typeof pairedFieldObject?.value?.value !== "string" &&
+          pairingType === "manyToSingleRelationship"
+        ) {
+          isDisabled = true
+        }
+      }
+
+      if (isDisabled) {
+        disabledIDList.value = [...new Set([
+          ...disabledIDList.value,
+          doc._id
+        ])]
+      }
+    })
+
+    localInput.value = (Array.isArray(localInput.value)) ? localInput.value : []
+
+    const toRemoveIndexList: string[] = []
+    let autoGenerateCleanup = false
+
+    for (const [index] of localInput.value.entries()) {
+      if (localInput.value[index]._id) {
+        if (!allDbObjects.docs.find(e => e._id === localInput.value[index]._id) && !localInput.value[index]?.isAutoGenerated) {
+          toRemoveIndexList.push(localInput.value[index]._id)
+        }
+
+        if (allDbObjects.docs.find(e => e._id === localInput.value[index]._id)) {
+          const matchedFieldContent = allDbObjects.docs.find(e => e._id === localInput.value[index]._id)
+          if (matchedFieldContent) {
+            localInput.value[index].label = matchedFieldContent.label
+            localInput.value[index].isDead = matchedFieldContent.extraFields.find(e => e.id === "deadSwitch")?.value
+          }
+          if (localInput.value[index].isAutoGenerated) {
+            localInput.value[index].isAutoGenerated = false
+            autoGenerateCleanup = true
+          }
+        }
+      }
     }
 
-    /* eslint-enable */
-  }
+    allTypeDocuments.value = allDbObjects.docs
 
-  /**
-   * Filter the document list
-   */
-  filterSelect (val: string, update: (e: () => void) => void) {
-    if (val === "") {
-      update(() => {
-        this.filterList = this.allTypeDocuments
-          .filter((obj) => !obj.isMinor && obj._id !== this.currentId)
-
-        if (this.$refs[`multiRelationshipField${this.inputDataBluePrint.id}`] && this.filterList.length > 0) {
-          this.refocusSelect().catch(e => console.log(e))
+    if (toRemoveIndexList.length > 0 || autoGenerateCleanup) {
+      toRemoveIndexList.forEach((id) => {
+        const indexToRemove = localInput.value.findIndex(doc => doc._id === id)
+        if (indexToRemove > -1) {
+          localInput.value.splice(indexToRemove, 1)
         }
       })
+      signalInput(true)
+    }
+  }
+}
+
+function openNewTab (input: I_FieldRelationship) {
+  const retrievedObject = (openedDocumentsStore.getDocument(input._id)) || allDocumentsStore.getDocument(input._id)
+
+  const dataPass = {
+    doc: retrievedObject,
+    treeAction: false
+  }
+
+  // @ts-ignore
+  openedDocumentsStore.addDocument(dataPass)
+}
+
+function selectValue () {
+  /*eslint-disable */
+  // @ts-ignore
+  multiRelationshipFieldRef.value?.updateInputValue("")
+  /* eslint-enable */
+
+  processInput()
+}
+
+function moveItem (index: number, direction: "up" | "down") {
+  const to = (direction === "up") ? index - 1 : index + 1
+  const from = index
+
+  localInput.value.splice(to, 0, localInput.value.splice(from, 1)[0])
+  inputNotes.value.splice(to, 0, inputNotes.value.splice(from, 1)[0])
+
+  processInput()
+}
+
+let pullTimer = null as any
+
+function processInput () {
+  checkNotes()
+  inputNotes.value = inputNotes.value.filter(single => localInput.value.find(e => single.pairedId === e._id))
+
+  clearTimeout(pullTimer)
+  pullTimer = setTimeout(() => {
+    signalInput(false)
+  }, 500)
+}
+
+function signalInput (isSilent: boolean) {
+  checkNotes()
+  inputNotes.value = inputNotes.value.filter(single => localInput.value.find(e => single.pairedId === e._id))
+
+  emit("signalInput", {
+    value: localInput.value.map(e => {
+      return {
+        _id: e._id,
+        id: e._id,
+        type: e.type,
+        url: e.url,
+        label: (e?.label) || "",
+        isAutoGenerated: (e.isAutoGenerated),
+        pairedField: (props.inputDataBluePrint?.relationshipSettings?.connectedField) || ""
+      }
+    }),
+    addedValues: inputNotes.value,
+    isSilent: isSilent
+  })
+}
+
+function checkNotes () {
+  localInput.value.forEach(single => {
+    if (!inputNotes.value.find(e => single._id === e.pairedId)) {
+      inputNotes.value.push({ pairedId: single._id, value: "" })
+    }
+  })
+}
+
+function fixGetCorrectDocument (e: I_OpenedDocument | I_FieldRelationship) {
+  docToFind.value = (allTypeDocuments.value.find(doc => doc._id === e._id)) as unknown as I_OpenedDocument
+  return docToFind.value
+}
+
+function openExistingInput (e: I_OpenedDocument) {
+  // @ts-ignore
+  e = (Array.isArray(e)) ? e[0] : e
+  openExistingDocumentRoute(e)
+}
+
+function editExistingInput (e: I_OpenedDocument) {
+  // @ts-ignore
+  e = (Array.isArray(e)) ? e[0] : e
+  openExistingDocumentRouteWithEdit(e)
+}
+
+function addNewUnderParent (currentDoc: I_OpenedDocument) {
+  createNewWithParent(currentDoc, { $router: router } as any)
+}
+
+function copyName (currentDoc: I_OpenedDocument) {
+  copyDocumentName(currentDoc)
+}
+
+function copyTextColor (currentDoc: I_OpenedDocument) {
+  copyDocumentTextColor(currentDoc)
+}
+
+function copyBackgroundColor (currentDoc: I_OpenedDocument) {
+  copyDocumentBackgroundColor(currentDoc)
+}
+
+function copyTargetDocument (currentDoc: I_OpenedDocument) {
+  documentPass.value = extend(true, {}, currentDoc)
+
+  const blueprint = blueprintsStore.getBlueprint(documentPass.value.type)
+  const newDocument = copyDocument(documentPass.value, generateUID(), blueprint)
+
+  const dataPass = {
+    doc: newDocument,
+    treeAction: false
+  }
+
+  // @ts-ignore
+  openedDocumentsStore.addDocument(dataPass)
+  router.push({
+    path: newDocument.url
+  }).catch((e: {name: string}) => {
+    const errorName: string = e.name
+    if (errorName === "NavigationDuplicated") {
       return
     }
+    console.log(e)
+  })
+}
 
-    update(() => {
-      const needle = val.toLowerCase()
-      this.filterList = extend(true, [], this.allTypeDocuments)
+function addNewRelationshipObject (input: string) {
+  /*eslint-disable */
+  // @ts-ignore
+  multiRelationshipFieldRef.value?.updateInputValue("")
+  /* eslint-enable */
 
-      // @ts-ignore
-      this.filterList = advancedDocumentFilter(needle, this.filterList, this.SGET_allBlueprints, this.SGET_allDocuments.docs)
-        .filter((obj) => obj._id !== this.currentId)
+  const newObjectType = props.inputDataBluePrint?.relationshipSettings?.connectedObjectType as unknown as string
 
-      if (this.$refs[`multiRelationshipField${this.inputDataBluePrint.id}`] && this.filterList.length > 0) {
-        this.refocusSelect().catch(e => console.log(e))
-      }
-    })
+  const pairedBlueprint = blueprintsStore.getBlueprint(newObjectType)
+
+  const newObjectID = uid()
+
+  const newDocument = {
+    bgColor: undefined,
+    color: undefined,
+    extraFields: [
+      { id: "name", value: input },
+      { id: "parentDoc", value: "" },
+      { id: "documentColor", value: "" },
+      { id: "documentBackgroundColor", value: "" },
+      { id: "finishedSwitch", value: "" },
+      { id: "minorSwitch", value: "" },
+      { id: "deadSwitch", value: "" },
+      { id: "categorySwitch", value: "" },
+      { id: "order", value: "" },
+      { id: "tags", value: [] },
+      { id: "categoryDescription", value: "" }
+    ],
+    hierarchicalPath: pairedBlueprint.namePlural,
+    icon: pairedBlueprint.icon,
+    id: newObjectID,
+    isCategory: "",
+    isDead: undefined,
+    isMinor: undefined,
+    isAutoGenerated: true,
+    label: input,
+    tags: [],
+    type: newObjectType,
+    url: `/project/display-content/${newObjectType}/${newObjectID}`,
+    _id: newObjectID
   }
 
-  /**
-   * Prepares the initial loading of the list for filtering and furhter use
-   * Also remove the document itself from the list, checks if connected input fields even exist and altogether formats and clears the list
-   */
-  reloadObjectListAndCheckIfValueExists () {
-    if (this.inputDataBluePrint?.relationshipSettings && this.currentId.length > 0) {
-      // Get a list of all objects connected to this field and remap them
-      const allDbObjects = this.SGET_allDocumentsByTypeWithoutCategories(this.inputDataBluePrint.relationshipSettings.connectedObjectType)
+  // @ts-ignore
+  localInput.value.push(newDocument)
 
-      // Map all of the documents to something more digestible for the select
-      allDbObjects.docs.forEach((doc) => {
-        const objectDoc = doc as unknown as I_ShortenedDocument
+  processInput()
+}
 
-        const pairedField = (this.inputDataBluePrint?.relationshipSettings?.connectedField) || ""
-        let isDisabled = false
+function setDocumentPreviewClose () {
+  documentPreviewClose.value = uid()
+}
 
-        // If the paired field exists and if this is "singleToSingleRelationship", set it as disabled since it is already paired
-        if (pairedField.length > 0) {
-          const pairedFieldObject = objectDoc.extraFields.find(f => f.id === pairedField)
+function menuMode (val: boolean) {
+  emit("menuMode", val)
+}
 
-          const pairingType = this.inputDataBluePrint.type
-          if (
-            pairedFieldObject !== undefined &&
-            pairedFieldObject !== null &&
-            pairedFieldObject?.value !== undefined &&
-            pairedFieldObject?.value !== null &&
-            typeof pairedFieldObject?.value !== "string" &&
-            pairedFieldObject?.value?.value !== undefined &&
-            pairedFieldObject?.value?.value !== null &&
-            typeof pairedFieldObject?.value?.value !== "string" &&
-            pairingType === "manyToSingleRelationship"
-          ) {
-            isDisabled = true
-          }
-        }
+function menuEnter () {
+  emit("menuEnter", true)
+}
 
-        if (isDisabled) {
-          this.disabledIDList = [...new Set([
-            ...this.disabledIDList,
-            doc._id
-          ])]
-        }
-      })
+function menuLeave () {
+  emit("menuLeave", true)
+}
 
-      // Do a quick check on formatting of the current input (if something is wrong with it, set it as empty array)
-      this.localInput = (Array.isArray(this.localInput)) ? this.localInput : []
+function setNewParentId (id: string) {
+  emit("setNewParentId", id)
+}
 
-      const toRemoveIndexList: string[] = []
-      let autoGenerateCleanup = false
-
-      for (const [index] of this.localInput.entries()) {
-        // Proceed only if the local input is properly set up
-        if (this.localInput[index]._id) {
-          // If the matched object doesn't exist in the object, assume it has been deleted or newer existed and silently emit a signal input which auto-updates the document
-
-          if (!allDbObjects.docs.find(e => e._id === this.localInput[index]._id) && !this.localInput[index]?.isAutoGenerated) {
-            toRemoveIndexList.push(this.localInput[index]._id)
-          }
-
-          // If the object does exist, make sure we have the newest available name by reasigning the label if it is different. Then trigger a silent update
-          if (allDbObjects.docs.find(e => e._id === this.localInput[index]._id)) {
-            const matchedFieldContent = allDbObjects.docs.find(e => e._id === this.localInput[index]._id)
-            if (matchedFieldContent) {
-              this.localInput[index].label = matchedFieldContent.label
-              this.localInput[index].isDead = matchedFieldContent.extraFields.find(e => e.id === "deadSwitch")?.value
-            }
-            if (this.localInput[index].isAutoGenerated) {
-              this.localInput[index].isAutoGenerated = false
-              autoGenerateCleanup = true
-            }
-          }
-        }
-      }
-
-      this.allTypeDocuments = allDbObjects.docs
-
-      // Remove delete documents paired to this
-      if (toRemoveIndexList.length > 0 || autoGenerateCleanup) {
-        toRemoveIndexList.forEach((id) => {
-          const indexToRemove = this.localInput.findIndex(doc => doc._id === id)
-          if (indexToRemove > -1) {
-            this.localInput.splice(indexToRemove, 1)
-          }
-        })
-        this.signalInput(true)
-      }
-    }
-  }
-
-  /****************************************************************/
-  // FIELD ACTIONS
-  /****************************************************************/
-
-  /**
-   * Opens a new tab from a connected rleationship
-   */
-  openNewTab (input: I_FieldRelationship) {
-    const retrievedObject = (this.SGET_openedDocument(input._id)) || this.SGET_document(input._id)
-
-    const dataPass = {
-      doc: retrievedObject,
-      treeAction: false
-    }
-
-    // @ts-ignore
-    this.SSET_addOpenedDocument(dataPass)
-  }
-
-  selectValue () {
-    /*eslint-disable */
-    // @ts-ignore
-    this.$refs[`multiRelationshipField${this.inputDataBluePrint.id}`].updateInputValue ('')
-    /* eslint-enable */
-
-    this.processInput()
-  }
-
-  moveItem (index: number, direction: "up" | "down") {
-    const to = (direction === "up") ? index - 1 : index + 1
-    const from = index
-
-    this.localInput.splice(to, 0, this.localInput.splice(from, 1)[0])
-    this.inputNotes.splice(to, 0, this.inputNotes.splice(from, 1)[0])
-
-    this.processInput()
-  }
-
-  disabledIDList: string[] = []
-
-  /**
-   * Debounce timer to prevent buggy input sync
-   */
-  pullTimer = null as any
-
-  processInput () {
-    this.checkNotes()
-    this.inputNotes = this.inputNotes.filter(single => this.localInput.find(e => single.pairedId === e._id))
-
-    clearTimeout(this.pullTimer)
-    this.pullTimer = setTimeout(() => {
-      this.signalInput(false)
-    }, 500)
-  }
-
-  /**
-   * Signals the input change to the document body parent component
-   */
-  @Emit()
-  signalInput (isSilent: boolean) {
-    this.checkNotes()
-    this.inputNotes = this.inputNotes.filter(single => this.localInput.find(e => single.pairedId === e._id))
-
-    return {
-      value: this.localInput.map(e => {
-        return {
-          _id: e._id,
-          id: e._id,
-          type: e.type,
-          url: e.url,
-          label: (e?.label) || "",
-          isAutoGenerated: (e.isAutoGenerated),
-          pairedField: (this.inputDataBluePrint?.relationshipSettings?.connectedField) || ""
-        }
-      }),
-      addedValues: this.inputNotes,
-      isSilent: isSilent
-    }
-  }
-
-  /**
-   * Rebuilds the note list to match the input relationships
-   */
-  checkNotes () {
-    this.localInput.forEach(single => {
-      if (!this.inputNotes.find(e => single._id === e.pairedId)) {
-        this.inputNotes.push({ pairedId: single._id, value: "" })
-      }
-    })
-  }
-
-  /****************************************************************/
-  // TRIGGER ACTIONS
-  /****************************************************************/
-
-  docToFind = null as unknown as I_OpenedDocument
-
-  fixGetCorrectDocument (e: I_OpenedDocument | I_FieldRelationship) {
-    this.docToFind = (this.allTypeDocuments.find(doc => doc._id === e._id)) as unknown as I_OpenedDocument
-    return this.docToFind
-  }
-
-  /**
-   * Opened the existing input
-   */
-  openExistingInput (e: I_OpenedDocument) {
-    // @ts-ignore
-    e = (Array.isArray(e)) ? e[0] : e
-    this.openExistingDocumentRoute(e)
-  }
-
-  /**
-   * Opened the existing input in two modes
-   * Either as a focus with closure of the dialog.
-   * Or as a background tab without closing of the dialog.
-   */
-  editExistingInput (e: I_OpenedDocument) {
-    // @ts-ignore
-    e = (Array.isArray(e)) ? e[0] : e
-    this.openExistingDocumentRouteWithEdit(e)
-  }
-
-  documentPass = null as unknown as I_OpenedDocument
-
-  /****************************************************************/
-  // Add new document under parent
-  /****************************************************************/
-  addNewUnderParent (currentDoc: I_OpenedDocument) {
-    createNewWithParent(currentDoc, this)
-  }
-
-  /****************************************************************/
-  // Document field copying
-  /****************************************************************/
-
-  copyName (currentDoc: I_OpenedDocument) {
-    copyDocumentName(currentDoc)
-  }
-
-  copyTextColor (currentDoc: I_OpenedDocument) {
-    copyDocumentTextColor(currentDoc)
-  }
-
-  copyBackgroundColor (currentDoc: I_OpenedDocument) {
-    copyDocumentBackgroundColor(currentDoc)
-  }
-
-  copyTargetDocument (currentDoc: I_OpenedDocument) {
-    this.documentPass = extend(true, {}, currentDoc)
-
-    const blueprint = this.SGET_blueprint(this.documentPass.type)
-    const newDocument = copyDocument(this.documentPass, this.generateUID(), blueprint)
-
-    const dataPass = {
-      doc: newDocument,
-      treeAction: false
-    }
-
-    // @ts-ignore
-    this.SSET_addOpenedDocument(dataPass)
-    this.$router.push({
-      path: newDocument.url
-    }).catch((e: {name: string}) => {
-      const errorName : string = e.name
-      if (errorName === "NavigationDuplicated") {
-        return
-      }
-      console.log(e)
-    })
-  }
-
-  addNewRelationshipObject (input: string) {
-    /*eslint-disable */
-    // @ts-ignore
-    this.$refs[`multiRelationshipField${this.inputDataBluePrint.id}`].updateInputValue ('')
-    /* eslint-enable */
-
-    const newObjectType = this.inputDataBluePrint?.relationshipSettings?.connectedObjectType as unknown as string
-
-    const pairedBlueprint = this.SGET_blueprint(newObjectType)
-
-    const newObjectID = uid()
-
-    const newDocument = {
-      bgColor: undefined,
-      color: undefined,
-      extraFields: [
-
-        {
-          id: "name",
-          value: input
-        },
-        {
-          id: "parentDoc",
-          value: ""
-        },
-        {
-          id: "documentColor",
-          value: ""
-        },
-        {
-          id: "documentBackgroundColor",
-          value: ""
-        },
-        {
-          id: "finishedSwitch",
-          value: ""
-        },
-        {
-          id: "minorSwitch",
-          value: ""
-        },
-        {
-          id: "deadSwitch",
-          value: ""
-        },
-        {
-          id: "categorySwitch",
-          value: ""
-        },
-        {
-          id: "order",
-          value: ""
-        },
-        {
-          id: "tags",
-          value: []
-        },
-        {
-          id: "categoryDescription",
-          value: ""
-        }
-      ],
-      hierarchicalPath: pairedBlueprint.namePlural,
-      icon: pairedBlueprint.icon,
-      id: newObjectID,
-      isCategory: "",
-      isDead: undefined,
-      isMinor: undefined,
-      isAutoGenerated: true,
-      label: input,
-      tags: [],
-      type: newObjectType,
-      url: `/project/display-content/${newObjectType}/${newObjectID}`,
-      _id: newObjectID
-    }
-
-    // @ts-ignore
-    this.localInput.push(newDocument)
-
-    this.processInput()
-  }
-
-  setDocumentPreviewClose () {
-    this.documentPreviewClose = uid()
-  }
-
-  documentPreviewClose = ""
-
-  @Emit()
-  menuMode (val: boolean) {
-    return val
-  }
-
-  @Emit()
-  menuEnter () {
-    return true
-  }
-
-  @Emit()
-  menuLeave () {
-    return true
-  }
-
-  @Emit()
-  setNewParentId (id: string) {
-    return id
-  }
-
-  /**
-   * Set the currently open-ness dialog state
-   */
-  @Dialogs.Mutation("setDialogState") SSET_setDialogState!: (input: boolean) => void
-
-  triggerExport (node: {_id: string}) {
-    this.SSET_setDialogState(false)
-    /*eslint-disable */
-    // @ts-ignore
-    if(this.$refs[`multiRelationshipField${this.inputDataBluePrint.id}`]){
-      // @ts-ignore
-      this.$refs[`multiRelationshipField${this.inputDataBluePrint.id}`].hidePopup()
-    }
-    /* eslint-enable */
-    this.SSET_setExportDialogState([node._id])
-  }
+function triggerExport (node: {_id: string}) {
+  dialogsStore.setDialogState(false)
+  /*eslint-disable */
+  // @ts-ignore
+  multiRelationshipFieldRef.value?.hidePopup()
+  /* eslint-enable */
+  dialogsStore.setExportDialogState([node._id])
 }
 </script>
 

@@ -26,7 +26,7 @@
     <q-input
       v-if="editMode && (!inputDataBluePrint.predefinedSelectValues || inputDataBluePrint.predefinedSelectValues.length === 0)"
       v-model="localInput"
-      :ref="`singleSelectField${this.inputDataBluePrint.id}`"
+      :ref="`singleSelectField${inputDataBluePrint.id}`"
       dense
       autogrow
       @keydown="processInput"
@@ -40,7 +40,7 @@
       dense
       dark
       popup-content-class="menuResizer"
-      :ref="`singleSelectField${this.inputDataBluePrint.id}`"
+      :ref="`singleSelectField${inputDataBluePrint.id}`"
       menu-anchor="bottom middle"
       menu-self="top middle"
       class="singleSelect"
@@ -80,109 +80,98 @@
 
 </template>
 
-<script lang="ts">
-import { Component, Emit, Prop, Watch } from "vue-property-decorator"
+<script setup lang="ts">
+import { ref, computed, watch, nextTick } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import type { I_ExtraFields } from "src/interfaces/I_Blueprint"
 
-import FieldBase from "src/components/fields/_FieldBase"
+const props = defineProps<{
+  inputDataBluePrint: I_ExtraFields
+  editMode?: boolean
+  inputDataValue?: string
+}>()
 
-@Component({
-  components: { }
-})
-export default class Field_SingleSelect extends FieldBase {
-  /****************************************************************/
-  // BASIC FIELD DATA
-  /****************************************************************/
+const emit = defineEmits(["signalInput"])
 
-  /**
-   * Already existing value in the input field (IF one is there right now)
-   */
-  @Prop({ default: "" }) readonly inputDataValue!: ""
+const { optionsStore, projectStore } = useAppStores()
 
-  /****************************************************************/
-  // INPUT HANDLING
-  /****************************************************************/
+const isDarkMode = ref(false)
+const disableDocumentToolTips = ref(false)
+const textShadow = ref(false)
+const hideDeadCrossThrough = ref(false)
+const hideAdvSearchCheatsheetButton = ref(false)
+const preventPreviewsDocuments = ref(false)
+const agressiveRelationshipFilter = ref(false)
 
-  /**
-   * Watch changes to the prefilled data already existing in the field and update local input accordingly
-   */
-  @Watch("inputDataValue", { deep: true, immediate: true })
-  reactToInputChanges () {
-    this.localInput = (this.inputDataValue) ? this.inputDataValue : ""
+const inputIcon = computed(() => props.inputDataBluePrint?.icon)
+const toolTip = computed(() => props.inputDataBluePrint?.tooltip)
+const isMasterOnlyField = computed(() => props.inputDataBluePrint?.masterOnly === true)
+const canEditMasterOnlyField = computed(() => projectStore.currentUserRole === "master")
+
+watch(() => optionsStore.getOptions, (options) => {
+  isDarkMode.value = options.darkMode
+  disableDocumentToolTips.value = options.disableDocumentToolTips
+  textShadow.value = options.textShadow
+  hideDeadCrossThrough.value = options.hideDeadCrossThrough
+  hideAdvSearchCheatsheetButton.value = options.hideAdvSearchCheatsheetButton
+  preventPreviewsDocuments.value = options.preventPreviewsDocuments
+  agressiveRelationshipFilter.value = options.agressiveRelationshipFilter
+}, { immediate: true, deep: true })
+
+// Input handling
+const localInput = ref("")
+const extraInput = ref<string[]>([])
+const singleSelectFieldRef = ref<any>(null)
+
+watch(() => props.inputDataValue, () => {
+  localInput.value = (props.inputDataValue) ? props.inputDataValue : ""
+}, { deep: true, immediate: true })
+
+watch(() => props.inputDataBluePrint, () => {
+  if (props.inputDataBluePrint?.predefinedSelectValues) {
+    extraInput.value = props.inputDataBluePrint?.predefinedSelectValues
   }
+}, { deep: true, immediate: true })
 
-  /**
-   * Model for the local input
-   */
-  localInput = ""
+async function defocusSelectRef () {
+  await nextTick()
+  /*eslint-disable */
+  // @ts-ignore
+  singleSelectFieldRef.value?.setOptionIndex(-1)
+  /* eslint-enable */
+}
 
-  /**
-   * List of extra input values
-   */
-  extraInput: string[] = []
-
-  /**
-   * Load data into the extra input
-   */
-  @Watch("inputDataBluePrint", { deep: true, immediate: true })
-  populateExtraInput () {
-    if (this.inputDataBluePrint?.predefinedSelectValues) {
-      this.extraInput = this.inputDataBluePrint?.predefinedSelectValues
-    }
-  }
-
-  /**
-   * Defocus after filtering to avoid un-intuitive focus
-   */
-  async defocusSelectRef () {
-    await this.$nextTick()
-    /*eslint-disable */
-    // @ts-ignore
-    this.$refs[`singleSelectField${this.inputDataBluePrint.id}`].setOptionIndex(-1)     
-    /* eslint-enable */
-  }
-
-  /**
-   * Filter the input list
-   */
-  filterFn (val: string, update: (fn: any) => void) {
-    if (val === "") {
-      update(() => {
-        if (this.inputDataBluePrint?.predefinedSelectValues) {
-          this.extraInput = this.inputDataBluePrint.predefinedSelectValues
-        }
-      })
-      this.defocusSelectRef().catch(e => console.log(e))
-      return
-    }
-
+function filterFn (val: string, update: (fn: any) => void) {
+  if (val === "") {
     update(() => {
-      if (this.inputDataBluePrint?.predefinedSelectValues) {
-        const needle = val.toLowerCase()
-        this.extraInput = this.inputDataBluePrint.predefinedSelectValues.filter(v => v.toLowerCase().indexOf(needle) > -1)
+      if (props.inputDataBluePrint?.predefinedSelectValues) {
+        extraInput.value = props.inputDataBluePrint.predefinedSelectValues
       }
-      this.defocusSelectRef().catch(e => console.log(e))
     })
+    defocusSelectRef().catch(e => console.log(e))
+    return
   }
 
-  /**
-   * Debounce timer to prevent buggy input sync
-   */
-  pullTimer = null as any
+  update(() => {
+    if (props.inputDataBluePrint?.predefinedSelectValues) {
+      const needle = val.toLowerCase()
+      extraInput.value = props.inputDataBluePrint.predefinedSelectValues.filter(v => v.toLowerCase().indexOf(needle) > -1)
+    }
+    defocusSelectRef().catch(e => console.log(e))
+  })
+}
 
-  processInput () {
-    clearTimeout(this.pullTimer)
-    this.pullTimer = setTimeout(() => {
-      this.signalInput()
-    }, 500)
-  }
+let pullTimer = null as any
 
-  /**
-   * Signals the input change to the document body parent component
-   */
-  @Emit()
-  signalInput () {
-    return this.localInput
-  }
+function processInput () {
+  clearTimeout(pullTimer)
+  pullTimer = setTimeout(() => {
+    signalInput()
+  }, 500)
+}
+
+function signalInput () {
+  emit("signalInput", localInput.value)
 }
 </script>
 

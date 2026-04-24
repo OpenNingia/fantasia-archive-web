@@ -58,8 +58,7 @@
     </q-dialog>
 </template>
 
-<script lang="ts">
-
+<script setup lang="ts">
 interface NewObjectDocument {
   label: string
   icon: string
@@ -68,181 +67,145 @@ interface NewObjectDocument {
   specialLabel: string
 }
 
-import { Component, Watch } from "vue-property-decorator"
-import DialogBase from "src/components/dialogs/_DialogBase"
+import { ref, watch, nextTick } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 
-@Component({
-  components: { }
+const props = defineProps<{ dialogTrigger?: string }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
+
+const { dialogsStore, blueprintsStore, optionsStore, keybindsStore } = useAppStores()
+const { sleep, determineKeyBind, addNewObjectRoute } = useDocumentHelpers()
+
+const dialogModel = ref(false)
+const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTabs = { right: "0px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTutorialTabContent = { right: "-55px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    openDialog(val)
+  }
 })
-export default class NewDocumentDialog extends DialogBase {
-  /****************************************************************/
-  // DIALOG CONTROL
-  /****************************************************************/
 
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.isCloseAbleViaKeybind = false
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
-      this.populateNewObjectDialog().catch(e => console.log(e))
-      this.reloadOptions()
-    }
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+/****************************************************************/
+// COMPONENT SETTINGS
+/****************************************************************/
+
+const isCloseAbleViaKeybind = ref(false)
+const closeWithSameClick = ref(false)
+const textShadow = ref(false)
+
+watch(() => optionsStore.getOptions, () => {
+  reloadOptions()
+}, { immediate: true, deep: true })
+
+function reloadOptions () {
+  closeWithSameClick.value = optionsStore.getOptions.allowQuickPopupSameKeyClose
+  textShadow.value = optionsStore.getOptions.textShadow
+}
+
+/****************************************************************/
+// LOCAL KEYBINDS
+/****************************************************************/
+
+watch(() => keybindsStore.getCurrentKeyBindData, () => {
+  processKeyPush()
+}, { deep: true })
+
+function processKeyPush () {
+  if (determineKeyBind("quickNewDocument") && dialogModel.value && closeWithSameClick.value && isCloseAbleViaKeybind.value && dialogsStore.getDialogsState) {
+    dialogModel.value = false
+    dialogsStore.setDialogState(false)
+    newDocumentModel.value = null
   }
+}
 
-  /****************************************************************/
-  // COMPONENT SETTINGS
-  /****************************************************************/
+/****************************************************************/
+// DIALOG CONTROL
+/****************************************************************/
 
-  /**
-   * Watch options and react to changes
-   */
-  @Watch("SGET_options", { immediate: true, deep: true })
-  onSettingsChange () {
-    this.reloadOptions()
-  }
-
-  /**
-   * Reloads local options
-   */
-  reloadOptions () {
-    this.closeWithSameClick = this.SGET_options.allowQuickPopupSameKeyClose
-    this.textShadow = this.SGET_options.textShadow
-  }
-
-  /**
-   * A local lock that prevents double-triggering and instant re-closing of the dialog via keybinds
-   */
-  isCloseAbleViaKeybind = false
-
-  /**
-   * Determines if the popup is closeable with the same keybind that summoned it
-   */
-  closeWithSameClick = false
-
-  /**
-   * Determines if text shadow will be shows for accesiblity reasons or not
-   */
-  textShadow = false
-
-  /****************************************************************/
-  // LOCAL KEYBINDS
-  /****************************************************************/
-
-  /**
-   * Local keybinds
-   */
-  @Watch("SGET_getCurrentKeyBindData", { deep: true })
-  processKeyPush () {
-    // Keybind cheatsheet
-    if (this.determineKeyBind("quickNewDocument") && this.dialogModel && this.closeWithSameClick && this.isCloseAbleViaKeybind && this.SGET_getDialogsState) {
-      this.dialogModel = false
-      this.SSET_setDialogState(false)
-      // @ts-ignore
-      this.existingDocumentModel = null
-    }
-  }
-
-  /****************************************************************/
-  // SELECT LIST MANAGEMENT
-  /****************************************************************/
-
-  /**
-   * List of all possible new objects
-   */
-  newObjectList = [] as NewObjectDocument[]
-
-  /**
-   * Currently selected new object type
-   */
-  newDocumentModel = null
-
-  /**
-   * Map the object types based on what is currently loaded into the blueprint list
-   */
-  async populateNewObjectDialog () {
-    // @ts-ignore
-    this.newObjectList = this.SGET_allBlueprints.map(blueprint => {
-      return {
-        label: blueprint.namePlural,
-        icon: blueprint.icon,
-        order: blueprint.order,
-        _id: blueprint._id,
-        specialLabel: blueprint.nameSingular.toLowerCase()
-      }
-    })
-
-    await this.$nextTick()
-    await this.sleep(300)
-    /*eslint-disable */
-    // @ts-ignore 
-    this.$refs.ref_newDocument.focus()
-    /* eslint-enable */
-
-    this.isCloseAbleViaKeybind = true
-  }
-
-  /**
-   * Refocuses the first value in the selct upon filtering for intuitive keyboard control
-   */
-  async refocusSelect () {
-    await this.$nextTick()
-    /*eslint-disable */
-    // @ts-ignore 
-    this.$refs.ref_newDocument.setOptionIndex(-1)
-    // @ts-ignore 
-    this.$refs.ref_newDocument.moveOptionSelection(1, true) 
-    /* eslint-enable */
-  }
-
-  /**
-   * Filtered list of new document types
-   */
-  filteredNewInput = null as unknown as NewObjectDocument[]
-
-  /**
-   * Filtering of the value list
-   */
-  filterNewSelect (val: string, update: (e: () => void) => void) {
-    if (val === "") {
-      update(() => {
-        this.filteredNewInput = this.newObjectList
-        if (this.$refs.ref_newDocument && this.filteredNewInput.length > 0) {
-          this.refocusSelect().catch(e => console.log(e))
-        }
-      })
+function openDialog (val: string | false) {
+  if (val) {
+    if (dialogsStore.getDialogsState) {
       return
     }
+    isCloseAbleViaKeybind.value = false
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
+    populateNewObjectDialog().catch(e => console.log(e))
+    reloadOptions()
+  }
+}
 
+/****************************************************************/
+// SELECT LIST MANAGEMENT
+/****************************************************************/
+
+const newObjectList = ref([] as NewObjectDocument[])
+const newDocumentModel = ref<any>(null)
+const ref_newDocument = ref<any>(null)
+
+async function populateNewObjectDialog () {
+  newObjectList.value = blueprintsStore.getAllBlueprints.map(blueprint => {
+    return {
+      label: blueprint.namePlural,
+      icon: blueprint.icon,
+      order: blueprint.order,
+      _id: blueprint._id,
+      specialLabel: blueprint.nameSingular.toLowerCase()
+    }
+  })
+
+  await nextTick()
+  await sleep(300)
+  ref_newDocument.value?.focus()
+
+  isCloseAbleViaKeybind.value = true
+}
+
+async function refocusSelect () {
+  await nextTick()
+  ref_newDocument.value?.setOptionIndex(-1)
+  ref_newDocument.value?.moveOptionSelection(1, true)
+}
+
+const filteredNewInput = ref(null as unknown as NewObjectDocument[])
+
+function filterNewSelect (val: string, update: (e: () => void) => void) {
+  if (val === "") {
     update(() => {
-      const needle = val.toLowerCase()
-      this.filteredNewInput = this.newObjectList.filter(v => v.label.toLowerCase().indexOf(needle) > -1)
-      if (this.$refs.ref_newDocument && this.filteredNewInput.length > 0) {
-        this.refocusSelect().catch(e => console.log(e))
+      filteredNewInput.value = newObjectList.value
+      if (ref_newDocument.value && filteredNewInput.value.length > 0) {
+        refocusSelect().catch(e => console.log(e))
       }
     })
+    return
   }
 
-  /****************************************************************/
-  // TRIGGER ACTIONS
-  /****************************************************************/
+  update(() => {
+    const needle = val.toLowerCase()
+    filteredNewInput.value = newObjectList.value.filter(v => v.label.toLowerCase().indexOf(needle) > -1)
+    if (ref_newDocument.value && filteredNewInput.value.length > 0) {
+      refocusSelect().catch(e => console.log(e))
+    }
+  })
+}
 
-  /**
-   * Add new document
-   */
-  triggerNewInput (e: NewObjectDocument) {
-    this.dialogModel = false
-    setTimeout(() => {
-      this.addNewObjectRoute(e)
-      this.newDocumentModel = null
-    }, 1000)
-  }
+/****************************************************************/
+// TRIGGER ACTIONS
+/****************************************************************/
+
+function triggerNewInput (e: NewObjectDocument) {
+  dialogModel.value = false
+  setTimeout(() => {
+    addNewObjectRoute(e)
+    newDocumentModel.value = null
+  }, 1000)
 }
 </script>
 

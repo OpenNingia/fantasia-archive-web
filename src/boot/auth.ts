@@ -1,17 +1,17 @@
 import { boot } from "quasar/wrappers"
 import { authApi } from "src/services/api/authApi"
-import { useStore } from "src/store"
+import { vuexStore } from "src/store"
 
+// useStore() calls inject() which only works inside component setup().
+// Router guards run outside of component context, so we use the module-level singleton.
 export default boot(async ({ router }) => {
   router.beforeEach(async (to) => {
     if (to.meta.public) return true
 
-    const store = useStore()
-
-    if (!store.getters["projectModule/currentUser"]) {
+    if (!vuexStore.getters["projectModule/currentUser"]) {
       try {
         const user = await authApi.me()
-        store.commit("projectModule/SET_CURRENT_USER", user)
+        vuexStore.commit("projectModule/SET_CURRENT_USER", user)
       } catch {
         if (to.path !== "/login") {
           return { path: "/login", query: { redirect: to.fullPath } }

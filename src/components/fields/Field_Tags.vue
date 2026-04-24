@@ -29,7 +29,7 @@
       style="width: 100%;"
       dense
       dark
-      :ref="`tagField${this.inputDataBluePrint.id}`"
+      :ref="`tagField${inputDataBluePrint.id}`"
       menu-anchor="bottom middle"
       menu-self="top middle"
       class="tagSelect"
@@ -72,163 +72,132 @@
 
 </template>
 
-<script lang="ts">
-import { Component, Emit, Prop, Watch } from "vue-property-decorator"
-
-import FieldBase from "src/components/fields/_FieldBase"
+<script setup lang="ts">
+import { ref, computed, watch, nextTick } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+import type { I_ExtraFields } from "src/interfaces/I_Blueprint"
 
 import { tagListBuildFromBlueprints } from "src/scripts/utilities/tagListBuilder"
 
-@Component({
-  components: { }
-})
-export default class Field_Tags extends FieldBase {
-  /****************************************************************/
-  // BASIC FIELD DATA
-  /****************************************************************/
+const props = defineProps<{
+  inputDataBluePrint: I_ExtraFields
+  editMode?: boolean
+  inputDataValue?: []
+}>()
 
-  /**
-   * Already existing value in the input field (IF one is there right now)
-   */
-  @Prop({
-    default: () => {
-      return []
-    }
-  }) readonly inputDataValue!: []
+const emit = defineEmits(["signalInput"])
 
-  /****************************************************************/
-  // INPUT HANDLING
-  /****************************************************************/
+const { optionsStore, projectStore, allDocumentsStore } = useAppStores()
+const { stripTags } = useDocumentHelpers()
 
-  /**
-   * Watch changes to the prefilled data already existing in the field and update local input accordingly
-   */
-  @Watch("inputDataValue", { deep: true, immediate: true })
-  reactToInputChanges () {
-    this.localInput = (this.inputDataValue) ? this.inputDataValue : []
-    this.buildTagList()
+const isDarkMode = ref(false)
+const disableDocumentToolTips = ref(false)
+const textShadow = ref(false)
+const hideDeadCrossThrough = ref(false)
+const hideAdvSearchCheatsheetButton = ref(false)
+const preventPreviewsDocuments = ref(false)
+const agressiveRelationshipFilter = ref(false)
+
+const inputIcon = computed(() => props.inputDataBluePrint?.icon)
+const toolTip = computed(() => props.inputDataBluePrint?.tooltip)
+const isMasterOnlyField = computed(() => props.inputDataBluePrint?.masterOnly === true)
+const canEditMasterOnlyField = computed(() => projectStore.currentUserRole === "master")
+
+watch(() => optionsStore.getOptions, (options) => {
+  isDarkMode.value = options.darkMode
+  disableDocumentToolTips.value = options.disableDocumentToolTips
+  textShadow.value = options.textShadow
+  hideDeadCrossThrough.value = options.hideDeadCrossThrough
+  hideAdvSearchCheatsheetButton.value = options.hideAdvSearchCheatsheetButton
+  preventPreviewsDocuments.value = options.preventPreviewsDocuments
+  agressiveRelationshipFilter.value = options.agressiveRelationshipFilter
+}, { immediate: true, deep: true })
+
+// Input handling
+const localInput = ref<string[]>([])
+const allTags = ref<string[]>([])
+const filteredTags = ref<string[]>([])
+const tagAlreadyExists = ref(false)
+const tagFieldRef = ref<any>(null)
+
+watch(() => props.inputDataValue, () => {
+  localInput.value = (props.inputDataValue) ? props.inputDataValue : []
+  buildTagList()
+}, { deep: true, immediate: true })
+
+watch(() => props.inputDataBluePrint, () => {
+  buildTagList()
+}, { deep: true, immediate: true })
+
+let pullTimer = null as any
+
+function processInput () {
+  clearTimeout(pullTimer)
+  pullTimer = setTimeout(() => {
+    signalInput()
+  }, 500)
+}
+
+function signalInput () {
+  tagAlreadyExists.value = false
+  emit("signalInput", localInput.value)
+}
+
+async function defocusSelectRef () {
+  await nextTick()
+  /*eslint-disable */
+  // @ts-ignore
+  tagFieldRef.value?.setOptionIndex(-1)
+  /* eslint-enable */
+}
+
+function addNewValue (val: string) {
+  const formattedNewTag = val.toLowerCase().trim()
+
+  const tagAlreadyExistsInList = (allTags.value.find(tag => tag.toLowerCase() === formattedNewTag))
+
+  const tagAlreadyExistsAttached = (localInput.value.find(tag => tag.toLowerCase() === formattedNewTag))
+
+  if (!tagAlreadyExistsInList) {
+    allTags.value.push(val)
   }
 
-  /**
-   * Model for the local input
-   */
-  localInput: string[] = []
-
-  /**
-   * Add an additional blueprint watch to catch all the changes for the tag refresh to avoid glitches and bugs
-   */
-  @Watch("inputDataBluePrint", { deep: true, immediate: true })
-  reactToBlueprintChanges () {
-    this.buildTagList()
-  }
-
-  /**
-   * Debounce timer to prevent buggy input sync
-   */
-  pullTimer = null as any
-
-  processInput () {
-    clearTimeout(this.pullTimer)
-    this.pullTimer = setTimeout(() => {
-      this.signalInput()
-    }, 500)
-  }
-
-  /**
-   * Signals the input change to the document body parent component
-   */
-  @Emit()
-  signalInput () {
-    this.tagAlreadyExists = false
-    return this.localInput
-  }
-
-  /****************************************************************/
-  // TAG MANAGEMENT
-  /****************************************************************/
-
-  /**
-   * List of all currently existing tags
-   */
-  allTags: string[] = []
-
-  /**
-   * List of all currently filtered tags
-   */
-  filteredTags: string[] = []
-
-  /**
-   * Defocus after filtering to avoid un-intuitive focus
-   */
-  async defocusSelectRef () {
-    await this.$nextTick()
+  if (!tagAlreadyExistsAttached) {
+    localInput.value.push(val)
     /*eslint-disable */
     // @ts-ignore
-    this.$refs[`tagField${this.inputDataBluePrint.id}`].setOptionIndex(-1)     
+    tagFieldRef.value?.updateInputValue("")
     /* eslint-enable */
+    processInput()
   }
 
-  /**
-   * Determines if the newly added tag already exists or not
-   */
-  tagAlreadyExists = false
-
-  /**
-   * Add a new tag value to the list
-   */
-  addNewValue (val: string) {
-    const formattedNewTag = val.toLowerCase().trim()
-
-    const tagAlreadyExistsInList = (this.allTags.find(tag => tag.toLowerCase() === formattedNewTag))
-
-    const tagAlreadyExistsAttached = (this.localInput.find(tag => tag.toLowerCase() === formattedNewTag))
-
-    if (!tagAlreadyExistsInList) {
-      this.allTags.push(val)
-    }
-
-    if (!tagAlreadyExistsAttached) {
-      this.localInput.push(val)
-      /*eslint-disable */
-      // @ts-ignore
-      this.$refs[`tagField${this.inputDataBluePrint.id}`].updateInputValue ('')     
-      /* eslint-enable */
-      this.processInput()
-    }
-
-    if (tagAlreadyExistsInList && tagAlreadyExistsAttached) {
-      this.tagAlreadyExists = true
-    }
+  if (tagAlreadyExistsInList && tagAlreadyExistsAttached) {
+    tagAlreadyExists.value = true
   }
+}
 
-  /**
-   * Filter the tag list
-   */
-  filterFn (val: string, update: (fn: any) => void) {
-    if (val === "") {
-      update(() => {
-        if (this.allTags) {
-          this.filteredTags = this.allTags
-        }
-        this.defocusSelectRef().catch(e => console.log(e))
-      })
-      return
-    }
-
+function filterFn (val: string, update: (fn: any) => void) {
+  if (val === "") {
     update(() => {
-      if (this.allTags) {
-        const needle = val.toLowerCase()
-        this.filteredTags = this.allTags.filter(v => v.toLowerCase().indexOf(needle) > -1)
+      if (allTags.value) {
+        filteredTags.value = allTags.value
       }
-      this.defocusSelectRef().catch(e => console.log(e))
+      defocusSelectRef().catch(e => console.log(e))
     })
+    return
   }
 
-  /**
-   * Build a new tag list from all existing tags on all documents across the whole project
-   */
-  buildTagList () {
-    this.allTags = tagListBuildFromBlueprints(this.SGET_allDocuments.docs)
-  }
+  update(() => {
+    if (allTags.value) {
+      const needle = val.toLowerCase()
+      filteredTags.value = allTags.value.filter(v => v.toLowerCase().indexOf(needle) > -1)
+    }
+    defocusSelectRef().catch(e => console.log(e))
+  })
+}
+
+function buildTagList () {
+  allTags.value = tagListBuildFromBlueprints(allDocumentsStore.getAllDocuments.docs)
 }
 </script>

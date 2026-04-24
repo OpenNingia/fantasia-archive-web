@@ -323,11 +323,9 @@
   </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, watch, getCurrentInstance } from "vue"
 
-import { Component, Prop, Watch } from "vue-property-decorator"
-
-import BaseClass from "src/BaseClass"
 import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 
@@ -344,299 +342,278 @@ import { extend } from "quasar"
 import type { I_DocumentTemplate } from "src/interfaces/I_DocumentTemplate"
 import { retrieveAllDocumentTemplatesFromDB } from "src/scripts/projectManagement/documentTemplates"
 
-@Component({
-  components: {
-    Field_Break,
-    Field_Text,
-    Field_Number,
-    Field_Switch,
-    Field_ColorPicker,
-    Field_List,
-    Field_SingleSelect,
-    Field_MultiSelect,
-    Field_SingleRelationship: () => import("src/components/fields/Field_SingleRelationship.vue"),
-    Field_MultiRelationship: () => import("src/components/fields/Field_MultiRelationship.vue"),
-    Field_Wysiwyg: () => import("src/components/fields/Field_Wysiwyg.vue"),
-    Field_Tags
-  }
+import Field_SingleRelationship from "src/components/fields/Field_SingleRelationship.vue"
+import Field_MultiRelationship from "src/components/fields/Field_MultiRelationship.vue"
+import Field_Wysiwyg from "src/components/fields/Field_Wysiwyg.vue"
+
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+
+const { blueprintsStore, allDocumentsStore, openedDocumentsStore, optionsStore } = useAppStores()
+const { retrieveFieldValue, retrieveFieldType, determineLegacyField, openDocumentPreviewPanel } = useDocumentHelpers()
+
+const instance = getCurrentInstance()
+
+/****************************************************************/
+// PROPS
+/****************************************************************/
+
+const props = withDefaults(defineProps<{
+  externalCloseTrigger?: string
+  documentId?: string
+  displayMode?: string
+  specialZIndex?: number
+  customDelay?: number
+  customTarget?: string | boolean
+  customAnchor?: string
+  customSelf?: string
+  customCloseDelay?: number
+  quickInsertMode?: boolean
+}>(), {
+  externalCloseTrigger: "",
+  displayMode: "tooltip",
+  specialZIndex: 999,
+  customDelay: 750,
+  customTarget: true,
+  customAnchor: "bottom middle",
+  customSelf: "top middle",
+  customCloseDelay: 500,
+  quickInsertMode: false
 })
-export default class DocumentPreview extends BaseClass {
-  /****************************************************************/
-  // LOCAL CONTENT
-  /****************************************************************/
 
-  /**
-   * Variable string for closing of the popup due to external influences
-   */
-  @Prop({ default: "" }) readonly externalCloseTrigger!: string
+/****************************************************************/
+// LOCAL CONTENT
+/****************************************************************/
 
-  @Watch("externalCloseTrigger")
-  reactToExternalClose () {
-    this.setCloseTimer()
+watch(() => props.externalCloseTrigger, () => {
+  setCloseTimer()
+})
+
+function setOtherContent (id: string) {
+  hasOtherContent.value = true
+  setNewDocumentID(id).catch(e => console.log(e))
+}
+
+function setOtherContentSidebar (id: string) {
+  openDocumentPreviewPanel(id)
+
+  document.querySelectorAll(".documentPreviewWrapper").forEach(e => {
+    e.scrollTop = 0
+  })
+}
+
+const documentTemplateList = ref<I_DocumentTemplate[]>([])
+
+async function setNewDocumentID (id: string) {
+  localDocument.value = extend(true, {}, allDocumentsStore.getDocument(id))
+  if (!localDocument.value) {
+    // @ts-ignore
+    localDocument.value = extend(true, {}, openedDocumentsStore.getDocument(id))
+    documentTemplateList.value = await retrieveAllDocumentTemplatesFromDB()
   }
+  if (localDocument.value) {
+    localBlueprint.value = blueprintsStore.getBlueprint(localDocument.value.type)
+    documentTemplateList.value = await retrieveAllDocumentTemplatesFromDB()
 
-  /**
-   * Retrieved document ID
-   */
-  @Prop() readonly documentId!: string
+    await instance?.proxy?.$nextTick()
 
-  /**
-   * Display mode of the document preview
-   */
-  @Prop({ default: "tooltip" }) readonly displayMode!: string
-
-  setOtherContent (id:string) {
-    this.hasOtherContent = true
-    this.setNewDocumentID(id).catch(e => console.log(e))
-  }
-
-  setOtherContentSidebar (id:string) {
-    this.openDocumentPreviewPanel(id)
-
-    document.querySelectorAll(".documentPreviewWrapper").forEach(e => {
+    document.querySelectorAll(".documentPreviewWrapper.tooltip").forEach(e => {
       e.scrollTop = 0
     })
   }
+}
 
-  documentTemplateList: I_DocumentTemplate[] = []
-
-  async setNewDocumentID (id: string) {
-    this.localDocument = extend(true, {}, this.SGET_document(id))
-    if (!this.localDocument) {
-      // @ts-ignore
-      this.localDocument = extend(true, {}, this.SGET_openedDocument(id))
-      this.documentTemplateList = await retrieveAllDocumentTemplatesFromDB()
-    }
-    if (this.localDocument) {
-      this.localBlueprint = this.SGET_blueprint(this.localDocument.type)
-      this.documentTemplateList = await retrieveAllDocumentTemplatesFromDB()
-
-      await this.$nextTick()
-
-      document.querySelectorAll(".documentPreviewWrapper.tooltip").forEach(e => {
-        e.scrollTop = 0
-      })
-    }
+watch(() => props.documentId, (val: string | undefined) => {
+  if (props.documentId && val) {
+    setNewDocumentID(val).catch(e => console.log(e))
   }
+}, { immediate: true })
 
-  @Watch("documentId", { immediate: true })
-  reactToDocumentIDChange (val: string) {
-    if (this.documentId) {
-      this.setNewDocumentID(val).catch(e => console.log(e))
-    }
-  }
+const localDocument = ref(false as unknown as I_ShortenedDocument)
+const localBlueprint = ref(false as unknown as I_Blueprint)
 
-  localDocument = false as unknown as I_ShortenedDocument
-  localBlueprint = false as unknown as I_Blueprint
+/**
+ * Check if field should be showing if the category setting is turned on
+ */
+function categoryFieldFilter (currentFieldID: string) {
+  const isCategory = retrieveFieldValue(localDocument.value, "categorySwitch")
 
-  /**
-   * Check if field should be showing if the category setting is turned on
-   */
-  categoryFieldFilter (currentFieldID: string) {
-    const isCategory = this.retrieveFieldValue(this.localDocument, "categorySwitch")
+  const ignoredList = ["breakDocumentSettings", "name", "documentColor", "documentBackgroundColor", "parentDoc", "order", "categorySwitch", "minorSwitch", "deadSwitch", "finishedSwitch", "tags", "otherNames"]
+  return (
+    (
+      (!isCategory && currentFieldID !== "categoryDescription") ||
+      ignoredList.includes(currentFieldID)
+    ) || (isCategory && currentFieldID === "categoryDescription")
+  )
+}
 
-    const ignoredList = ["breakDocumentSettings", "name", "documentColor", "documentBackgroundColor", "parentDoc", "order", "categorySwitch", "minorSwitch", "deadSwitch", "finishedSwitch", "tags", "otherNames"]
-    return (
-      (
-        (!isCategory && currentFieldID !== "categoryDescription") ||
-        ignoredList.includes(currentFieldID)
-      ) || (isCategory && currentFieldID === "categoryDescription")
-    )
-  }
-
-  /**
-   * Checks if the field in question
-   */
-  hasValueFieldFilter (field: any) {
-    if (this.retrieveFieldType(this.localDocument, field.id) === "break") {
-      return true
-    }
-
-    const value = this.retrieveFieldValue(this.localDocument, field.id)
-
-    if (!value ||
-    (Array.isArray(value) && value.length === 0) ||
-    // @ts-ignore
-     (value?.value?.length === 0) ||
-    // @ts-ignore
-     (value.value === null)) {
-      return false
-    }
+/**
+ * Checks if the field in question
+ */
+function hasValueFieldFilter (field: any) {
+  if (retrieveFieldType(localDocument.value, field.id) === "break") {
     return true
   }
 
-  /****************************************************************/
-  // GLOBAL OPTIONS
-  /****************************************************************/
+  const value = retrieveFieldValue(localDocument.value, field.id)
 
-  /**
-   * React to changes on the options store
-   */
-  @Watch("SGET_options", { immediate: true, deep: true })
-  onSettingsChange () {
-    this.isDarkMode = this.SGET_options.darkMode
+  if (!value ||
+  (Array.isArray(value) && value.length === 0) ||
+  // @ts-ignore
+   (value?.value?.length === 0) ||
+  // @ts-ignore
+   (value.value === null)) {
+    return false
   }
+  return true
+}
 
-  /**
-   * Determines if this is in dark-mode or not
-   */
-  isDarkMode = false
+/****************************************************************/
+// GLOBAL OPTIONS
+/****************************************************************/
 
-  /****************************************************************/
-  // VISIBILITY MANAGEMENT
-  /****************************************************************/
+watch(() => optionsStore.getOptions, () => {
+  isDarkMode.value = optionsStore.getOptions.darkMode
+}, { immediate: true, deep: true })
 
-  /**
-   * Variable string for closing of the popup due to external influences
-   */
-  @Prop({ default: 999 }) readonly specialZIndex!: number
-  @Prop({ default: 750 }) readonly customDelay!: number
-  @Prop({ default: true }) readonly customTarget!: string | boolean
-  @Prop({ default: "bottom middle" }) readonly customAnchor!: string
-  @Prop({ default: "top middle" }) readonly customSelf!: string
-  @Prop({ default: 500 }) readonly customCloseDelay!: number
+const isDarkMode = ref(false)
 
-  consitentDocumentPreviewSwitch () {
-    if (this.documentPreviewLock) {
-      this.documentPreviewSwitch = true
+/****************************************************************/
+// VISIBILITY MANAGEMENT
+/****************************************************************/
+
+function consitentDocumentPreviewSwitch () {
+  if (documentPreviewLock.value) {
+    documentPreviewSwitch.value = true
+  }
+}
+
+function documentPreviewClose () {
+  documentPreviewLock.value = false
+  documentPreviewSwitch.value = false
+  hasOtherContent.value = false
+}
+
+const documentPreviewLock = ref(false)
+const documentPreviewSwitch = ref(false)
+
+const hasOtherContent = ref(false)
+
+function openDocumentPreview () {
+  if (!hasOtherContent.value) {
+    documentPreviewLock.value = true
+    if (props.documentId) {
+      setNewDocumentID(props.documentId).catch(e => console.log(e))
     }
   }
+}
 
-  documentPreviewClose () {
-    this.documentPreviewLock = false
-    this.documentPreviewSwitch = false
-    this.hasOtherContent = false
-  }
+function clearCloseTimer () {
+  disableScroll()
+  clearTimeout(closeTimer.value)
+}
 
-  documentPreviewLock = false
-  documentPreviewSwitch = false
+function setCloseTimer () {
+  enableScroll()
+  closeTimer.value = setTimeout(() => {
+    documentPreviewClose()
+  }, props.customCloseDelay)
+}
 
-  hasOtherContent = false
+/**
+ * Debounce timer for nice user experience
+ */
+const closeTimer = ref(null as any)
 
-  openDocumentPreview () {
-    if (!this.hasOtherContent) {
-      this.documentPreviewLock = true
-      if (this.documentId) {
-        this.setNewDocumentID(this.documentId).catch(e => console.log(e))
-      }
-    }
-  }
+const menuMode = ref(false)
 
-  clearCloseTimer () {
-    this.disableScroll()
-    clearTimeout(this.closeTimer)
-  }
+function reactToMenuMode (mode: boolean) {
+  menuMode.value = mode
+}
 
-  setCloseTimer () {
-    this.enableScroll()
-    this.closeTimer = setTimeout(() => {
-      this.documentPreviewClose()
-    }, this.customCloseDelay)
-  }
+function reactToMenuEnter () {
+  clearCloseTimer()
+}
 
-  /**
-   * Determines if the "quick insert mode is on"
-   * This prevents the dialog from scrolling up if used within wisywig editors
-   */
-  @Prop({
-    default: false
-  }) readonly quickInsertMode!: boolean
+function reactToMenuLeave () {
+  setCloseTimer()
+}
 
-  /**
-   * Debounce timer for nice user experience
-   */
-  closeTimer = null as any
+const wheelOpt = { passive: false }
+const wheelEvent = "onwheel" in document.createElement("div") ? "wheel" : "mousewheel"
 
-  menuMode = false
+function preventDefault (e: WheelEvent) {
+  // @ts-ignore
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  const previewWrapper = e.target.closest(".documentPreviewWrapper")
 
-  reactToMenuMode (menuMode: boolean) {
-    this.menuMode = menuMode
-  }
-
-  reactToMenuEnter () {
-    this.clearCloseTimer()
-  }
-
-  reactToMenuLeave () {
-    this.setCloseTimer()
-  }
-
-  wheelOpt = { passive: false }
-  wheelEvent = "onwheel" in document.createElement("div") ? "wheel" : "mousewheel"
-
-  preventDefault (e: WheelEvent) {
-    // @ts-ignore
+  if (previewWrapper) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    const previewWrapper = e.target.closest(".documentPreviewWrapper")
+    const previewContent = previewWrapper.querySelector(".documentPreviewContent")
 
-    if (previewWrapper) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const previewContent = previewWrapper.querySelector(".documentPreviewContent")
+    const wheelDirection = (e.deltaY > 0) ? "down" : "up"
 
-      const wheelDirection = (e.deltaY > 0) ? "down" : "up"
+    if (wheelDirection === "up" && previewWrapper.scrollTop === 0) {
+      e.preventDefault()
+    }
 
-      if (wheelDirection === "up" && previewWrapper.scrollTop === 0) {
-        e.preventDefault()
-      }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const combinedHeight = previewContent.getBoundingClientRect().height - previewWrapper.getBoundingClientRect().height
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const combinedHeight = previewContent.getBoundingClientRect().height - previewWrapper.getBoundingClientRect().height
-
-      if (wheelDirection === "down" && previewWrapper.scrollTop >= combinedHeight) {
-        e.preventDefault()
-      }
+    if (wheelDirection === "down" && previewWrapper.scrollTop >= combinedHeight) {
+      e.preventDefault()
     }
   }
+}
 
-  disableScroll () {
-    // @ts-ignore
-    window.addEventListener("DOMMouseScroll", this.preventDefault, false)
-    // @ts-ignore
-    window.addEventListener(this.wheelEvent, this.preventDefault, this.wheelOpt)
-    // @ts-ignore
-    window.addEventListener("touchmove", this.preventDefault, this.wheelOpt)
-  }
+function disableScroll () {
+  // @ts-ignore
+  window.addEventListener("DOMMouseScroll", preventDefault, false)
+  // @ts-ignore
+  window.addEventListener(wheelEvent, preventDefault, wheelOpt)
+  // @ts-ignore
+  window.addEventListener("touchmove", preventDefault, wheelOpt)
+}
 
-  enableScroll () {
-    // @ts-ignore
-    window.removeEventListener("DOMMouseScroll", this.preventDefault, false)
-    // @ts-ignore
-    window.removeEventListener(this.wheelEvent, this.preventDefault, this.wheelOpt)
-    // @ts-ignore
-    window.removeEventListener("touchmove", this.preventDefault, this.wheelOpt)
-  }
+function enableScroll () {
+  // @ts-ignore
+  window.removeEventListener("DOMMouseScroll", preventDefault, false)
+  // @ts-ignore
+  window.removeEventListener(wheelEvent, preventDefault, wheelOpt)
+  // @ts-ignore
+  window.removeEventListener("touchmove", preventDefault, wheelOpt)
+}
 
-  checkDocumentTemplate (id: string) {
-    const ignoredList = ["breakDocumentSettings", "name", "documentColor", "documentBackgroundColor", "parentDoc", "order", "categorySwitch", "minorSwitch", "deadSwitch", "finishedSwitch", "tags", "docTemplate"]
+function checkDocumentTemplate (id: string) {
+  const ignoredList = ["breakDocumentSettings", "name", "documentColor", "documentBackgroundColor", "parentDoc", "order", "categorySwitch", "minorSwitch", "deadSwitch", "finishedSwitch", "tags", "docTemplate"]
 
-    if (ignoredList.includes(id)) {
-      return true
-    }
-
-    const selectedTemplate = this.retrieveFieldValue(this.localDocument, "docTemplate")
-
-    if (!selectedTemplate) {
-      return true
-    }
-
-    const matchedDocumentTemplate = this.documentTemplateList.find(e => e.id === selectedTemplate)
-
-    if (!matchedDocumentTemplate) {
-      return true
-    }
-
-    const matchedDocumentType = matchedDocumentTemplate.documentTypeList.find(e => e.documentTypeID === this.localBlueprint._id)
-
-    if (!matchedDocumentType) {
-      return true
-    }
-
-    if (matchedDocumentType.excludedFieldIDList.includes(id)) {
-      return false
-    }
-
+  if (ignoredList.includes(id)) {
     return true
   }
+
+  const selectedTemplate = retrieveFieldValue(localDocument.value, "docTemplate")
+
+  if (!selectedTemplate) {
+    return true
+  }
+
+  const matchedDocumentTemplate = documentTemplateList.value.find(e => e.id === selectedTemplate)
+
+  if (!matchedDocumentTemplate) {
+    return true
+  }
+
+  const matchedDocumentType = matchedDocumentTemplate.documentTypeList.find(e => e.documentTypeID === localBlueprint.value._id)
+
+  if (!matchedDocumentType) {
+    return true
+  }
+
+  if (matchedDocumentType.excludedFieldIDList.includes(id)) {
+    return false
+  }
+
+  return true
 }
 </script>
 

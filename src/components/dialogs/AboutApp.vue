@@ -77,77 +77,78 @@
 
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch } from "vue-property-decorator"
-import { shell, remote } from "electron"
+import { ref, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
 
-import DialogBase from "src/components/dialogs/_DialogBase"
-@Component({
-  components: { }
-})
-export default class AboutApp extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
+const props = defineProps<{ dialogTrigger?: string }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
+
+const { dialogsStore } = useAppStores()
+
+const dialogModel = ref(false)
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    if (dialogsStore.getDialogsState) {
+      return
     }
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
   }
+})
 
-  /**
-   * Current app version
-   * NOTE: Show Electon version in DEV mode instead of NPM package version
-   */
-  appVersion = remote.app.getVersion()
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
 
-  /**
-   * Open Discord invite link in the default browser window
-   */
-  openDiscordInviteLink () {
-    shell.openExternal("https://discord.gg/JQDBvsN9Te").catch(e => console.log(e))
-  }
+/**
+ * Current app version
+ */
+const appVersion = "1.0.0"
 
-  /**
-   * Open Patreon link in the default browser window
-   */
-  openPatreonLink () {
-    shell.openExternal("https://www.patreon.com/c/vishiri").catch(e => console.log(e))
-  }
+/**
+ * Open Discord invite link in the default browser window
+ */
+function openDiscordInviteLink () {
+  window.open("https://discord.gg/JQDBvsN9Te", "_blank")
+}
 
-  /**
-   * Open Ko-Fi link in the default browser window
-   */
-  openKofiLink () {
-    shell.openExternal("https://ko-fi.com/vishiri").catch(e => console.log(e))
-  }
+/**
+ * Open Patreon link in the default browser window
+ */
+function openPatreonLink () {
+  window.open("https://www.patreon.com/c/vishiri", "_blank")
+}
 
-  /**
-   * Open Reddit link in the default browser window
-   */
-  openRedditLink () {
-    shell.openExternal("https://www.reddit.com/r/FantasiaArchive/").catch(e => console.log(e))
-  }
+/**
+ * Open Ko-Fi link in the default browser window
+ */
+function openKofiLink () {
+  window.open("https://ko-fi.com/vishiri", "_blank")
+}
 
-  /**
-   * Open Website link in the default browser window
-   */
-  openWebsiteLink () {
-    shell.openExternal("http://fantasiaarchive.com/").catch(e => console.log(e))
-  }
+/**
+ * Open Reddit link in the default browser window
+ */
+function openRedditLink () {
+  window.open("https://www.reddit.com/r/FantasiaArchive/", "_blank")
+}
 
-  /**
-   * Open GitHub link in the default browser window
-   */
-  openGithubLink () {
-    shell.openExternal("https://github.com/vishiri/fantasia-archive-v1").catch(e => console.log(e))
-  }
+/**
+ * Open Website link in the default browser window
+ */
+function openWebsiteLink () {
+  window.open("http://fantasiaarchive.com/", "_blank")
+}
+
+/**
+ * Open GitHub link in the default browser window
+ */
+function openGithubLink () {
+  window.open("https://github.com/vishiri/fantasia-archive-v1", "_blank")
 }
 </script>
 

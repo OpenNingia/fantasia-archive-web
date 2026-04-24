@@ -190,188 +190,204 @@
     </q-dialog>
 </template>
 
-<script lang="ts">
-import { Component, Watch } from "vue-property-decorator"
-import DialogBase from "src/components/dialogs/_DialogBase"
+<script setup lang="ts">
+import { ref, computed, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
 import { changeCurrentProjectSettings } from "src/scripts/projectManagement/projectManagent"
 import { projectApi, type ProjectMember } from "src/services/api/projectApi"
 import { blueprintApi, type BlueprintField } from "src/services/api/blueprintApi"
 import { userApi, type UserSearchResult } from "src/services/api/userApi"
 
-@Component
-export default class ProjectSettingsDialog extends DialogBase {
-  activeTab = "general"
+const props = defineProps<{ dialogTrigger?: string }>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
-  @Watch("dialogTrigger")
-  openDialog (val: string | false) {
-    if (val) {
-      if (this.SGET_getDialogsState) return
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
-      this.reloadProjectSettings()
-      if (this.SGET_currentProjectId) {
-        void this.loadMembers()
-        void this.loadBlueprintsForFields()
-      }
+const { dialogsStore, projectStore, blueprintsStore } = useAppStores()
+
+const dialogModel = ref(false)
+const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTabs = { right: "0px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+const thumbStyleTutorialTabContent = { right: "-55px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    openDialog(val)
+  }
+})
+
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+const activeTab = ref("general")
+
+function openDialog (val: string | false) {
+  if (val) {
+    if (dialogsStore.getDialogsState) return
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
+    reloadProjectSettings()
+    if (projectStore.currentProjectId) {
+      void loadMembers()
+      void loadBlueprintsForFields()
     }
   }
+}
 
-  // ── General ───────────────────────────────────────────────────────
+// ── General ───────────────────────────────────────────────────────
 
-  projectName = ""
+const projectName = ref("")
 
-  reservedCharacterList = ["/", ">", "<", "|", ":", "&", "\\", "-", "[", "]", "{", "}", "*", "?", "'", "\"", "#", "%", "$", "!", "@"]
+const reservedCharacterList = ["/", ">", "<", "|", ":", "&", "\\", "-", "[", "]", "{", "}", "*", "?", "'", "\"", "#", "%", "$", "!", "@"]
 
-  get isInvalid () {
-    if (this.projectName.length === 0) return true
-    return this.reservedCharacterList.some(c => this.projectName.includes(c))
+const isInvalid = computed(() => {
+  if (projectName.value.length === 0) return true
+  return reservedCharacterList.some(c => projectName.value.includes(c))
+})
+
+function reloadProjectSettings () {
+  projectName.value = projectStore.getProjectName
+}
+
+async function saveProjectSettings () {
+  if (isInvalid.value) return
+  await changeCurrentProjectSettings({ projectName: projectName.value }, {} as any)
+  projectStore.setProjectName(projectName.value)
+  triggerDialogClose()
+}
+
+// ── Master Fields ─────────────────────────────────────────────────
+
+const blueprintOptions = ref<{ label: string; value: string }[]>([])
+const selectedBlueprintSlug = ref<string | null>(null)
+const selectedBlueprintFields = ref<(BlueprintField & { masterOnly: boolean })[]>([])
+const fieldsDirty = ref(false)
+const savingFields = ref(false)
+
+async function loadBlueprintsForFields () {
+  if (!projectStore.currentProjectId) return
+  try {
+    const bps = await blueprintApi.list(projectStore.currentProjectId)
+    blueprintOptions.value = bps.map(b => ({ label: b.namePlural, value: b.slug }))
+  } catch (e) {
+    console.error("Failed to load blueprints", e)
   }
+}
 
-  reloadProjectSettings () {
-    this.projectName = this.SGET_getProjectName
+async function onBlueprintSelect (slug: string) {
+  if (!projectStore.currentProjectId || !slug) return
+  fieldsDirty.value = false
+  try {
+    const bps = await blueprintApi.list(projectStore.currentProjectId)
+    const bp = bps.find(b => b.slug === slug)
+    if (!bp) return
+    selectedBlueprintFields.value = bp.extraFields
+      .filter(f => f.type !== "break")
+      .map(f => ({ ...f, masterOnly: f.masterOnly ?? false }))
+  } catch (e) {
+    console.error("Failed to load blueprint fields", e)
   }
+}
 
-  async saveProjectSettings () {
-    if (this.isInvalid) return
-    await changeCurrentProjectSettings({ projectName: this.projectName }, this)
-    this.SSET_setProjectName(this.projectName)
-    this.triggerDialogClose()
-  }
+function onFieldToggle () {
+  fieldsDirty.value = true
+}
 
-  // ── Master Fields ─────────────────────────────────────────────────
-
-  blueprintOptions: { label: string; value: string }[] = []
-  selectedBlueprintSlug: string | null = null
-  selectedBlueprintFields: (BlueprintField & { masterOnly: boolean })[] = []
-  fieldsDirty = false
-  savingFields = false
-
-  async loadBlueprintsForFields () {
-    if (!this.SGET_currentProjectId) return
-    try {
-      const bps = await blueprintApi.list(this.SGET_currentProjectId)
-      this.blueprintOptions = bps.map(b => ({ label: b.namePlural, value: b.slug }))
-    } catch (e) {
-      console.error("Failed to load blueprints", e)
+async function saveFieldSettings () {
+  if (!projectStore.currentProjectId || !selectedBlueprintSlug.value) return
+  savingFields.value = true
+  try {
+    const updated = await blueprintApi.updateFields(
+      projectStore.currentProjectId,
+      selectedBlueprintSlug.value,
+      selectedBlueprintFields.value
+    )
+    const allBps = blueprintsStore.getAllBlueprints
+    const idx = allBps.findIndex(b => b._id === selectedBlueprintSlug.value)
+    if (idx !== -1) {
+      const merged = { ...allBps[idx] }
+      merged.extraFields = updated.extraFields.map(f => ({ ...f, masterOnly: f.masterOnly ?? false })) as typeof merged.extraFields
+      blueprintsStore.setBlueprint(merged)
     }
+    fieldsDirty.value = false
+  } catch (e) {
+    console.error("Failed to save field settings", e)
+  } finally {
+    savingFields.value = false
   }
+}
 
-  async onBlueprintSelect (slug: string) {
-    if (!this.SGET_currentProjectId || !slug) return
-    this.fieldsDirty = false
-    try {
-      const bps = await blueprintApi.list(this.SGET_currentProjectId)
-      const bp = bps.find(b => b.slug === slug)
-      if (!bp) return
-      this.selectedBlueprintFields = bp.extraFields
-        .filter(f => f.type !== "break")
-        .map(f => ({ ...f, masterOnly: f.masterOnly ?? false }))
-    } catch (e) {
-      console.error("Failed to load blueprint fields", e)
-    }
+// ── Members ───────────────────────────────────────────────────────
+
+const members = ref<ProjectMember[]>([])
+const membersLoading = ref(false)
+
+const searchEmail = ref("")
+const searchResults = ref<UserSearchResult[]>([])
+const inviteRole = ref<"master" | "player">("player")
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+async function loadMembers () {
+  if (!projectStore.currentProjectId) return
+  membersLoading.value = true
+  try {
+    members.value = await projectApi.listMembers(projectStore.currentProjectId)
+  } catch (e) {
+    console.error("Failed to load members", e)
+  } finally {
+    membersLoading.value = false
   }
+}
 
-  onFieldToggle () {
-    this.fieldsDirty = true
+function onSearchChange () {
+  if (searchTimer) clearTimeout(searchTimer)
+  if (searchEmail.value.length < 3) { searchResults.value = []; return }
+  searchTimer = setTimeout(() => void doSearch(), 400)
+}
+
+async function doSearch () {
+  try {
+    const all = await userApi.search(searchEmail.value)
+    const existing = new Set(members.value.map(m => m.userId))
+    searchResults.value = all.filter(u => !existing.has(u.id))
+  } catch (e) {
+    console.error("User search failed", e)
   }
+}
 
-  async saveFieldSettings () {
-    if (!this.SGET_currentProjectId || !this.selectedBlueprintSlug) return
-    this.savingFields = true
-    try {
-      const updated = await blueprintApi.updateFields(
-        this.SGET_currentProjectId,
-        this.selectedBlueprintSlug,
-        this.selectedBlueprintFields
-      )
-      const allBps = this.SGET_allBlueprints
-      const idx = allBps.findIndex(b => b._id === this.selectedBlueprintSlug)
-      if (idx !== -1) {
-        const merged = { ...allBps[idx] }
-        merged.extraFields = updated.extraFields.map(f => ({ ...f, masterOnly: f.masterOnly ?? false })) as typeof merged.extraFields
-        this.SSET_blueprint(merged)
-      }
-      this.fieldsDirty = false
-    } catch (e) {
-      console.error("Failed to save field settings", e)
-    } finally {
-      this.savingFields = false
-    }
+async function addMember (user: UserSearchResult) {
+  if (!projectStore.currentProjectId) return
+  try {
+    await projectApi.addMember(projectStore.currentProjectId, user.id, inviteRole.value)
+    members.value.push({
+      id: `${projectStore.currentProjectId}-${user.id}`,
+      userId: user.id,
+      role: inviteRole.value,
+      user: { id: user.id, email: user.email, displayName: user.displayName }
+    })
+    searchResults.value = searchResults.value.filter(u => u.id !== user.id)
+    searchEmail.value = ""
+  } catch (e) {
+    console.error("Failed to add member", e)
   }
+}
 
-  // ── Members ───────────────────────────────────────────────────────
-
-  members: ProjectMember[] = []
-  membersLoading = false
-
-  searchEmail = ""
-  searchResults: UserSearchResult[] = []
-  inviteRole: "master" | "player" = "player"
-
-  searchTimer: ReturnType<typeof setTimeout> | null = null
-
-  async loadMembers () {
-    if (!this.SGET_currentProjectId) return
-    this.membersLoading = true
-    try {
-      this.members = await projectApi.listMembers(this.SGET_currentProjectId)
-    } catch (e) {
-      console.error("Failed to load members", e)
-    } finally {
-      this.membersLoading = false
-    }
+async function changeMemberRole (member: ProjectMember) {
+  if (!projectStore.currentProjectId) return
+  try {
+    await projectApi.updateMember(projectStore.currentProjectId, member.userId, member.role)
+  } catch (e) {
+    console.error("Failed to update member role", e)
   }
+}
 
-  onSearchChange () {
-    if (this.searchTimer) clearTimeout(this.searchTimer)
-    if (this.searchEmail.length < 3) { this.searchResults = []; return }
-    this.searchTimer = setTimeout(() => void this.doSearch(), 400)
-  }
-
-  async doSearch () {
-    try {
-      const all = await userApi.search(this.searchEmail)
-      const existing = new Set(this.members.map(m => m.userId))
-      this.searchResults = all.filter(u => !existing.has(u.id))
-    } catch (e) {
-      console.error("User search failed", e)
-    }
-  }
-
-  async addMember (user: UserSearchResult) {
-    if (!this.SGET_currentProjectId) return
-    try {
-      await projectApi.addMember(this.SGET_currentProjectId, user.id, this.inviteRole)
-      this.members.push({
-        id: `${this.SGET_currentProjectId}-${user.id}`,
-        userId: user.id,
-        role: this.inviteRole,
-        user: { id: user.id, email: user.email, displayName: user.displayName }
-      })
-      this.searchResults = this.searchResults.filter(u => u.id !== user.id)
-      this.searchEmail = ""
-    } catch (e) {
-      console.error("Failed to add member", e)
-    }
-  }
-
-  async changeMemberRole (member: ProjectMember) {
-    if (!this.SGET_currentProjectId) return
-    try {
-      await projectApi.updateMember(this.SGET_currentProjectId, member.userId, member.role)
-    } catch (e) {
-      console.error("Failed to update member role", e)
-    }
-  }
-
-  async removeMember (member: ProjectMember) {
-    if (!this.SGET_currentProjectId) return
-    try {
-      await projectApi.removeMember(this.SGET_currentProjectId, member.userId)
-      this.members = this.members.filter(m => m.userId !== member.userId)
-    } catch (e) {
-      console.error("Failed to remove member", e)
-    }
+async function removeMember (member: ProjectMember) {
+  if (!projectStore.currentProjectId) return
+  try {
+    await projectApi.removeMember(projectStore.currentProjectId, member.userId)
+    members.value = members.value.filter(m => m.userId !== member.userId)
+  } catch (e) {
+    console.error("Failed to remove member", e)
   }
 }
 </script>

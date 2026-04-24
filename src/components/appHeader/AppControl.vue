@@ -426,7 +426,7 @@
               active
               active-class="bg-gunmetal-light text-cultured"
               class="noHigh"
-              @click="SSET_setNoteCorkboardWindowVisible"
+              @click="floatingWindowsStore.setNoteCorkboardWindowVisible()"
               :disable="!projectExists || isFrontpage"
             >
               <q-item-section>Show note board</q-item-section>
@@ -598,11 +598,11 @@
 
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, watch } from "vue"
+import { useRoute, useRouter } from "vue-router"
+import { useQuasar } from "quasar"
 
-import { Component, Watch } from "vue-property-decorator"
-
-import BaseClass from "src/BaseClass"
 import projectCloseCheckDialog from "src/components/dialogs/ProjectCloseCheck.vue"
 import keybindCheatsheetDialog from "src/components/dialogs/KeybindCheatsheet.vue"
 import loadProjectCheckDialog from "src/components/dialogs/LoadProjectCheck.vue"
@@ -630,417 +630,385 @@ import { toggleDevTools } from "src/scripts/utilities/devTools"
 import appLogo from "src/assets/appLogo.png"
 import appSearchBox from "src/components/appHeader/AppSearchBox.vue"
 
-@Component({
-  components: {
-    appSearchBox,
-    projectCloseCheckDialog,
-    keybindCheatsheetDialog,
-    loadProjectCheckDialog,
-    mergeProjectCheckDialog,
-    newProjectCheckDialog,
-    aboutAppDialog,
-    changeLogDialog,
-    advancedSearchGuideDialog,
-    programSettingsDialog,
-    programTutorialsDialog,
-    newDocumentDialog,
-    existingDocumentDialog,
-    tipsTricksTriviaDialog,
-    licenseDialog,
-    repairProjectDialog,
-    exportProjectDialog,
-    massDeleteDocumentsCheckDialog,
-    projectSettingsdDialog,
-    customCssEditorDialog
-  }
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+
+const route = useRoute()
+const router = useRouter()
+const q = useQuasar()
+
+const {
+  keybindsStore,
+  dialogsStore,
+  floatingWindowsStore,
+  projectStore
+} = useAppStores()
+
+const {
+  generateUID,
+  determineKeyBind,
+  toggleHierarchicalTree
+} = useDocumentHelpers()
+
+/****************************************************************/
+// Basic component functionality
+/****************************************************************/
+
+const projectExists = ref<undefined | string | boolean>(false)
+const isFrontpage = ref(true)
+const isProjectPage = ref(true)
+
+// created
+checkProjectStatus()
+
+watch(() => projectStore.getProjectName, () => {
+  checkProjectStatus()
 })
-export default class AppControl extends BaseClass {
-  /****************************************************************/
-  // Import handling
-  /****************************************************************/
 
-  /**
-   * Toggles the developer tools on and off
-   */
-  toggleDevTools = toggleDevTools
+function checkProjectStatus () {
+  projectExists.value = (projectStore.getProjectName.length > 0)
+  isFrontpage.value = (route.path === "/")
+  isProjectPage.value = (route.path === "/project")
+}
 
-  /**
-   * Just an image
-   */
-  appLogo = appLogo
+/****************************************************************/
+// Local keybinds
+/****************************************************************/
 
-  /****************************************************************/
-  // Basic component functionality
-  /****************************************************************/
+watch(() => keybindsStore.getCurrentKeyBindData, () => {
+  // Open full page search
+  if (determineKeyBind("openFullPageSearch") && !dialogsStore.getDialogsState) {
+    fullPageSeachPopupClose()
 
-  /**
-   * Determines if the project exists or not
-   */
-  projectExists: undefined | string | boolean = false
-
-  /**
-   * Determines if we are on frontpage or not
-   */
-  isFrontpage = true
-
-  /**
-   * Determines if we are on project page or not
-   */
-  isProjectPage = true
-
-  created () {
-    this.checkProjectStatus()
+    setTimeout(() => {
+      fullPageSeachPopupAssignUID()
+    }, 100)
   }
 
-  @Watch("SGET_getProjectName")
-  checkProjectStatus () {
-    this.projectExists = (this.SGET_getProjectName.length > 0)
-    this.isFrontpage = (this.$route.path === "/")
-    this.isProjectPage = (this.$route.path === "/project")
+  // Keybind cheatsheet
+  if (determineKeyBind("openKeybindsCheatsheet") && !dialogsStore.getDialogsState) {
+    keybindsDialogAssignUID()
   }
 
-  /****************************************************************/
-  // Local keybinds
-  /****************************************************************/
+  // Open app options page
+  if (determineKeyBind("openAppOptions") && !dialogsStore.getDialogsState) {
+    programSettingsDialogAssignUID()
+  }
 
-  @Watch("SGET_getCurrentKeyBindData", { deep: true })
-  processKeyPush () {
-    // Open full page search
-    if (this.determineKeyBind("openFullPageSearch") && !this.SGET_getDialogsState) {
-      this.fullPageSeachPopupClose()
+  // Navigate to project overview
+  if (determineKeyBind("navigateToProjectOverview") && projectExists.value && !isProjectPage.value) {
+    navigateToProjectPage()
+  }
 
-      setTimeout(() => {
-        this.fullPageSeachPopupAssignUID()
-      }, 100)
+  // Toggle dev tools
+  if (determineKeyBind("toggleDeveloperTools")) {
+    toggleDevTools()
+  }
+
+  // Toggle custom CSS editor
+  if (determineKeyBind("openCustomCssEditor")) {
+    customCssEditorAssignUID()
+  }
+}, { deep: true })
+
+/****************************************************************/
+// Full page search pop-up
+/****************************************************************/
+
+const fullPageSeachPopupTrigger = ref<string | false>(false)
+function fullPageSeachPopupClose () {
+  fullPageSeachPopupTrigger.value = false
+}
+
+function fullPageSeachPopupAssignUID () {
+  fullPageSeachPopupTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Navigate to project page action
+/****************************************************************/
+
+function navigateToProjectPage () {
+  router.push({ path: "/project" }).catch((e: {name: string}) => {
+    if (e && e.name !== "NavigationDuplicated") {
+      console.log(e)
     }
+  })
+}
 
-    // Keybind cheatsheet
-    if (this.determineKeyBind("openKeybindsCheatsheet") && !this.SGET_getDialogsState) {
-      this.keybindsDialogAssignUID()
-    }
-
-    // Open app options page
-    if (this.determineKeyBind("openAppOptions") && !this.SGET_getDialogsState) {
-      this.programSettingsDialogAssignUID()
-    }
-
-    // Navigate to project overview
-    if (this.determineKeyBind("navigateToProjectOverview") && this.projectExists && !this.isProjectPage) {
-      this.navigateToProjectPage()
-    }
-
-    // Tohhle dev tools
-    if (this.determineKeyBind("toggleDeveloperTools")) {
-      this.toggleDevTools()
-    }
-
-    // Tohhle custom CSS editor
-    if (this.determineKeyBind("openCustomCssEditor")) {
-      this.customCssEditorAssignUID()
-    }
+/****************************************************************/
+// Save project action
+/****************************************************************/
+function commenceSave () {
+  const setup = {
+    message: "<h4>Saving current project...</h4>",
+    spinnerColor: "primary",
+    messageColor: "cultured",
+    spinnerSize: 120,
+    backgroundColor: "dark",
+    // @ts-ignore
+    spinner: QSpinnerGears
   }
-
-  /****************************************************************/
-  // Full page search pop-up
-  /****************************************************************/
-
-  fullPageSeachPopupTrigger: string | false = false
-  fullPageSeachPopupClose () {
-    this.fullPageSeachPopupTrigger = false
-  }
-
-  fullPageSeachPopupAssignUID () {
-    this.fullPageSeachPopupTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Navigate to project page action
-  /****************************************************************/
-
-  navigateToProjectPage () {
-    this.$router.push({ path: "/project" }).catch((e: {name: string}) => {
-      if (e && e.name !== "NavigationDuplicated") {
-        console.log(e)
-      }
-    })
-  }
-
-  /****************************************************************/
-  // Save project action
-  /****************************************************************/
-  commenceSave () {
-    const projectName = this.SGET_getProjectName
-    const setup = {
-      message: "<h4>Saving current project...</h4>",
-      spinnerColor: "primary",
-      messageColor: "cultured",
-      spinnerSize: 120,
-      backgroundColor: "dark",
-      // @ts-ignore
-      spinner: QSpinnerGears
-    }
-    saveProject(this.SGET_currentProjectId as string, Loading, setup, this.$q)
-  }
-
-  /****************************************************************/
-  // Close project dialog
-  /****************************************************************/
-
-  projectCloseCheckDialogTrigger: string | false = false
-  projectCloseCheckDialogClose () {
-    this.projectCloseCheckDialogTrigger = false
-  }
-
-  projectCloseCheckDialogAssignUID () {
-    this.projectCloseCheckDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Import project dialog
-  /****************************************************************/
-
-  loadProjectDialogTrigger: string | false = false
-  loadProjectDialogClose () {
-    this.loadProjectDialogTrigger = false
-  }
-
-  loadProjectAssignUID () {
-    this.loadProjectDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Merge project dialog
-  /****************************************************************/
-
-  mergeProjectDialogTrigger: string | false = false
-  mergeProjectDialogClose () {
-    this.mergeProjectDialogTrigger = false
-  }
-
-  mergeProjectAssignUID () {
-    this.mergeProjectDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Custom CSS editor dialog
-  /****************************************************************/
-
-  customCssEditorDialogTrigger: string | false = false
-  customCssEditorDialogClose () {
-    this.customCssEditorDialogTrigger = false
-  }
-
-  customCssEditorAssignUID () {
-    this.customCssEditorDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Export project dialog
-  /****************************************************************/
-
-  exportProjectDialogTrigger: string | false = false
-  exportProjectDialogClose () {
-    this.exportProjectDialogTrigger = false
-  }
-
-  @Watch("SGET_getExportDialogState", { deep: true })
-  onSettingsChange () {
-    const exportState = this.SGET_getExportDialogState
-
-    this.exportIDlist = exportState.prepickedValue
-    this.exportProjectAssignUID()
-  }
-
-  triggerExport (IDlist: string[]) {
-    this.SSET_setExportDialogState(IDlist)
-  }
-
-  exportIDlist: string[]= []
-  exportProjectAssignUID () {
-    this.exportProjectDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // New project dialog
-  /****************************************************************/
-
-  newProjectDialogTrigger: string | false = false
-  newProjectDialogClose () {
-    this.newProjectDialogTrigger = false
-  }
-
-  newProjectAssignUID () {
-    this.newProjectDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Keybings cheatsheet dialog
-  /****************************************************************/
-
-  keybindsDialogTrigger: string | false = false
-  keybindsDialogClose () {
-    this.keybindsDialogTrigger = false
-  }
-
-  keybindsDialogAssignUID () {
-    this.keybindsDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // About app dialog
-  /****************************************************************/
-
-  aboutAppDialogTrigger: string | false = false
-  aboutAppDialogClose () {
-    this.aboutAppDialogTrigger = false
-  }
-
-  aboutAppDialogAssignUID () {
-    this.aboutAppDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Changelog dialog
-  /****************************************************************/
-
-  changeLogDialogTrigger: string | false = false
-  changeLogDialogClose () {
-    this.changeLogDialogTrigger = false
-  }
-
-  changeLogDialogAssignUID () {
-    this.changeLogDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Program settings dialog
-  /****************************************************************/
-
-  programSettingsDialogTrigger: string | false = false
-  programSettingsDialogClose () {
-    this.programSettingsDialogTrigger = false
-  }
-
-  programSettingsDialogAssignUID () {
-    this.programSettingsDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Program tutorials dialog
-  /****************************************************************/
-
-  programTutorialsDialogTrigger: string | false = false
-  programTutorialsDialogClose () {
-    this.programTutorialsDialogTrigger = false
-  }
-
-  programTutorialsDialogAssignUID () {
-    this.programTutorialsDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Advanced search guide dialog
-  /****************************************************************/
-
-  advancedSearchGuideDialogTrigger: string | false = false
-  advancedSearchGuideDialogClose () {
-    this.advancedSearchGuideDialogTrigger = false
-  }
-
-  advancedSearchGuideAssignUID () {
-    this.advancedSearchGuideDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // New document dialog
-  /****************************************************************/
-
-  newObjectDialogTrigger: string | false = false
-  newObjectDialogClose () {
-    this.newObjectDialogTrigger = false
-  }
-
-  newObjectAssignUID () {
-    this.newObjectDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Existing document dialog
-  /****************************************************************/
-
-  existingObjectDialogTrigger: string | false = false
-  existingObjectDialogClose () {
-    this.existingObjectDialogTrigger = false
-  }
-
-  existingObjectAssignUID () {
-    this.existingObjectDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Tips, Tricka & Trivia dialog
-  /****************************************************************/
-
-  tipsTricksDialogTrigger: string | false = false
-  tipsTricksDialogClose () {
-    this.tipsTricksDialogTrigger = false
-  }
-
-  tipsTricksAssignUID () {
-    this.tipsTricksDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // License dialog
-  /****************************************************************/
-
-  licenseDialogTrigger: string | false = false
-  licenseDialogClose () {
-    this.licenseDialogTrigger = false
-  }
-
-  licenseAssignUID () {
-    this.licenseDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Repair project dialog
-  /****************************************************************/
-
-  repairProjectDialogTrigger: string | false = false
-  repairProjectDialogClose () {
-    this.repairProjectDialogTrigger = false
-  }
-
-  repairProjectAssignUID () {
-    this.repairProjectDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Mass delete documents dialog
-  /****************************************************************/
-
-  massDocumentDeleteDialogTrigger: string | false = false
-  massDocumentDeleteDialogClose () {
-    this.massDocumentDeleteDialogTrigger = false
-  }
-
-  massDocumentDeleteDialogAssignUID () {
-    this.massDocumentDeleteDialogTrigger = this.generateUID()
-  }
-
-  /****************************************************************/
-  // Project settings dialog
-  /****************************************************************/
-
-  projectSettingsDialogTrigger: string | false = false
-  projectSettingsDialogClose () {
-    this.projectSettingsDialogTrigger = false
-  }
-
-  projectSettingsDialogAssignUID () {
-    this.projectSettingsDialogTrigger = this.generateUID()
-  }
+  saveProject(projectStore.currentProjectId as string, Loading, setup, q)
+}
+
+/****************************************************************/
+// Close project dialog
+/****************************************************************/
+
+const projectCloseCheckDialogTrigger = ref<string | false>(false)
+function projectCloseCheckDialogClose () {
+  projectCloseCheckDialogTrigger.value = false
+}
+
+function projectCloseCheckDialogAssignUID () {
+  projectCloseCheckDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Import project dialog
+/****************************************************************/
+
+const loadProjectDialogTrigger = ref<string | false>(false)
+function loadProjectDialogClose () {
+  loadProjectDialogTrigger.value = false
+}
+
+function loadProjectAssignUID () {
+  loadProjectDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Merge project dialog
+/****************************************************************/
+
+const mergeProjectDialogTrigger = ref<string | false>(false)
+function mergeProjectDialogClose () {
+  mergeProjectDialogTrigger.value = false
+}
+
+function mergeProjectAssignUID () {
+  mergeProjectDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Custom CSS editor dialog
+/****************************************************************/
+
+const customCssEditorDialogTrigger = ref<string | false>(false)
+function customCssEditorDialogClose () {
+  customCssEditorDialogTrigger.value = false
+}
+
+function customCssEditorAssignUID () {
+  customCssEditorDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Export project dialog
+/****************************************************************/
+
+const exportProjectDialogTrigger = ref<string | false>(false)
+function exportProjectDialogClose () {
+  exportProjectDialogTrigger.value = false
+}
+
+watch(() => dialogsStore.getExportDialogState, () => {
+  const exportState = dialogsStore.getExportDialogState
+
+  exportIDlist.value = exportState.prepickedValue
+  exportProjectAssignUID()
+}, { deep: true })
+
+function triggerExport (IDlist: string[]) {
+  dialogsStore.setExportDialogState(IDlist)
+}
+
+const exportIDlist = ref<string[]>([])
+function exportProjectAssignUID () {
+  exportProjectDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// New project dialog
+/****************************************************************/
+
+const newProjectDialogTrigger = ref<string | false>(false)
+function newProjectDialogClose () {
+  newProjectDialogTrigger.value = false
+}
+
+function newProjectAssignUID () {
+  newProjectDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Keybinds cheatsheet dialog
+/****************************************************************/
+
+const keybindsDialogTrigger = ref<string | false>(false)
+function keybindsDialogClose () {
+  keybindsDialogTrigger.value = false
+}
+
+function keybindsDialogAssignUID () {
+  keybindsDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// About app dialog
+/****************************************************************/
+
+const aboutAppDialogTrigger = ref<string | false>(false)
+function aboutAppDialogClose () {
+  aboutAppDialogTrigger.value = false
+}
+
+function aboutAppDialogAssignUID () {
+  aboutAppDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Changelog dialog
+/****************************************************************/
+
+const changeLogDialogTrigger = ref<string | false>(false)
+function changeLogDialogClose () {
+  changeLogDialogTrigger.value = false
+}
+
+function changeLogDialogAssignUID () {
+  changeLogDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Program settings dialog
+/****************************************************************/
+
+const programSettingsDialogTrigger = ref<string | false>(false)
+function programSettingsDialogClose () {
+  programSettingsDialogTrigger.value = false
+}
+
+function programSettingsDialogAssignUID () {
+  programSettingsDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Program tutorials dialog
+/****************************************************************/
+
+const programTutorialsDialogTrigger = ref<string | false>(false)
+function programTutorialsDialogClose () {
+  programTutorialsDialogTrigger.value = false
+}
+
+function programTutorialsDialogAssignUID () {
+  programTutorialsDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Advanced search guide dialog
+/****************************************************************/
+
+const advancedSearchGuideDialogTrigger = ref<string | false>(false)
+function advancedSearchGuideDialogClose () {
+  advancedSearchGuideDialogTrigger.value = false
+}
+
+function advancedSearchGuideAssignUID () {
+  advancedSearchGuideDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// New document dialog
+/****************************************************************/
+
+const newObjectDialogTrigger = ref<string | false>(false)
+function newObjectDialogClose () {
+  newObjectDialogTrigger.value = false
+}
+
+function newObjectAssignUID () {
+  newObjectDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Existing document dialog
+/****************************************************************/
+
+const existingObjectDialogTrigger = ref<string | false>(false)
+function existingObjectDialogClose () {
+  existingObjectDialogTrigger.value = false
+}
+
+function existingObjectAssignUID () {
+  existingObjectDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Tips, Tricks & Trivia dialog
+/****************************************************************/
+
+const tipsTricksDialogTrigger = ref<string | false>(false)
+function tipsTricksDialogClose () {
+  tipsTricksDialogTrigger.value = false
+}
+
+function tipsTricksAssignUID () {
+  tipsTricksDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// License dialog
+/****************************************************************/
+
+const licenseDialogTrigger = ref<string | false>(false)
+function licenseDialogClose () {
+  licenseDialogTrigger.value = false
+}
+
+function licenseAssignUID () {
+  licenseDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Repair project dialog
+/****************************************************************/
+
+const repairProjectDialogTrigger = ref<string | false>(false)
+function repairProjectDialogClose () {
+  repairProjectDialogTrigger.value = false
+}
+
+function repairProjectAssignUID () {
+  repairProjectDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Mass delete documents dialog
+/****************************************************************/
+
+const massDocumentDeleteDialogTrigger = ref<string | false>(false)
+function massDocumentDeleteDialogClose () {
+  massDocumentDeleteDialogTrigger.value = false
+}
+
+function massDocumentDeleteDialogAssignUID () {
+  massDocumentDeleteDialogTrigger.value = generateUID()
+}
+
+/****************************************************************/
+// Project settings dialog
+/****************************************************************/
+
+const projectSettingsDialogTrigger = ref<string | false>(false)
+function projectSettingsDialogClose () {
+  projectSettingsDialogTrigger.value = false
+}
+
+function projectSettingsDialogAssignUID () {
+  projectSettingsDialogTrigger.value = generateUID()
 }
 </script>
 

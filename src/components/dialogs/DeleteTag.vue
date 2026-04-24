@@ -36,97 +36,98 @@
     </q-dialog>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { Component, Watch, Prop } from "vue-property-decorator"
-
-import DialogBase from "src/components/dialogs/_DialogBase"
+import { ref, watch } from "vue"
+import { useAppStores } from "src/composables/useAppStores"
+import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 import { massDeleteTag } from "src/scripts/documentActions/tagManager"
 import { saveDocument } from "src/scripts/databaseManager/documentManager"
-
 import { Loading, QSpinnerGears, extend } from "quasar"
 import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
 
-@Component({
-  components: { }
+const props = defineProps<{
+  dialogTrigger?: string
+  documentIdList?: string[]
+  targetTag?: string
+}>()
+const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
+
+const { dialogsStore, openedDocumentsStore, allDocumentsStore } = useAppStores()
+const { mapShortDocument } = useDocumentHelpers()
+
+const dialogModel = ref(false)
+const documentsCopy = ref<I_OpenedDocument[]>([])
+
+watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
+
+watch(() => props.dialogTrigger, (val) => {
+  if (val) {
+    if (dialogsStore.getDialogsState) {
+      return
+    }
+    dialogsStore.setDialogState(true)
+    dialogModel.value = true
+  }
 })
-export default class DeleteTagPrompt extends DialogBase {
-  /**
-   * React to dialog opening request
-   */
-  @Watch("dialogTrigger")
-  openDialog (val: string|false) {
-    if (val) {
-      if (this.SGET_getDialogsState) {
-        return
-      }
-      this.SSET_setDialogState(true)
-      this.dialogModel = true
-    }
+
+function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
+function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
+
+/**
+ * Delete the tag from all affected documents
+ */
+async function deleteTag () {
+  Loading.show({
+    message: "<h4>Deleting tags in all affected documents...</h4>",
+    spinnerColor: "primary",
+    messageColor: "cultured",
+    spinnerSize: 120,
+    backgroundColor: "dark",
+    // @ts-ignore
+    spinner: QSpinnerGears
+  })
+
+  const documentIdList = props.documentIdList ?? []
+  const targetTag = props.targetTag ?? ""
+
+  const documentList = documentIdList.map(id => {
+    return allDocumentsStore.getDocument(id)
+  })
+
+  const updatedDocumentList = massDeleteTag(targetTag, documentList)
+
+  for (let index = 0; index < updatedDocumentList.length; index++) {
+    const allDocuments = openedDocumentsStore.getAllDocuments
+    documentsCopy.value = extend(true, [], allDocuments.docs)
+
+    // @ts-ignore
+    const savedDocument: {
+      documentCopy: I_OpenedDocument,
+      allOpenedDocuments: I_OpenedDocument[]
+    } = await saveDocument(
+      // @ts-ignore
+      updatedDocumentList[index],
+      documentsCopy.value,
+      allDocumentsStore.getAllDocuments.docs,
+      null,
+      null,
+      true
+    ).catch((err: any) => console.log(err))
+
+    const updateTree = (index + 1 === updatedDocumentList.length)
+
+    // Update the opened document
+    const dataPass = { doc: savedDocument.documentCopy, treeAction: updateTree }
+    openedDocumentsStore.updateDocument(dataPass)
+
+    // Update non-opened documents
+    // @ts-ignore
+    allDocumentsStore.updateDocument({ doc: mapShortDocument(savedDocument.documentCopy, allDocumentsStore.getDocumentsByType(savedDocument.documentCopy.type).docs) })
   }
 
-  @Prop(({
-    default () {
-      return []
-    }
-  })) readonly documentIdList!: string[]
-
-  @Prop(({ default: "" })) readonly targetTag!: ""
-
-  documentsCopy:I_OpenedDocument[] = []
-
-  /**
-   * Create new project
-   */
-  async deleteTag () {
-    Loading.show({
-      message: "<h4>Deleting tags in all affected documents...</h4>",
-      spinnerColor: "primary",
-      messageColor: "cultured",
-      spinnerSize: 120,
-      backgroundColor: "dark",
-      // @ts-ignore
-      spinner: QSpinnerGears
-    })
-
-    const documentList = this.documentIdList.map(id => {
-      return this.SGET_document(id)
-    })
-
-    const updatedDocumentList = massDeleteTag(this.targetTag, documentList)
-
-    for (let index = 0; index < updatedDocumentList.length; index++) {
-      const allDocuments = this.SGET_allOpenedDocuments
-      this.documentsCopy = extend(true, [], allDocuments.docs)
-
-      // @ts-ignore
-      const savedDocument: {
-        documentCopy: I_OpenedDocument,
-        allOpenedDocuments: I_OpenedDocument[]
-      } = await saveDocument(
-        // @ts-ignore
-        updatedDocumentList[index],
-        this.documentsCopy,
-        this.SGET_allDocuments.docs,
-        null,
-        this,
-        true
-      ).catch((err:any) => console.log(err))
-
-      const updateTree = (index + 1 === updatedDocumentList.length)
-
-      // Update the opened document
-      const dataPass = { doc: savedDocument.documentCopy, treeAction: updateTree }
-      this.SSET_updateOpenedDocument(dataPass)
-
-      // Update non-openeddocuments
-      // @ts-ignore
-      this.SSET_updateDocument({ doc: this.mapShortDocument(savedDocument.documentCopy, this.SGET_allDocumentsByType(savedDocument.documentCopy.type).docs) })
-    }
-
-    Loading.hide()
-    this.triggerDialogClose()
-  }
+  Loading.hide()
+  triggerDialogClose()
 }
 </script>
 
