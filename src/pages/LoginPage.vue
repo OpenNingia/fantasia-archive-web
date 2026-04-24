@@ -1,5 +1,5 @@
 <template>
-  <q-page class="flex flex-center bg-dark">
+  <div class="flex flex-center bg-dark" style="min-height: 100vh;">
     <q-card dark class="login-card q-pa-lg">
       <q-card-section class="text-center q-mb-md">
         <div class="text-h5 text-primary">Fantasia Archive</div>
@@ -51,7 +51,7 @@
         {{ error }}
       </q-card-section>
     </q-card>
-  </q-page>
+  </div>
 </template>
 
 <script lang="ts">
