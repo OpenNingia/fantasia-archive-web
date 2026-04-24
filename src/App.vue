@@ -8,17 +8,13 @@
     <appWindowButtons />
     <router-view />
 
-    <q-window
+    <!-- Document preview panel (replaces Vue-2-only q-window) -->
+    <q-dialog
       v-model="documentPreviewWindowVisible"
-      no-resize
-      dark
-      headless
-      ref="documentPreviewWindow"
-      @input="refreshDocumentPreviewWindow"
-      no-move
-      :content-class="{'bg-gunmetal-light text-accent docPreviewWindow': true, '-noBar': disableDocumentControlBar}"
+      seamless
+      position="left"
     >
-      <div class="fit">
+      <q-card dark :class="{'bg-gunmetal-light text-accent docPreviewWindow': true, '-noBar': disableDocumentControlBar}" style="width:420px;max-width:90vw;">
         <q-btn
           icon="mdi-close"
           color="secondary"
@@ -28,72 +24,63 @@
           class="previewCloseButton"
           @click="refreshDocumentPreviewWindow(false)"
         >
-          <q-tooltip
-            :delay="500"
-            anchor="bottom middle"
-            self="top middle"
-          >
+          <q-tooltip :delay="500" anchor="bottom middle" self="top middle">
             Close document preview
           </q-tooltip>
         </q-btn>
-
         <documentPreview
           :document-id="documentPreviewElementID"
           :display-mode="'document'"
         />
+      </q-card>
+    </q-dialog>
 
-      </div>
-    </q-window>
-
-    <q-window
+    <!-- Advanced Search Cheatsheet panel -->
+    <q-dialog
       v-model="advSearchWindowVisible"
-      no-resize
-      dark
-      title="Advanced Search Cheatsheet"
-      :height="625"
-      :width="500"
-      :start-x="50"
-      :start-y="150"
-      :actions="['pin', 'close']"
-      content-class="bg-gunmetal-light text-accent advSearchWindow"
+      seamless
+      position="left"
     >
-      <div class="q-pa-md fit">
-        <q-markdown no-heading-anchor-links>
-          {{$t('documents.advancedSearchCheatSheet')}}
-        </q-markdown>
-      </div>
-    </q-window>
+      <q-card dark class="bg-gunmetal-light text-accent advSearchWindow" style="width:500px;max-width:90vw;max-height:90vh;overflow:auto;">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">Advanced Search Cheatsheet</div>
+          <q-space />
+          <q-btn icon="mdi-close" flat round dense @click="advSearchWindowVisible = false" />
+        </q-card-section>
+        <q-card-section>
+          <q-markdown no-heading-anchor-links>
+            {{$t('documents.advancedSearchCheatSheet')}}
+          </q-markdown>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
 
-    <q-window
+    <!-- Note board / Corkboard panel -->
+    <q-dialog
       v-model="corkboardWindowVisible"
-      dark
-      title="Note board"
-      gripper-border-color="primary"
-      gripper-background-color="primary"
-      :height="600"
-      :width="350"
-      :start-x="350"
-      :start-y="100"
-      :actions="['pin', 'close']"
-      content-class="bg-gunmetal-light text-accent noteBoardWindow"
+      seamless
+      position="right"
     >
-      <form
-      class="corkboardInput"
-      autocorrect="off"
-      autocapitalize="off"
-      autocomplete="off"
-      spellcheck="false"
-      >
-        <q-input
-
-        v-model="corkboardContent"
-        filled
-        dark
-        @keyup="processCorkboardInput"
-        type="textarea"
-      />
-      </form>
-    </q-window>
+      <q-card dark class="bg-gunmetal-light text-accent noteBoardWindow" style="width:350px;max-width:90vw;max-height:90vh;">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">Note board</div>
+          <q-space />
+          <q-btn icon="mdi-close" flat round dense @click="corkboardWindowVisible = false" />
+        </q-card-section>
+        <q-card-section>
+          <form autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" class="corkboardInput">
+            <q-input
+              v-model="corkboardContent"
+              filled
+              dark
+              @keyup="processCorkboardInput"
+              type="textarea"
+              style="min-height:400px;"
+            />
+          </form>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
 
   </div>
 </template>
@@ -449,15 +436,6 @@ export default class App extends BaseClass {
       this.documentPreviewWindowVisible = true
     }
 
-    if (this.documentPreviewWindowVisible) {
-      /* eslint-disable */
-      //@ts-ignore
-      this.$refs.documentPreviewWindow.setX(0)
-      //@ts-ignore
-      this.$refs.documentPreviewWindow.setY(95)
-      //@ts-ignore
-      /* eslint-enable */
-    }
   }
 
   /****************************************************************/
