@@ -90,18 +90,18 @@
 
 import { Component, Watch } from "vue-property-decorator"
 import BaseClass from "src/BaseClass"
-import PouchDB from "pouchdb"
 
 import objectTree from "src/components/ObjectTree.vue"
 import appHeader from "src/components/AppHeader.vue"
 import documentControl from "src/components/DocumentControl.vue"
-import { engageBlueprints, retrieveAllBlueprints } from "src/scripts/databaseManager/blueprintManager"
+import { engageBlueprints } from "src/scripts/databaseManager/blueprintManager"
 import repairProjectDialog from "src/components/dialogs/RepairProject.vue"
 
 import { extend } from "quasar"
 import type { OptionsStateInteface } from "src/store/module-options/state"
 import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import { documentApi } from "src/services/api/documentApi"
 
 @Component({
   components: {
@@ -117,78 +117,51 @@ export default class DocumentLayout extends BaseClass {
   /****************************************************************/
 
   /**
-   * Load all blueprints and build the tree out of them
+   * Load all blueprints and documents from the API on first render.
    */
   async created () {
     if (this.SGET_allDocumentsFirstRunState) {
       await this.processBluePrints()
-      this.establishAllDocumentDatabases()
       await this.loadAllProjectDocuments()
     }
 
-    // Unfuck the rendering by giving the app some time to load first
     await this.$nextTick()
-
     this.SSET_setProjecLoadingState(true)
   }
 
-  /**
-   * Processes all blueprints and redies the store for population of the app
-   */
   async processBluePrints (): Promise<void> {
-    await engageBlueprints()
-
-    const allObjectBlueprints = (await retrieveAllBlueprints()).rows.map((blueprint) => {
-      return blueprint.doc
-    })
-    // @ts-ignore
+    const projectId = this.SGET_currentProjectId as string
+    const allObjectBlueprints = (await engageBlueprints(projectId))
       .sort((a: I_Blueprint, b: I_Blueprint) => {
-        const order1 = a.order
-        const order2 = b.order
-        if (order1 > order2) {
-          return -1
-        }
-        if (order1 < order2) {
-          return 1
-        }
-
+        if (a.order > b.order) return -1
+        if (a.order < b.order) return 1
         return 0
-      }) as I_Blueprint[]
+      })
 
     this.SSET_allBlueprints(allObjectBlueprints)
   }
 
-  establishAllDocumentDatabases () {
-    if (!window.FA_dbs) {
-      // @ts-ignore
-      window.FA_dbs = {}
-    }
-    for (const blueprint of this.SGET_allBlueprints) {
-      window.FA_dbs[blueprint._id] = new PouchDB(blueprint._id)
-    }
-  }
-
   async loadAllProjectDocuments () {
+    const projectId = this.SGET_currentProjectId as string
+
     for (const blueprint of this.SGET_allBlueprints) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const dbRows = await window.FA_dbs[blueprint._id].allDocs({ include_docs: true })
+      const docs = await documentApi.listByType(projectId, blueprint._id)
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      // eslint-disable-next-line
-      const dbDocuments = dbRows.rows.map((d:any) => d.doc)
-      const formattedDocuments: I_ShortenedDocument[] = []
+      const formattedDocuments: I_ShortenedDocument[] = docs.map(d =>
+        this.mapShortDocument(
+          {
+            _id: d.id,
+            id: d.id,
+            icon: blueprint.icon,
+            url: `/project/display-content/${d.type}/${d.id}`,
+            type: d.type,
+            extraFields: d.extraFields
+          } as unknown as I_ShortenedDocument,
+          docs as any
+        )
+      ).sort((a, b) => a.label.localeCompare(b.label))
 
-      for (const singleDocument of dbDocuments) {
-        const doc = singleDocument as unknown as I_ShortenedDocument
-        const pushValue = this.mapShortDocument(doc, dbDocuments)
-        formattedDocuments.push(pushValue)
-      }
-
-      const sortedDocuments = formattedDocuments.sort((a, b) => a.label.localeCompare(b.label))
-      this.SSET_mapNewDocumentType({
-        id: blueprint._id,
-        docs: sortedDocuments
-      })
+      this.SSET_mapNewDocumentType({ id: blueprint._id, docs: formattedDocuments })
     }
 
     this.SSET_allDocumentsMarkAsNonFirstRun()

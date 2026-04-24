@@ -175,8 +175,8 @@ export default class RepairProjectDialog extends DialogBase {
     optionsSnapShot.pre017check = false
 
     await changeCurrentProjectSettings({
-      createdOnVersion: remote.app.getVersion()
-    })
+      createdOnVersion: "web"
+    }, this)
 
     // @ts-ignore
     this.SSET_options(optionsSnapShot)
@@ -313,7 +313,7 @@ export default class RepairProjectDialog extends DialogBase {
       // @ts-ignore
       spinner: QSpinnerGears
     }
-    saveProject(projectName, Loading, setup, this.$q)
+    saveProject(this.SGET_currentProjectId as string, Loading, setup, this.$q)
   }
 }
 </script>

@@ -1,116 +1,34 @@
-import type { I_Blueprint } from "../../interfaces/I_Blueprint"
-
-import PouchDB from "pouchdb"
-import _ from "lodash"
-
-import { charactersBlueprint } from "src/scripts/databaseManager/blueprints/characters"
-import { chaptersBlueprint } from "src/scripts/databaseManager/blueprints/chapters"
-import { currenciesBlueprint } from "src/scripts/databaseManager/blueprints/currencies"
-import { eventsBlueprint } from "src/scripts/databaseManager/blueprints/events"
-import { languagesBlueprint } from "src/scripts/databaseManager/blueprints/languages"
-import { locationsBlueprint } from "src/scripts/databaseManager/blueprints/locations"
-import { loreNotesBlueprint } from "src/scripts/databaseManager/blueprints/loreNotes"
-import { politicalGroupsBlueprint } from "src/scripts/databaseManager/blueprints/politicalGroups"
-import { racesBlueprint } from "src/scripts/databaseManager/blueprints/races"
-import { religionsBlueprint } from "src/scripts/databaseManager/blueprints/religions"
-import { mythsBlueprint } from "src/scripts/databaseManager/blueprints/myths"
-import { magicBlueprint } from "src/scripts/databaseManager/blueprints/magic"
-import { techBlueprint } from "src/scripts/databaseManager/blueprints/scienceTechnology"
-import { itemsBlueprint } from "src/scripts/databaseManager/blueprints/items"
-import { guildsBlueprint } from "src/scripts/databaseManager/blueprints/guilds"
-import { resourcesBlueprint } from "src/scripts/databaseManager/blueprints/resources"
-import { conditionsBlueprint } from "src/scripts/databaseManager/blueprints/conditions"
-import { professionsBlueprint } from "src/scripts/databaseManager/blueprints/professions"
-import { skillsBlueprint } from "src/scripts/databaseManager/blueprints/skills"
-import { cultureBlueprint } from "src/scripts/databaseManager/blueprints/culture"
+import { blueprintApi } from "src/services/api/blueprintApi"
+import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 
 /**
- * Loads all the blueprints and processes them apropriatelly
+ * Maps an API Blueprint record to the I_Blueprint shape used by the Vuex store.
+ * The API uses `slug` as the type identifier and `displayOrder` for ordering;
+ * the frontend uses `_id` and `order` respectively.
  */
-export const engageBlueprints = async () => {
-  // Clean up previous versions of the blueprint DB to get fresh info
-  let BlueprintsDB = new PouchDB("blueprints")
-  await BlueprintsDB.destroy()
-
-  BlueprintsDB = new PouchDB("blueprints")
-
-  /**
-   * List of all blueprintes needed to get processed
-   */
-  const allBluePrints: I_Blueprint[] = [
-    charactersBlueprint,
-    chaptersBlueprint,
-    currenciesBlueprint,
-    eventsBlueprint,
-    languagesBlueprint,
-    locationsBlueprint,
-    loreNotesBlueprint,
-    politicalGroupsBlueprint,
-    racesBlueprint,
-    religionsBlueprint,
-    mythsBlueprint,
-    magicBlueprint,
-    techBlueprint,
-    itemsBlueprint,
-    guildsBlueprint,
-    resourcesBlueprint,
-    conditionsBlueprint,
-    professionsBlueprint,
-    skillsBlueprint,
-    cultureBlueprint
-  ]
-
-  /**
-   * Processes all blueprints
-   */
-  for (const newBlueprint of allBluePrints) {
-    try {
-    // Try adding a brand new data blueprint
-      await BlueprintsDB.put(newBlueprint)
-    }
-    catch (e) {
-      // Proceed with checking of the contents of the blueprint if it already exists
-      const currentBlueprint = await BlueprintsDB.get(newBlueprint._id) as I_Blueprint
-      const hasChanges = checkBlueprintUpdate(newBlueprint, currentBlueprint)
-
-      // If there are changes, overwrite the old with new
-      if (hasChanges) {
-        newBlueprint._rev = currentBlueprint._rev
-        await BlueprintsDB.put(newBlueprint)
-      }
-    }
+function toIBlueprint (bp: Awaited<ReturnType<typeof blueprintApi.list>>[number]): I_Blueprint {
+  return {
+    _id: bp.slug,
+    order: bp.displayOrder,
+    nameSingular: bp.nameSingular,
+    namePlural: bp.namePlural,
+    icon: bp.icon,
+    category: bp.category,
+    extraFields: bp.extraFields as unknown as I_Blueprint["extraFields"]
   }
-  await BlueprintsDB.close()
 }
 
 /**
- * Checks if there are any changes to the blueprint being processed by comparing it with the old one
- * @param newBlueprint The updated blueprint freshly retrieved from the source file
- * @param currentBlueprint The current blueprint existing in the database
+ * Fetches all blueprints for the given project from the API and returns them
+ * mapped to the I_Blueprint format used by the Vuex store.
+ * Blueprints are seeded server-side on project creation — no local seeding needed.
  */
-export const checkBlueprintUpdate = (newBlueprint: I_Blueprint, currentBlueprint: I_Blueprint): boolean => {
-  let hasChanges = false
-
-  // Check for naming and icon changes and compare the extra fields via Lodash
-  if (
-    newBlueprint?.namePlural !== currentBlueprint?.namePlural ||
-    newBlueprint?.nameSingular !== currentBlueprint?.nameSingular ||
-    newBlueprint?.icon !== currentBlueprint?.icon ||
-    _.isEqual(newBlueprint.extraFields, currentBlueprint.extraFields) === false
-  ) {
-    hasChanges = true
-  }
-
-  return hasChanges
+export const engageBlueprints = async (projectId: string): Promise<I_Blueprint[]> => {
+  const raw = await blueprintApi.list(projectId)
+  return raw.map(toIBlueprint)
 }
 
 /**
- * Retrieves all blueprints
+ * Alias for engageBlueprints — kept for call-site compatibility.
  */
-export const retrieveAllBlueprints = async () => {
-  const BlueprintsDB = new PouchDB("blueprints")
-  const allBlueprints = await BlueprintsDB.allDocs({ include_docs: true })
-  await BlueprintsDB.close()
-
-  return allBlueprints
-}
+export const retrieveAllBlueprints = engageBlueprints

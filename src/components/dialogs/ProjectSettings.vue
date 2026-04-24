@@ -144,7 +144,7 @@ export default class ProjectSettingsDialog extends DialogBase {
       projectName: this.projectName
     }
 
-    await changeCurrentProjectSettings(newSettings)
+    await changeCurrentProjectSettings(newSettings, this)
     this.SSET_setProjectName(this.projectName)
 
     this.triggerDialogClose()

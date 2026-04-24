@@ -650,7 +650,7 @@ export default class PageDocumentDisplay extends BaseClass {
     this.SSET_addOpenedDocument(dataPass)
 
     if (!this.currentData.isNew) {
-      updateLastOpenedDocuments(this.currentData._id).catch(e => console.log(e))
+      updateLastOpenedDocuments(this.currentData._id, this.SGET_currentProjectId)
     }
   }
 

@@ -112,7 +112,7 @@ export default class LoadProjectCheck extends DialogBase {
       // @ts-ignore
       spinner: QSpinnerGears
     }
-    saveProject(projectName, Loading, setup, this.$q)
+    saveProject(this.SGET_currentProjectId as string, Loading, setup, this.$q)
   }
 }
 </script>

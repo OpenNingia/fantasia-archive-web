@@ -74,6 +74,10 @@ export default class BaseClass extends Vue {
   @Project.Getter("getProjectCustomCSS") SGET_getProjectCustomCSS!: string
   @Project.Action("setProjectCustomCSS") SSET_setProjectCustomCSS!: (input: string) => void
 
+  @Project.Getter("currentProjectId") SGET_currentProjectId!: string | null
+  @Project.Getter("currentUserRole") SGET_currentUserRole!: "master" | "player" | null
+  @Project.Mutation("SET_CURRENT_PROJECT_ID") SSET_currentProjectId!: (id: string | null) => void
+
   /****************************************************************/
   // FLOATING WINDOWS
   /****************************************************************/

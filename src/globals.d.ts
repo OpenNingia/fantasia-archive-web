@@ -13,6 +13,3 @@ declare module "*.ttf"{
   export default content
 }
 
-interface Window {
-  FA_dbs: PouchDB.Static[]
-}

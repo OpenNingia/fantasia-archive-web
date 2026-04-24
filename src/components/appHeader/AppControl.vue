@@ -779,7 +779,7 @@ export default class AppControl extends BaseClass {
       // @ts-ignore
       spinner: QSpinnerGears
     }
-    saveProject(projectName, Loading, setup, this.$q)
+    saveProject(this.SGET_currentProjectId as string, Loading, setup, this.$q)
   }
 
   /****************************************************************/

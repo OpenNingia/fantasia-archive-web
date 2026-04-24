@@ -91,7 +91,7 @@ export default class CustomCssEditorDialog extends DialogBase {
       projectCustomCSS: this.customCSS
     }
 
-    await changeCurrentProjectSettings(newSettings)
+    await changeCurrentProjectSettings(newSettings, this)
     this.SSET_setProjectCustomCSS(this.customCSS)
 
     this.triggerDialogClose()

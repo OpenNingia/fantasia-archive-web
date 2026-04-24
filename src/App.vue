@@ -103,12 +103,11 @@ import BaseClass from "src/BaseClass"
 import { Component, Watch } from "vue-property-decorator"
 import { defaultKeybinds } from "src/scripts/appSettings/defaultKeybinds"
 import appWindowButtons from "src/components/appHeader/AppWindowButtons.vue"
-import PouchDB from "pouchdb"
 import type { OptionsStateInteface } from "./store/module-options/state"
 import { colors } from "quasar"
 import { tipsTricks } from "src/scripts/utilities/tipsTricks"
 import { summonAllPlusheForms } from "src/scripts/utilities/plusheMascot"
-import { saveCorkboard, retrieveCorkboard, retrieveCurrentProjectName, retrieveCurrentProjectCustomCSS } from "src/scripts/projectManagement/projectManagent"
+import { saveCorkboard, retrieveCorkboard } from "src/scripts/projectManagement/projectManagent"
 import documentPreview from "src/components/DocumentPreview.vue"
 @Component({
   components: {
@@ -134,18 +133,9 @@ export default class App extends BaseClass {
     }
 
     // Load settings
-    await this.loadSettings()
+    this.loadSettings()
 
     await this.loadCorkboardCotent()
-
-    const currentProjectName = await retrieveCurrentProjectName()
-
-    this.SSET_setProjectName(currentProjectName)
-
-    // eslint-disable-next-line prefer-const
-    const currentProjectCustomCSS = await retrieveCurrentProjectCustomCSS()
-
-    this.SSET_setProjectCustomCSS(currentProjectCustomCSS)
 
     // Load the popup hint on
     this.loadHintPopup()
@@ -318,21 +308,22 @@ export default class App extends BaseClass {
   }
 
   /**
-   * Load settings for the first time upon app load
+   * Load settings from localStorage on app start.
    */
-  async loadSettings () {
-    const SettingsDB = new PouchDB("fa-settings")
-    const settingsData = await SettingsDB.allDocs({ include_docs: true })
-    const settings = settingsData?.rows[0]?.doc as unknown as OptionsStateInteface
-
-    if (settings) {
-      this.SSET_options(settings)
+  loadSettings () {
+    const raw = localStorage.getItem("fa_settings")
+    if (raw) {
+      try {
+        const settings = JSON.parse(raw) as OptionsStateInteface
+        this.SSET_options(settings)
+      }
+      catch (e) {
+        console.warn("Failed to parse stored settings", e)
+      }
     }
 
     this.registerDefaultKeybinds()
     this.registerCustomKeybinds()
-
-    await SettingsDB.close()
   }
 
   /**
@@ -398,7 +389,7 @@ export default class App extends BaseClass {
   processCorkboardInput () {
     clearTimeout(this.corkboardTimer)
     this.corkboardTimer = setTimeout(() => {
-      saveCorkboard(this.corkboardContent).catch(e => console.log(e))
+      saveCorkboard(this.corkboardContent, this.SGET_currentProjectId).catch(e => console.log(e))
     }, 1000)
   }
 
@@ -411,7 +402,7 @@ export default class App extends BaseClass {
   async loadCorkboardCotent () {
     const options = this.SGET_options
 
-    this.corkboardContent = await retrieveCorkboard()
+    this.corkboardContent = await retrieveCorkboard(this.SGET_currentProjectId)
 
     // Considering there is a bit of a delay between the initial load of the store DB content, we give the program 3 attempts to load the data over 3 seconds. If no is loaded in that time, we assume that the settings are not set at all and display the hint as normal.
     if ((!options._id || !options._rev) && this.corkboardCheck < 3) {

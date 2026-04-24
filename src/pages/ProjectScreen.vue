@@ -472,7 +472,7 @@ export default class ProjectScreen extends BaseClass {
    * Loads graph data
    */
   async loadLastOpenedList () {
-    const idList = await retrieveLastOpenedDocuments()
+    const idList = await retrieveLastOpenedDocuments(this.SGET_currentProjectId)
     this.lastOpenedDocuments = idList.map(id => this.SGET_document(id)).filter(e => (e))
   }
 
