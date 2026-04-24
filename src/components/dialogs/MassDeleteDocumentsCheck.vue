@@ -171,12 +171,11 @@
 
 <script lang="ts">
 
-import PouchDB from "pouchdb"
-
 import { Component, Watch, Prop } from "vue-property-decorator"
 import DialogBase from "src/components/dialogs/_DialogBase"
 import { uid, extend } from "quasar"
 import documentPreview from "src/components/DocumentPreview.vue"
+import { documentApi } from "src/services/api/documentApi"
 
 import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import type { I_Blueprint } from "src/interfaces/I_Blueprint"
@@ -362,21 +361,15 @@ export default class DeleteProject extends DialogBase {
   async deleteDocuments () {
     this.deleteOngoing = true
     this.deletedDocuments = 0
+    const projectId = this.SGET_currentProjectId as string
 
     for (const document of this.deleteDocumentsModel) {
       this.currentDocName = document.label
 
-      window.FA_dbs[document.type] = new PouchDB(document.type)
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      this.currentDocument = await window.FA_dbs[document.type].get(document._id)
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      await window.FA_dbs[document.type].remove(this.currentDocument)
-
-      const dataPass = { doc: this.currentDocument, treeAction: true }
+      await documentApi.delete(projectId, document.type, document._id)
 
       this.currentDocument = this.SGET_document(document._id)
+      const dataPass = { doc: this.currentDocument, treeAction: true }
 
       // @ts-ignore
       this.SSET_removeOpenedDocument(dataPass)

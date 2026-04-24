@@ -81,16 +81,12 @@
 
 <script lang="ts">
 
-import { remote } from "electron"
 import { extend, Loading, QSpinnerGears } from "quasar"
 
 import { Component, Watch } from "vue-property-decorator"
 
 import DialogBase from "src/components/dialogs/_DialogBase"
 import { changeCurrentProjectSettings, saveProject } from "src/scripts/projectManagement/projectManagent"
-
-import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
-import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 
 @Component({
   components: { }
@@ -132,171 +128,23 @@ export default class RepairProjectDialog extends DialogBase {
   repairFinished = false
   repairOngoing = false
 
-  /**
-  * Repair a new project
-  */
   async repairProject () {
-    this.repairOngoing = true
-
-    this.processedBlueprints = 0
-    this.blueprintCount = this.SGET_allBlueprints.length
-
-    for (const blueprint of this.SGET_allBlueprints) {
-      this.processedBlueprints++
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const dbRows = await window.FA_dbs[blueprint._id].allDocs({ include_docs: true })
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      // eslint-disable-next-line
-      const dbDocuments = dbRows.rows.map((d:any) => d.doc)
-
-      this.documentCount = dbDocuments.length
-      this.processedDocument = 0
-      this.currectDocumentType = blueprint.namePlural
-
-      await this.sleep(800)
-
-      for (let document of dbDocuments) {
-        document = await this.remapDocument(document, blueprint)
-
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        await window.FA_dbs[blueprint._id].put(document)
-      }
-
-      await this.sleep(600)
-    }
-
-    this.repairOngoing = false
-    this.repairFinished = true
-
+    // Legacy PouchDB repair is not applicable in the web version —
+    // all documents are stored in PostgreSQL with the correct format server-side.
+    // Mark the project as already at web version so this dialog stops appearing.
     const optionsSnapShot = extend(true, {}, this.SGET_options)
     // @ts-ignore
     optionsSnapShot.pre017check = false
-
-    await changeCurrentProjectSettings({
-      createdOnVersion: "web"
-    }, this)
-
     // @ts-ignore
     this.SSET_options(optionsSnapShot)
-  }
 
-  async remapDocument (document: I_ShortenedDocument, blueprint: I_Blueprint) {
-    // Fix any old, hanging icons
-    document.icon = blueprint.icon
+    await changeCurrentProjectSettings({ createdOnVersion: "web" }, this)
 
-    const statFieldIDS = [
-      "strength",
-      "constitution",
-      "dexterity",
-      "intellect",
-      "wisdom",
-      "charisma"
-    ]
-
-    const transeferedStats = {
-      id: "statsList",
-      value: []
-    }
-
-    const obsoleteFieldIDs: string[] = []
-
-    const allSingleToNoneFields = blueprint.extraFields.filter(e => e.type === "singleToNoneRelationship")
-    const allSingleToSingleFields = blueprint.extraFields.filter(e => e.type === "singleToSingleRelationship")
-    const allSingleToManyFields = blueprint.extraFields.filter(e => e.type === "singleToManyRelationship")
-
-    const allManyToNoneFields = blueprint.extraFields.filter(e => e.type === "manyToNoneRelationship")
-    const allManyToSingleFields = blueprint.extraFields.filter(e => e.type === "manyToSingleRelationship")
-    const allManyToManyFields = blueprint.extraFields.filter(e => e.type === "manyToManyRelationship")
-
-    for (const field of document.extraFields) {
-      // Single field remap
-      if (allSingleToNoneFields.find(e => e.id === field.id) ||
-      allSingleToSingleFields.find(e => e.id === field.id) ||
-      allSingleToManyFields.find(e => e.id === field.id)) {
-        if (field.value && field.value.value) {
-          const blueprintField = blueprint.extraFields.find(e => e.id === field.id)
-          field.value.value = {
-            _id: field.value.value._id,
-            id: field.value.value._id,
-            type: field.value.value.type,
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            url: `/project/display-content/${field.value.value.type}/${field.value.value._id}`,
-            pairedField: (blueprintField?.relationshipSettings?.connectedField) || ""
-          }
-        }
-      }
-
-      // Many field remap
-      if (allManyToNoneFields.find(e => e.id === field.id) ||
-      allManyToSingleFields.find(e => e.id === field.id) ||
-      allManyToManyFields.find(e => e.id === field.id)) {
-        if (field.value && field.value.value) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          for (const [i, subValue] of field.value.value.entries()) {
-            const blueprintField = blueprint.extraFields.find(e => e.id === field.id)
-            field.value.value[i] = {
-              _id: subValue._id,
-              id: subValue._id,
-              type: subValue.type,
-              // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-              url: `/project/display-content/${subValue.type}/${subValue._id}`,
-              pairedField: (blueprintField?.relationshipSettings?.connectedField) || ""
-            }
-          }
-        }
-      }
-
-      // Fix stat fields
-      if (statFieldIDS.includes(field.id)) {
-        if (field.value.length > 0) {
-          transeferedStats.value.push({
-          // @ts-ignore
-            value: field.value,
-            // @ts-ignore
-            affix: field.id.charAt(0).toUpperCase() + field.id.slice(1)
-          })
-        }
-
-        obsoleteFieldIDs.push(field.id)
-      }
-    }
-
-    if (transeferedStats.value.length > 0) {
-      const statFieldIndex = document.extraFields.findIndex(e => e.id === "statsList")
-      // If new stats/attributes field doesn't exist yet, create a new one
-      if (statFieldIndex === -1) {
-        document.extraFields.push(transeferedStats)
-      }
-      // If the field already exists
-      else {
-        document.extraFields[statFieldIndex].value = [
-          ...document.extraFields[statFieldIndex].value,
-          ...transeferedStats.value]
-      }
-    }
-
-    if (document._id === "e1e24951-e2af-4513-8e4c-50fb93fd94d9") {
-      console.log(obsoleteFieldIDs)
-    }
-
-    // Clean out obsolete fields that will cause bugs if left alone
-    obsoleteFieldIDs.forEach(i => {
-      const fieldIndex = document.extraFields.findIndex(e => e.id === i)
-      // Cut out the legacy field
-      document.extraFields.splice(fieldIndex, 1)
-    })
-
-    this.processedDocument++
-
-    await this.sleep(25)
-
-    return document
+    this.repairFinished = true
   }
 
   reloadFA () {
-    remote.getCurrentWindow().reload()
+    window.location.reload()
   }
 
   /**

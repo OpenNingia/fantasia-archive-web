@@ -43,7 +43,7 @@ import { Component, Watch, Prop } from "vue-property-decorator"
 
 import DialogBase from "src/components/dialogs/_DialogBase"
 import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
-import PouchDB from "pouchdb"
+import { documentApi } from "src/services/api/documentApi"
 
 @Component({
   components: { }
@@ -88,22 +88,16 @@ export default class DeleteDocumentCheckDialog extends DialogBase {
    */
   async deleteDocument () {
     const documentID = (this.documentId.length > 0) ? this.documentId : this.$route.params.id
-
     const documentType = (this.documentType.length > 0) ? this.documentType : this.$route.params.type
-    window.FA_dbs[documentType] = new PouchDB(documentType)
+    const projectId = this.SGET_currentProjectId as string
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    this.currentDocument = await window.FA_dbs[documentType].get(documentID)
+    await documentApi.delete(projectId, documentType, documentID)
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    await window.FA_dbs[documentType].remove(this.currentDocument)
-
+    this.currentDocument = this.SGET_document(documentID)
     const dataPass = { doc: this.currentDocument, treeAction: true }
 
     this.dialogModel = false
     this.SSET_setDialogState(false)
-
-    this.currentDocument = this.SGET_document(documentID)
 
     // @ts-ignore
     this.SSET_removeOpenedDocument(dataPass)

@@ -1,92 +1,43 @@
 import type { I_DocumentTemplate } from "./../../interfaces/I_DocumentTemplate"
-// @ts-ignore
-import PouchDB from "pouchdb"
-import { extend } from "quasar"
 
-/**
- * Save a document template
- */
-export const saveDocumentTemplateIntoDB = async (editedDocumentTemplate: I_DocumentTemplate) => {
-  editedDocumentTemplate = extend(true, {}, editedDocumentTemplate)
-
-  if (!window.FA_dbs) {
-    // @ts-ignore
-    window.FA_dbs = {}
-  }
-  window.FA_dbs["project-data"] = new PouchDB("project-data")
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const projectData = await window.FA_dbs["project-data"].allDocs({ include_docs: true })
-
-  const projectDataObject = projectData.rows[0].doc as {documentTemplates: I_DocumentTemplate[]}
-
-  if (!projectDataObject.documentTemplates) {
-    projectDataObject.documentTemplates = []
-  }
-
-  const existingIndex = projectDataObject.documentTemplates.findIndex(t => t.id === editedDocumentTemplate.id)
-
-  if (existingIndex > -1) {
-    projectDataObject.documentTemplates[existingIndex] = editedDocumentTemplate
-  }
-  else {
-    projectDataObject.documentTemplates.push(editedDocumentTemplate)
-  }
-
-  projectDataObject.documentTemplates.sort((a, b) => a.name.localeCompare(b.name))
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  await window.FA_dbs["project-data"].put(projectDataObject)
+const storageKey = () => {
+  const projectId = (window as Window & { FA_projectId?: string }).FA_projectId ?? "default"
+  return `FA_documentTemplates_${projectId}`
 }
 
-/**
- * Retrieves all document templates from the database
- */
-export const retrieveAllDocumentTemplatesFromDB = async (): Promise<I_DocumentTemplate[]> => {
-  if (!window.FA_dbs) {
-    // @ts-ignore
-    window.FA_dbs = {}
+const load = (): I_DocumentTemplate[] => {
+  try {
+    return JSON.parse(localStorage.getItem(storageKey()) ?? "[]") as I_DocumentTemplate[]
   }
-  window.FA_dbs["project-data"] = new PouchDB("project-data")
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const projectData = await window.FA_dbs["project-data"].allDocs({ include_docs: true })
-
-  const projectDataObject = projectData.rows[0].doc as {documentTemplates: I_DocumentTemplate[]}
-
-  if (projectDataObject.documentTemplates) {
-    return projectDataObject.documentTemplates
-  }
-  else {
+  catch {
     return []
   }
 }
 
-/**
- * Removes a document template from the databse
- */
-export const removeDocumentTemplateFromDB = async (editedDocumentTemplate: I_DocumentTemplate) => {
-  editedDocumentTemplate = extend(true, {}, editedDocumentTemplate)
+const persist = (templates: I_DocumentTemplate[]) => {
+  localStorage.setItem(storageKey(), JSON.stringify(templates))
+}
 
-  if (!window.FA_dbs) {
-    // @ts-ignore
-    window.FA_dbs = {}
+export const saveDocumentTemplateIntoDB = async (editedDocumentTemplate: I_DocumentTemplate): Promise<void> => {
+  const templates = load()
+  const idx = templates.findIndex(t => t.id === editedDocumentTemplate.id)
+  if (idx > -1) {
+    templates[idx] = editedDocumentTemplate
   }
-
-  window.FA_dbs["project-data"] = new PouchDB("project-data")
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const projectData = await window.FA_dbs["project-data"].allDocs({ include_docs: true })
-
-  const projectDataObject = projectData.rows[0].doc as {documentTemplates: I_DocumentTemplate[]}
-
-  if (!projectDataObject.documentTemplates) {
-    projectDataObject.documentTemplates = []
+  else {
+    templates.push(editedDocumentTemplate)
   }
+  templates.sort((a, b) => a.name.localeCompare(b.name))
+  persist(templates)
+}
 
-  const indexToRemove = projectDataObject.documentTemplates.findIndex(t => t.id === editedDocumentTemplate.id)
+export const retrieveAllDocumentTemplatesFromDB = async (): Promise<I_DocumentTemplate[]> => load()
 
-  if (indexToRemove > -1) {
-    projectDataObject.documentTemplates.splice(indexToRemove, 1)
+export const removeDocumentTemplateFromDB = async (editedDocumentTemplate: I_DocumentTemplate): Promise<void> => {
+  const templates = load()
+  const idx = templates.findIndex(t => t.id === editedDocumentTemplate.id)
+  if (idx > -1) {
+    templates.splice(idx, 1)
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  await window.FA_dbs["project-data"].put(projectDataObject)
+  persist(templates)
 }

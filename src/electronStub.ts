@@ -24,9 +24,12 @@ export const remote = {
     maximize: noop,
     unmaximize: noop,
     close: noop,
+    destroy: noop,
+    reload: () => window.location.reload(),
     isMaximized: () => false,
     setTitle: noop
   }),
+  process: { platform: "web" },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   require: (_: string): any => ({})
 }

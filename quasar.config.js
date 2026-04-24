@@ -34,9 +34,13 @@ export default configure(function (/* ctx */) {
         API_URL: process.env.API_URL || ""
       },
       extendViteConf (viteConf) {
+        // PouchDB expects Node.js `global` — polyfill it for browser builds
+        viteConf.define = { ...(viteConf.define || {}), global: "globalThis" }
         viteConf.resolve = viteConf.resolve || {}
         viteConf.resolve.alias = {
           ...(viteConf.resolve.alias || {}),
+          // Use browser-only build of PouchDB — avoids Node.js fs/leveldb adapters
+          pouchdb: resolve(__dirname, "node_modules/pouchdb-browser/lib/index.js"),
           electron: resolve(__dirname, "src/electronStub.ts"),
           // vue-property-decorator@9 has broken interop with vue-class-component@8 — use shim
           "vue-property-decorator": resolve(__dirname, "src/shims/vue-property-decorator.ts")
