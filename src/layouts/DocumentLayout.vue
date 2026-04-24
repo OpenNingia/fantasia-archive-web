@@ -96,7 +96,7 @@ import { engageBlueprints } from "src/scripts/databaseManager/blueprintManager"
 import repairProjectDialog from "src/components/dialogs/RepairProject.vue"
 
 import { extend, useQuasar } from "quasar"
-import type { OptionsStateInteface } from "src/store/module-options/state"
+import type { OptionsState as OptionsStateInteface } from "src/stores/options"
 import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import { documentApi } from "src/services/api/documentApi"

@@ -1052,7 +1052,7 @@ import { extend } from "quasar"
 import { useAppStores } from "src/composables/useAppStores"
 import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 
-import type { OptionsStateInteface } from "src/store/module-options/state"
+import type { OptionsState as OptionsStateInteface } from "src/stores/options"
 
 const props = defineProps<{ dialogTrigger?: string }>()
 const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])

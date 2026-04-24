@@ -58,7 +58,7 @@
 import { defineComponent, ref, computed } from "vue"
 import { useRouter, useRoute } from "vue-router"
 import { authApi } from "src/services/api/authApi"
-import { useStore } from "src/store"
+import { useProjectStore } from "src/stores/project"
 
 export default defineComponent({
   name: "LoginPage",
@@ -66,7 +66,7 @@ export default defineComponent({
   setup () {
     const router = useRouter()
     const route = useRoute()
-    const store = useStore()
+    const projectStore = useProjectStore()
 
     const email = ref("")
     const password = ref("")
@@ -83,7 +83,7 @@ export default defineComponent({
       try {
         await authApi.localLogin(email.value, password.value)
         const user = await authApi.me()
-        store.commit("projectModule/SET_CURRENT_USER", user)
+        projectStore.setCurrentUser(user)
         const redirect = (route.query.redirect as string) || "/"
         await router.push(redirect)
       } catch {

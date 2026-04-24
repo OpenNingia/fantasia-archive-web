@@ -9,7 +9,6 @@ export default configure(function (/* ctx */) {
   return {
     boot: [
       "pinia",
-      "store",
       "i18n",
       "axios",
       "notify-defaults",
