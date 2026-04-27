@@ -43,6 +43,7 @@
             class="full-width"
             label="Sign in"
             :loading="loading"
+            @click.prevent="submitLocalLogin"
           />
         </q-form>
       </q-card-section>

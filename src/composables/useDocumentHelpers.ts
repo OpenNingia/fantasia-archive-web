@@ -1,5 +1,5 @@
 import { useRouter, useRoute } from "vue-router"
-import { uid, colors, extend } from "quasar"
+import { uid, colors, extend, getCssVar } from "quasar"
 import { useAppStores } from "./useAppStores"
 import type { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import type { I_NewObjectTrigger } from "src/interfaces/I_NewObjectTrigger"
@@ -37,7 +37,7 @@ export function useDocumentHelpers () {
 
   function retrieveIconColor (document: I_ShortenedDocument): string {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (document as any).activeTypeSearch ? colors.getBrand("primary") as string : document.color as string
+    return (document as any).activeTypeSearch ? getCssVar("primary") as string : document.color as string
   }
 
   function deepFreeze (object: object): object {

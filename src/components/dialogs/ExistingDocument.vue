@@ -301,6 +301,12 @@ const closeWithSameClick = ref(false)
 const textShadow = ref(false)
 const isCloseAbleViaKeybind = ref(false)
 
+/****************************************************************/
+// PRE-FILTERING
+/****************************************************************/
+
+const includeCategories = ref(true)
+
 watch(() => optionsStore.getOptions, () => {
   reloadOptions()
 }, { immediate: true, deep: true })
@@ -330,12 +336,6 @@ function processKeyPush () {
     existingDocumentModel.value = []
   }
 }
-
-/****************************************************************/
-// PRE-FILTERING
-/****************************************************************/
-
-const includeCategories = ref(true)
 
 watch(includeCategories, () => {
   preFilterDocuments()

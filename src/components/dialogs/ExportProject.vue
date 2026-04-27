@@ -660,6 +660,8 @@ import PDFkit from "pdfkit/js/pdfkit.standalone.js"
 // @ts-ignore
 import htmlParseStringify from "html-parse-stringify/dist/html-parse-stringify.modern.js"
 import { uid, extend, useQuasar } from "quasar"
+import JSZip from "jszip"
+import { saveAs } from "file-saver"
 
 import type { I_ExportObject } from "src/interfaces/I_ExportObject"
 import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
@@ -1045,15 +1047,502 @@ const progressCounter = computed(() => {
   return (exportedDocuments.value / exportList.value.length)
 })
 
-function exportDocuments () {
-  // Note: Electron remote.dialog is not available in the web version.
-  // This is a stub for Phase 6 — web export will need a different approach.
-  console.warn("ExportProject: exportDocuments() — Electron export not available in web build (Phase 6 pending)")
-  q.notify({
-    group: false,
-    type: "warning",
-    message: "Export to file system is not yet available in the web version."
+// ── Export path helpers ──────────────────────────────────────────────────────
+
+const reservedExportChars = ["/", ">", "<", "|", ":", "&", "\\", "-", "[", "]", "{", "}", "*", "?", "'", "\"", "#", "%", "$", "!", "@"]
+
+function fixExportName (name: string): string {
+  let result = name
+  reservedExportChars.forEach(c => {
+    // Replace multiple times to catch repeated occurrences (original logic)
+    for (let i = 0; i < 6; i++) result = result.replace(c, "-")
   })
+  return result
+}
+
+function getExportPaths (input: I_ExportObject): { dir: string, filename: string, suffix: string } {
+  const dir = noFolderMode.value ? "" : fixExportName(input.documentDirectory) + "/"
+  let filename = fixExportName(input.name)
+  if (input.isCategory) filename = "_" + filename
+  const suffix = useCompatibilityMode.value ? `-${input.id}` : ""
+  return { dir, filename, suffix }
+}
+
+// ── Fonts helper ─────────────────────────────────────────────────────────────
+
+async function fetchFonts (fallback: boolean): Promise<{ normal: ArrayBuffer, bold: ArrayBuffer }> {
+  const [normal, bold] = await Promise.all([
+    fetch(fallback ? "/fonts/ArialUnicodeMS.ttf" : "/fonts/Roboto-Regular.ttf").then(r => r.arrayBuffer()),
+    fetch(fallback ? "/fonts/ArialUnicodeMS-Bold.ttf" : "/fonts/Roboto-Bold.ttf").then(r => r.arrayBuffer())
+  ])
+  return { normal, bold }
+}
+
+// ── MD content builder ───────────────────────────────────────────────────────
+
+function buildMdContent (input: I_ExportObject): string {
+  const JSONExport: any[] = []
+
+  JSONExport.push({ h1: input.name })
+  if (input.isCategory) {
+    JSONExport[0] = `${JSONExport[0] as string} - Category`
+  }
+
+  if (!writerMode.value) {
+    JSONExport.push({ h2: "Document type" })
+    JSONExport.push({ ul: [input.documentType] })
+
+    if (!hideDeadInformation.value) {
+      JSONExport.push({ h2: "Status" })
+      JSONExport.push({ ul: [(input.isDead) ? "Dead/Gone/Destroyed" : "Active/Alive"] })
+    }
+
+    if (includeHierarchyPath.value) {
+      JSONExport.push({ h2: "Hierarchical path" })
+      JSONExport.push({ ul: [input.hierarchicalPath] })
+    }
+
+    if (includeTags.value) {
+      JSONExport.push({ h2: "Tags" })
+      JSONExport.push({ ul: (Array.isArray(input.tags) ? input.tags : []) })
+    }
+  }
+
+  input.fieldValues.forEach(field => {
+    if (field.type === "break" && !writerMode.value) {
+      JSONExport.push({ hr: "" })
+      JSONExport.push({ h1: field.label })
+    } else if (field.type === "wysiwyg") {
+      if (!writerMode.value || writerModeTitles.value) JSONExport.push({ h2: field.label })
+
+      let localValue = field.value as unknown as string
+
+      const replacements: [RegExp, string][] = [
+        [/\*/g, "\\*"],
+        [/#/g, "\\#"],
+        [/\(/g, "\\("],
+        [/\)/g, "\\)"],
+        [/\[/g, "\\["],
+        [/\]/g, "\\]"],
+        [/_/g, "\\_"]
+      ]
+      replacements.forEach(([from, to]) => { localValue = localValue.replace(from, to) })
+      JSONExport.push({ p: localValue })
+    } else if (!writerMode.value) {
+      JSONExport.push({ h2: field.label })
+      if (Array.isArray(field.value)) JSONExport.push({ ul: field.value })
+      else JSONExport.push({ ul: [field.value] })
+    }
+  })
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  let mdContent: string = json2md(JSONExport)
+  const EOL = mdContent.match(/\r\n/gm) ? "\r\n" : "\n"
+  mdContent = mdContent.replace(new RegExp("(" + EOL + "){3,}", "gm"), EOL + EOL)
+  return mdContent
+}
+
+// ── PDF wysiwyg content builder ──────────────────────────────────────────────
+
+function buildPDFWysiwygContent (input: string): I_HtmlParserNode[] {
+  const blockTagList = ["div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote", "img"]
+  const headingsList = ["h1", "h2", "h3", "h4", "h5", "h6"]
+  const returnNodeList: I_HtmlParserNode[] = []
+
+  const processNodeStyles = (styleString: string) => {
+    const alignMatch = styleString.match(/text-align:\s*([^;}]*)/)
+    return alignMatch ? alignMatch[1] : false
+  }
+
+  const processHeadingFontSize = (heading: string): number => {
+    switch (heading) {
+      case "h1": return 24
+      case "h2": return 20
+      case "h3": return 18
+      case "h4": return 16
+      case "h5": return 14
+      case "h6": return 12
+      default: return 11
+    }
+  }
+
+  const processNodeFontSize = (fontString: string): number => {
+    const fontNumber = parseInt(fontString)
+    switch (fontNumber) {
+      case 1: return 7
+      case 2: return 9
+      case 3: return 11
+      case 4: return 13
+      case 5: return 16
+      case 6: return 19
+      case 7: return 23
+      default: return 11
+    }
+  }
+
+  const processNode = (node: I_HtmlParserNode) => {
+    let nodeStyles: false | string = false
+    if (node?.attrs?.style) {
+      const snapshot: { style: string } = extend(true, {}, node.attrs)
+      nodeStyles = processNodeStyles(snapshot.style) ? snapshot.style : false
+    }
+
+    let nodeFontSize: false | string = false
+    if (node?.attrs?.size) {
+      const snapshot: { size: string } = extend(true, {}, node.attrs)
+      nodeFontSize = snapshot.size || false
+    }
+
+    const parentIsBlockquote = !!(node.parentNode?.attrs?.blockquotePadding)
+    node.src = node?.attrs?.src ? node.attrs.src : false
+    node.attrs = {}
+    node.attrs.continued = false
+
+    // @ts-ignore
+    const nextNode = node.selfNodeList[node.selfIndex + 1]
+    // @ts-ignore
+    const nextParentNode = node?.parentNode?.selfNodeList[node?.parentNode?.selfIndex + 1]
+
+    if (!nextNode) node.isLast = true
+
+    // Headings
+    if ((node.type === "tag" && headingsList.includes(node.name)) || node?.parentNode?.attrs.hasHeadingFontSize === true) {
+      node.attrs.hasHeadingFontSize = true
+      if (headingsList.includes(node.name)) {
+        node.attrs.nodeHeadingSize = processHeadingFontSize(node.name)
+      } else if (node?.parentNode?.attrs?.nodeHeadingSize) {
+        node.attrs.nodeHeadingSize = node?.parentNode?.attrs?.nodeHeadingSize
+      }
+      node.attrs.continued = false
+    } else {
+      node.attrs.hasHeadingFontSize = false
+    }
+
+    // Continue on inline next nodes
+    if (nextNode) {
+      if ((nextNode.type === "tag" && ["i", "b", "u", "font", "span", "a"].includes(nextNode.name))) {
+        node.attrs.continued = true
+      }
+    }
+
+    // Text align
+    if (nodeStyles) {
+      const textAlign = processNodeStyles(nodeStyles as string)
+      if (textAlign && textAlign !== "left") node.attrs.align = textAlign
+    } else if (node.parentNode?.attrs?.align && node.parentNode?.attrs?.align !== "left") {
+      node.attrs.align = node.parentNode.attrs.align
+    }
+
+    // Span
+    if ((node.type === "tag" && node.name === "span") || node?.parentNode?.attrs.isSpan === true) {
+      node.attrs.isSpan = true
+      node.attrs.continued = true
+    } else { node.attrs.isSpan = false }
+
+    // Link
+    if ((node.type === "tag" && node.name === "a") || node?.parentNode?.attrs.isLink === true) {
+      node.attrs.isLink = true
+      node.attrs.continued = true
+    } else { node.attrs.isLink = false }
+
+    // Italic
+    if ((node.type === "tag" && node.name === "i") || node?.parentNode?.attrs.italic === true) {
+      node.attrs.italic = true
+      node.attrs.continued = true
+    } else { node.attrs.italic = false }
+
+    // Bold
+    if ((node.type === "tag" && node.name === "b") || node?.parentNode?.attrs.bold === true) {
+      node.attrs.bold = true
+      node.attrs.continued = true
+    } else { node.attrs.bold = false }
+
+    // Underline
+    if ((node.type === "tag" && node.name === "u") || node?.parentNode?.attrs.underline === true) {
+      node.attrs.underline = true
+      node.attrs.continued = true
+    } else { node.attrs.underline = false }
+
+    // Font size
+    if ((node.type === "tag" && node.name === "font") || node?.parentNode?.attrs.hasSpecialFontSize === true) {
+      node.attrs.hasSpecialFontSize = true
+      node.attrs.specialFontSize = nodeFontSize
+        ? processNodeFontSize(nodeFontSize)
+        : node?.parentNode?.attrs?.specialFontSize
+      if (!nodeFontSize) node.attrs.specialFontSize = 11
+      node.attrs.continued = true
+    } else { node.attrs.hasSpecialFontSize = false }
+
+    // Don't continue on block boundaries
+    if (
+      (node.parentNode?.isLast && !nextNode) ||
+      (nextNode && nextNode.type === "tag" && blockTagList.includes(nextNode.name)) ||
+      (node.isLast && nextParentNode?.type === "tag" && blockTagList.includes(nextParentNode?.name)) ||
+      (node.isLast && node.parentNode?.isLast)
+    ) {
+      node.attrs.continued = false
+    }
+
+    // Blockquote padding
+    if ((node.type === "tag" && node.name === "blockquote") || parentIsBlockquote) {
+      node.attrs.blockquotePadding = true
+    }
+
+    // List item bullet
+    if (node.type === "tag" && node.name === "li") {
+      returnNodeList.push({
+        type: "text",
+        content: "     • ",
+        attrs: { continued: true },
+        voidElement: false,
+        name: "",
+        children: []
+      })
+    }
+
+    // Image node
+    if (node.type === "tag" && node.name === "img") {
+      returnNodeList.push({
+        type: "image",
+        attrs: { src: node.src },
+        voidElement: true,
+        name: "img",
+        children: []
+      })
+    }
+
+    // Text node
+    if (node.type === "text" && node.content) {
+      const returnNode = node
+      // @ts-ignore
+      returnNode.content = (returnNode.content as string)
+        .replace(/&nbsp;/g, " ")
+        .replace(/(\r\n|\n|\r)/gm, "")
+        .replace(/&amp;/g, "&")
+      if (node.attrs.isSpan) returnNode.content = (returnNode.content as string) + " "
+      returnNodeList.push(returnNode)
+    } else if (node?.children?.length > 0) {
+      node.children.forEach((childNode, i) => {
+        childNode.selfIndex = i
+        childNode.selfNodeList = node.children.filter(subNode => subNode.name !== "br")
+        childNode.parentNode = node
+        processNode(childNode)
+      })
+    }
+  }
+
+  // @ts-ignore
+  const parsedHTML: I_HtmlParserNode[] = htmlParseStringify.parse(`<div>${input}</div>`)
+  parsedHTML[0].selfNodeList = [parsedHTML[0]].filter(subNode => subNode.name !== "br")
+  parsedHTML[0].selfIndex = 0
+  parsedHTML[0].attrs = {}
+  processNode(parsedHTML[0])
+
+  return returnNodeList
+}
+
+// ── PDF blob generator ───────────────────────────────────────────────────────
+
+async function generatePdfBlob (input: I_ExportObject, normalFont: ArrayBuffer, boldFont: ArrayBuffer): Promise<Blob> {
+  return new Promise((resolve) => {
+    const textFont = 11
+    const subTitleFont = 15
+    const listPadding = 60
+    const textPadding = 40
+    const blockquotePadding = 85
+
+    const paragraphOptions = {
+      lineGap: 3,
+      paragraphGap: 8
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const doc: I_PDFKitDocument = new PDFkit({ size: "A4" })
+    doc.registerFont("Roboto-Regular", normalFont)
+    doc.registerFont("Roboto-Bold", boldFont)
+
+    const chunks: Uint8Array[] = []
+    // @ts-ignore
+    doc.on("data", (chunk: Uint8Array) => chunks.push(chunk))
+    // @ts-ignore
+    doc.on("end", () => resolve(new Blob(chunks, { type: "application/pdf" })))
+
+    // Title
+    let title = input.name
+    if (input.isCategory) title = `${title} - Category`
+    doc.font("Roboto-Bold").fillColor("#18303a").fontSize(20)
+      .text(title, { align: "center" })
+    doc.fontSize(textFont).moveDown().moveDown()
+
+    if (!writerMode.value) {
+      doc.font("Roboto-Bold").fillColor("#000000").fontSize(textFont)
+        .text("Document type", textPadding, undefined, paragraphOptions)
+      doc.font("Roboto-Regular").fillColor("#000000").fontSize(textFont)
+        .list([input.documentType], listPadding, undefined, paragraphOptions)
+        .moveDown()
+
+      if (!hideDeadInformation.value) {
+        doc.font("Roboto-Bold").fillColor("#000000").fontSize(textFont)
+          .text("Status", textPadding, undefined, paragraphOptions)
+        doc.font("Roboto-Regular").fillColor("#000000").fontSize(textFont)
+          .list([(input.isDead) ? "Dead/Gone/Destroyed" : "Active/Alive"], listPadding, undefined, paragraphOptions)
+          .moveDown()
+      }
+
+      if (includeHierarchyPath.value) {
+        doc.font("Roboto-Bold").fillColor("#000000").fontSize(textFont)
+          .text("Hierarchical path", textPadding, undefined, paragraphOptions)
+        doc.font("Roboto-Regular").fillColor("#000000").fontSize(textFont)
+          .list([input.hierarchicalPath], listPadding)
+          .moveDown()
+      }
+
+      if (includeTags.value) {
+        doc.font("Roboto-Bold").fillColor("#000000").fontSize(textFont)
+          .text("Tags", textPadding, undefined, paragraphOptions)
+        doc.font("Roboto-Regular").fillColor("#000000").fontSize(textFont)
+          .list((Array.isArray(input.tags) ? input.tags : []), listPadding, undefined, paragraphOptions)
+          .moveDown()
+      }
+    }
+
+    for (const field of input.fieldValues) {
+      if (field.type === "break" && !writerMode.value) {
+        doc.moveDown()
+          .font("Roboto-Bold").fillColor("#000000").fontSize(subTitleFont)
+          .text(field.label, textPadding, undefined, paragraphOptions)
+          .moveDown()
+      } else if (field.type === "wysiwyg") {
+        if (!writerMode.value || writerModeTitles.value) {
+          doc.font("Roboto-Bold").fillColor("#000000").fontSize(textFont)
+            .text(field.label, textPadding, undefined, paragraphOptions)
+            .moveDown()
+        }
+
+        const returnList = buildPDFWysiwygContent(field.value as string)
+        doc.font("Roboto-Regular").fillColor("#000000").fontSize(textFont)
+
+        for (const node of returnList) {
+          if (node.type === "text") {
+            const wysiwygOptions: { [key: string]: any } = extend(true, {}, paragraphOptions)
+            wysiwygOptions.baseline = "alphabetic"
+            wysiwygOptions.width = 400
+            doc.fontSize(textFont)
+            wysiwygOptions.oblique = node.attrs.italic
+            wysiwygOptions.underline = node.attrs.underline
+            doc.font((node?.attrs?.bold) ? "Roboto-Bold" : "Roboto-Regular")
+            if (node?.attrs?.hasHeadingFontSize) {
+              // @ts-ignore
+              doc.fontSize(node.attrs.nodeHeadingSize)
+              doc.font("Roboto-Bold")
+            }
+            if (node?.attrs?.hasSpecialFontSize) {
+              // @ts-ignore
+              doc.fontSize(node.attrs.specialFontSize)
+            }
+            wysiwygOptions.continued = node.attrs.continued
+            wysiwygOptions.align = node?.attrs?.align ? node.attrs.align : "left"
+            const wysiwygPadding = (node?.attrs?.blockquotePadding) ? blockquotePadding : listPadding
+            // @ts-ignore
+            doc.text(node.content, wysiwygPadding, undefined, wysiwygOptions)
+          }
+
+          if (node.type === "image") {
+            const rawPath = node.attrs.src as unknown as string
+            if (rawPath && (rawPath.includes("https://") || rawPath.includes("http://"))) {
+              // Web: skip online images with a note
+              doc.addPage()
+              doc.text(`[Image: ${rawPath}]`, blockquotePadding, undefined)
+              doc.moveDown()
+              doc.moveDown()
+            } else if (rawPath) {
+              doc.addPage()
+              doc.text(`[Local image: ${rawPath}]`, blockquotePadding, undefined)
+              doc.moveDown()
+              doc.moveDown()
+            }
+          }
+
+          if (node.type === "br") {
+            doc.moveDown()
+          }
+        }
+        doc.moveDown()
+      } else if (!writerMode.value) {
+        doc.font("Roboto-Bold").fillColor("#000000").fontSize(textFont)
+          .text(field.label, textPadding, undefined, paragraphOptions)
+        doc.font("Roboto-Regular").fillColor("#000000").fontSize(textFont)
+          .list((Array.isArray(field.value) ? field.value : [field.value]), listPadding, undefined, paragraphOptions)
+          .moveDown()
+      }
+    }
+
+    doc.end()
+  })
+}
+
+// ── Main export function ─────────────────────────────────────────────────────
+
+async function exportDocuments () {
+  exportOngoing.value = true
+  exportedDocuments.value = 0
+
+  let list: any[] = exportWholeProject.value
+    ? allDocumentsStore.getAllDocuments.docs
+    : exportDocumentsModel.value
+
+  if (!includeIsDead.value) {
+    list = list.filter((doc: any) => doc.extraFields.find((e: any) => e.id === "deadSwitch")?.value !== true)
+  }
+
+  exportList.value = list.map((doc: any) =>
+    allDocumentsStore.getAllDocuments.docs.find((d: any) => d._id === doc._id)
+  ).filter(Boolean) as any[]
+
+  const zip = new JSZip()
+  const isPDF = selectedExportFormat.value === "Adobe Reader - PDF"
+
+  let normalFont: ArrayBuffer | null = null
+  let boldFont: ArrayBuffer | null = null
+  if (isPDF) {
+    try {
+      const fonts = await fetchFonts(useFallbackFont.value)
+      normalFont = fonts.normal
+      boldFont = fonts.bold
+    } catch (e) {
+      q.notify({ group: false, type: "negative", message: "Failed to load fonts for PDF export." })
+      exportOngoing.value = false
+      return
+    }
+  }
+
+  const projectName = projectStore.getActiveProject?.name ?? "export"
+
+  for (const doc of exportList.value) {
+    currentDocName.value = (doc as any).label ?? ""
+    const exportObject = buildExportObject(doc as any)
+    const { dir, filename, suffix } = getExportPaths(exportObject)
+
+    if (selectedExportFormat.value === "Markdown - MD") {
+      const mdContent = buildMdContent(exportObject)
+      zip.file(`${dir}${filename}${suffix}.md`, mdContent)
+    } else {
+      const pdfBlob = await generatePdfBlob(exportObject, normalFont!, boldFont!)
+      zip.file(`${dir}${filename}${suffix}.pdf`, pdfBlob)
+    }
+
+    exportedDocuments.value++
+    await sleep(1)
+  }
+
+  const zipBlob = await zip.generateAsync({ type: "blob" })
+  const ext = isPDF ? "pdf" : "md"
+  saveAs(zipBlob, `${projectName} - Export (${ext}).zip`)
+
+  q.notify({ group: false, type: "positive", message: "Export finished" })
+  exportOngoing.value = false
+  dialogModel.value = false
+  triggerDialogClose()
 }
 
 function buildExportObject (input: I_ShortenedDocument): I_ExportObject {

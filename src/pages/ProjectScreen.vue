@@ -304,7 +304,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from "vue"
-import { Loading, colors, uid, extend } from "quasar"
+import { Loading, colors, uid, extend, getCssVar } from "quasar"
 import { useRouter } from "vue-router"
 import newDocumentDialog from "src/components/dialogs/NewDocument.vue"
 import { retrieveLastOpenedDocuments } from "src/scripts/projectManagement/projectManagent"
@@ -365,28 +365,6 @@ const projectName = ref("")
 const tipTrickMessage = ref("")
 const plusheForm = ref("")
 
-// Setup equivalent of created()
-projectName.value = projectStore.getProjectName
-Loading.hide()
-tipTrickMessage.value = tipsTricks[Math.floor(Math.random() * tipsTricks.length)]
-plusheForm.value = summonAllPlusheForms[Math.floor(Math.random() * summonAllPlusheForms.length)]
-
-if (projectStore.getProjectLoadedStatus) {
-  loadGraphData().catch(e => console.log(e))
-  loadLastOpenedList().catch(e => console.log(e))
-}
-
-watch(() => projectStore.getProjectName, (val) => {
-  projectName.value = val
-})
-
-watch(() => projectStore.getProjectLoadedStatus, (val) => {
-  if (val) {
-    loadGraphData().catch(e => console.log(e))
-    loadLastOpenedList().catch(e => console.log(e))
-  }
-})
-
 /****************************************************************/
 // GRAPH FUNCTIONALITY
 /****************************************************************/
@@ -410,12 +388,34 @@ const series = ref([{
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const chartOptions = ref({} as any)
 
+// Setup equivalent of created()
+projectName.value = projectStore.getProjectName
+Loading.hide()
+tipTrickMessage.value = tipsTricks[Math.floor(Math.random() * tipsTricks.length)]
+plusheForm.value = summonAllPlusheForms[Math.floor(Math.random() * summonAllPlusheForms.length)]
+
+if (projectStore.getProjectLoadedStatus) {
+  loadGraphData().catch(e => console.log(e))
+  loadLastOpenedList().catch(e => console.log(e))
+}
+
+watch(() => projectStore.getProjectName, (val) => {
+  projectName.value = val
+})
+
+watch(() => projectStore.getProjectLoadedStatus, (val) => {
+  if (val) {
+    loadGraphData().catch(e => console.log(e))
+    loadLastOpenedList().catch(e => console.log(e))
+  }
+})
+
 /**
  * Loads up proper chart options into the object
  */
 function populateChartOptions () {
   chartOptions.value = {
-    colors: [colors.getBrand("primary")],
+    colors: [getCssVar("primary")],
     animations: {
       enabled: true,
       easing: "easeinout",
@@ -477,7 +477,7 @@ function populateChartOptions () {
       labels: {
         style: {
           fontFamily: "Roboto, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif;",
-          colors: colors.getBrand("accent"),
+          colors: getCssVar("accent"),
           cssClass: "docCountLabel"
         }
       },

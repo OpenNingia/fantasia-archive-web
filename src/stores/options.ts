@@ -56,7 +56,7 @@ const SETTINGS_KEY = "fa_settings"
 
 const defaultState = (): OptionsState => ({
   _id: "settings",
-  darkMode: false,
+  darkMode: true,
   disableSpellCheck: false,
   agressiveRelationshipFilter: false,
   preventFilledNoteBoardPopup: false,
@@ -101,7 +101,7 @@ const defaultState = (): OptionsState => ({
   preventPreviewsDocuments: false,
   treeWidth: 374,
   userKeybindList: [],
-  pre017check: true,
+  pre017check: false,
   legacyFieldsCheck018: true
 })
 

@@ -9,6 +9,8 @@
   "scripts": {
     "lint": "eslint --ext .js,.ts,.vue ./",
     "test": "echo \"No test specified\" && exit 0",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "dev": "quasar dev -m electron",
     "build": "quasar build -m electron --publish never"
   },
@@ -26,8 +28,10 @@
     "codemirror": "^6.0.2",
     "core-js": "^3.6.5",
     "electron-find": "^1.0.7",
+    "file-saver": "^2.0.5",
     "html-parse-stringify": "^3.0.1",
     "json2md": "^1.10.0",
+    "jszip": "^3.10.1",
     "katex": "^0.12.0",
     "lodash": "^4.17.21",
     "mermaid": "^8.14.0",
@@ -41,6 +45,7 @@
     "pouchdb-purge-on-delete": "^7.0.1",
     "pouchdb-replication-stream": "^1.2.9",
     "quasar": "^2.19.3",
+    "register-service-worker": "^1.7.2",
     "util": "^0.12.5",
     "vue": "^3.5.33",
     "vue-codemirror": "^6.1.1",
@@ -50,9 +55,12 @@
     "vue3-apexcharts": "^1.11.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@quasar/app-vite": "^2.6.0",
     "@quasar/quasar-app-extension-qmarkdown": "^1.4.1",
     "@quasar/quasar-app-extension-qwindow": "^1.0.0-beta.7",
+    "@types/file-saver": "^2.0.7",
+    "@types/jszip": "^3.4.0",
     "@types/lodash": "^4.14.166",
     "@types/node": "^10.17.15",
     "@types/pouchdb": "^6.4.0",
@@ -76,7 +84,14 @@
     "eslint-plugin-standard": "^4.0.0",
     "eslint-plugin-vue": "^6.1.2",
     "quasar-app-extension-qdraggabletree": "0.0.5",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "workbox-build": "^7.4.0",
+    "workbox-cacheable-response": "^7.4.0",
+    "workbox-core": "^7.4.0",
+    "workbox-expiration": "^7.4.0",
+    "workbox-precaching": "^7.4.0",
+    "workbox-routing": "^7.4.0",
+    "workbox-strategies": "^7.4.0"
   },
   "browserslist": [
     "last 10 Chrome versions",

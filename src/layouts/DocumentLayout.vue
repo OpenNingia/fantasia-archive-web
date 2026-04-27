@@ -51,14 +51,16 @@
       <template #after>
         <q-page-container :style="compPadding">
           <documentControl/>
-          <transition
-            enter-active-class="animated fadeIn"
-            leave-active-class="animated fadeOut"
-            appear
-            :duration="50"
-          >
-            <router-view :key="$route.path" />
-          </transition>
+          <router-view :key="$route.path" v-slot="{ Component }">
+            <transition
+              enter-active-class="animated fadeIn"
+              leave-active-class="animated fadeOut"
+              appear
+              :duration="50"
+            >
+              <component :is="Component" />
+            </transition>
+          </router-view>
 
           <!-- <q-page-sticky
             style="z-index: 1000;"
@@ -160,7 +162,7 @@ async function loadAllProjectDocuments () {
 }
 
 onMounted(async () => {
-  if (allDocumentsStore.getFirstRunState) {
+  if (allDocumentsStore.getFirstRunState && projectStore.currentProjectId) {
     await processBluePrints()
     await loadAllProjectDocuments()
   }

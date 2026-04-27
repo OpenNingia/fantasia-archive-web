@@ -1,13 +1,28 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { requireMaster } from '../../middleware/requireProjectAccess'
+import { requireProjectAccess, requireMaster } from '../../middleware/requireProjectAccess'
+import { exportProjectToZip, importProjectFromZip } from '../../services/exportService'
 
-// Full implementation in Phase 6 — stubs for now
 export const exportRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.post('/export', { preHandler: requireMaster }, async (_req, reply) => {
-    return reply.status(501).send({ error: 'Export not yet implemented' })
+  // GET export — any project member can export
+  fastify.get('/export', { preHandler: requireProjectAccess() }, async (req, reply) => {
+    const zipBuffer = await exportProjectToZip(fastify.prisma, req.projectId!)
+    reply.header('Content-Type', 'application/zip')
+    reply.header('Content-Disposition', 'attachment; filename="project-backup.zip"')
+    return reply.send(zipBuffer)
   })
 
-  fastify.post('/import', { preHandler: requireMaster }, async (_req, reply) => {
-    return reply.status(501).send({ error: 'Import not yet implemented' })
+  // POST import — master only
+  fastify.post('/import', { preHandler: requireMaster }, async (req, reply) => {
+    try {
+      const data = await req.file()
+      if (!data) return reply.status(400).send({ error: 'No file provided' })
+      const buffer = await data.toBuffer()
+      await importProjectFromZip(fastify.prisma, req.projectId!, buffer)
+      return reply.send({ ok: true })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      fastify.log.error({ err }, 'import failed')
+      return reply.status(500).send({ error: message })
+    }
   })
 }

@@ -39,7 +39,7 @@
       :class="{'fullWidth': disableDocumentControlBar}"
     >
       <q-input
-        ref="treeFilter"
+        ref="treeFilterRef"
         filled
         dark
         debounce="200"
@@ -73,7 +73,7 @@
       :nodes="hierarchicalTree"
       node-key="key"
       no-connectors
-      ref="tree"
+      ref="treeRef"
       dark
       :duration="200"
       :filter="treeFilter"
@@ -478,7 +478,7 @@ import renameTagDialog from "src/components/dialogs/RenameTag.vue"
 import deleteTagDialog from "src/components/dialogs/DeleteTag.vue"
 import massDeleteDocumentsCheckDialog from "src/components/dialogs/MassDeleteDocumentsCheck.vue"
 
-import { extend, colors, uid } from "quasar"
+import { extend, colors, uid, getCssVar } from "quasar"
 import { tagListBuildFromBlueprints } from "src/scripts/utilities/tagListBuilder"
 import { createNewWithParent } from "src/scripts/documentActions/createNewWithParent"
 import { copyDocumentName, copyDocumentTextColor, copyDocumentBackgroundColor } from "src/scripts/documentActions/uniqueFieldCopy"
@@ -1203,24 +1203,17 @@ function processNodeClick (node: {
 }
 
 function expandeCollapseNode (node: {key: string, children: []}) {
-  const treeDOM = treeRef.value as unknown as {
-    setExpanded: (key:string, state: boolean)=> void,
-    isExpanded: (key:string)=> boolean
-  }
-
-  const isExpanded = treeDOM?.isExpanded(node.key)
-
-  if (isExpanded) {
+  if (expandedTreeNodes.value.includes(node.key)) {
     collapseAllNodes(node)
   }
   else {
-    treeDOM?.setExpanded(node.key, true)
+    expandedTreeNodes.value = [...new Set([...expandedTreeNodes.value, node.key])]
   }
 }
 
 function determineNodeColor (node: {color: string, isTag: boolean, isRoot: boolean, isModule: boolean}) {
   // @ts-ignore
-  return (node?.isTag || node?.isModule) ? colors.getBrand("primary") : node.color
+  return (node?.isTag || node?.isModule) ? getCssVar("primary") : node.color
 }
 
 function collapseAllNodes (node: {key: string, children: []}) {
@@ -1559,6 +1552,7 @@ function massDeleteDocuments (node: { children: { _id: string}[]}) {
     justify-content: space-between;
     padding: 4px 4px 4px 25px;
     align-items: center;
+    color: #dcdcdc;
 
     &__content {
       word-break: break-word;
@@ -1633,15 +1627,4 @@ function massDeleteDocuments (node: { children: { _id: string}[]}) {
   }
 }
 
-body.body--dark {
-  .objectTree {
-    .documentLabel {
-      color: #dcdcdc;
-    }
-  }
-
-  .projectTitle {
-    color: #dcdcdc;
-  }
-}
 </style>

@@ -592,6 +592,22 @@
         </q-menu>
 
       </q-btn>
+
+      <q-separator color="primary" vertical dark style="opacity: 0.1;" />
+      <!-- Logout button -->
+      <q-btn
+        flat
+        :ripple="false"
+        dark
+        size="md"
+        icon="mdi-logout"
+        data-testid="logout-btn"
+        @click="doLogout"
+      >
+        <q-tooltip anchor="center right" self="center left" :delay="500">
+          Sign out
+        </q-tooltip>
+      </q-btn>
     </q-btn-group>
 
   </div>
@@ -626,6 +642,7 @@ import customCssEditorDialog from "src/components/dialogs/CustomCssEditor.vue"
 import { Loading, QSpinnerGears } from "quasar"
 import { saveProject } from "src/scripts/projectManagement/projectManagent"
 import { toggleDevTools } from "src/scripts/utilities/devTools"
+import { authApi } from "src/services/api/authApi"
 
 import appLogo from "src/assets/appLogo.png"
 import appSearchBox from "src/components/appHeader/AppSearchBox.vue"
@@ -649,6 +666,12 @@ const {
   determineKeyBind,
   toggleHierarchicalTree
 } = useDocumentHelpers()
+
+async function doLogout () {
+  try { await authApi.logout() } catch { /* ignore */ }
+  projectStore.setCurrentUser(null)
+  await router.push("/login")
+}
 
 /****************************************************************/
 // Basic component functionality

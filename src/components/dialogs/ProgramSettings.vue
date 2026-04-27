@@ -69,21 +69,6 @@
 
                   <div class="col-12 col-md-6 col-lg-4 optionWrapper">
                     <div class="optionTitle">
-                      Dark mode
-                    <q-icon name="mdi-help-circle" size="16px" class="q-ml-md">
-                      <q-tooltip :delay="500">
-                        Turn between light and dark mode of the app
-                      </q-tooltip>
-                    </q-icon>
-                    </div>
-
-                      <q-toggle
-                        v-model="options.darkMode"
-                      />
-                  </div>
-
-                  <div class="col-12 col-md-6 col-lg-4 optionWrapper">
-                    <div class="optionTitle">
                       Disable spellcheck
                     <q-icon name="mdi-help-circle" size="16px" class="q-ml-md">
                       <q-tooltip :delay="500">

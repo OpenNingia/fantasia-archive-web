@@ -5,7 +5,7 @@
       >
       <q-card dark class="documentCloseDialog">
          <q-card-section class="row justify-center">
-          <h6 class="text-center q-my-sm">Discard changes to <span class="text-primary">{{retrieveFieldValue(dialogDocument,'name')}}</span>?</h6>
+          <h6 class="text-center q-my-sm">Discard changes to <span class="text-primary">{{dialogDocument ? retrieveFieldValue(dialogDocument,'name') : ''}}</span>?</h6>
         </q-card-section>
 
         <q-card-actions align="around" class="q-mx-xl q-mt-lg q-mb-md">
@@ -18,7 +18,8 @@
             outline
             label="Discard changes"
             color="secondary"
-            @click="closeDocument(dialogDocument)" />
+            :disable="!dialogDocument"
+            @click="dialogDocument && closeDocument(dialogDocument)" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -31,7 +32,7 @@ import { useAppStores } from "src/composables/useAppStores"
 import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
 
-const props = defineProps<{ dialogTrigger?: string; dialogDocument: I_OpenedDocument }>()
+const props = defineProps<{ dialogTrigger?: string; dialogDocument: I_OpenedDocument | null }>()
 const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
 const { dialogsStore, openedDocumentsStore } = useAppStores()
@@ -70,7 +71,8 @@ function checkForCloseOpenedDocument () {
 /**
  * Closes the document and removes it from the list
  */
-function closeDocument (input: I_OpenedDocument) {
+function closeDocument (input: I_OpenedDocument | null) {
+  if (!input) return
   const dataPass = { doc: input, treeAction: false }
   openedDocumentsStore.removeDocument(dataPass)
 

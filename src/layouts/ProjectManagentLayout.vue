@@ -7,14 +7,16 @@
     />
 
     <q-page-container>
-      <transition
-        enter-active-class="animated fadeIn"
-        leave-active-class="animated fadeOut"
-        appear
-        :duration="50"
-      >
-      <router-view :key="$route.path" />
-      </transition>
+      <router-view :key="$route.path" v-slot="{ Component }">
+        <transition
+          enter-active-class="animated fadeIn"
+          leave-active-class="animated fadeOut"
+          appear
+          :duration="50"
+        >
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </q-page-container>
   </q-layout>
 </template>

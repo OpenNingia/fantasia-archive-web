@@ -741,6 +741,11 @@ async function saveCurrentDocument (editMode: boolean, saveAsFinished = false) {
   }
 }
 
+const hasEdits = ref(false)
+const currentyEditable = ref(false)
+const currentlyNew = ref(false)
+const openedDocsWithEdits = ref<I_OpenedDocument[]>([])
+
 watch(route, () => {
   checkEditability()
   checkNew()
@@ -752,8 +757,6 @@ watch(() => openedDocumentsStore.getAllDocuments, () => {
   checkNew()
   checkHasEdits()
 }, { deep: true })
-
-const hasEdits = ref(false)
 
 function checkHasEdits () {
   const currentDocument = findRequestedOrActiveDocument()
@@ -788,10 +791,6 @@ function checkNew () {
   }
 }
 
-const currentyEditable = ref(false)
-const currentlyNew = ref(false)
-
-const openedDocsWithEdits = ref<I_OpenedDocument[]>([])
 
 async function massSave () {
   openedDocsWithEdits.value = openedDocumentsStore.getAllDocuments.docs.filter(doc => doc.hasEdits)

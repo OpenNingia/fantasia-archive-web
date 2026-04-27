@@ -423,14 +423,14 @@ async function setNewDocumentID (id: string) {
   }
 }
 
+const localDocument = ref(false as unknown as I_ShortenedDocument)
+const localBlueprint = ref(false as unknown as I_Blueprint)
+
 watch(() => props.documentId, (val: string | undefined) => {
   if (props.documentId && val) {
     setNewDocumentID(val).catch(e => console.log(e))
   }
 }, { immediate: true })
-
-const localDocument = ref(false as unknown as I_ShortenedDocument)
-const localBlueprint = ref(false as unknown as I_Blueprint)
 
 /**
  * Check if field should be showing if the category setting is turned on
@@ -472,11 +472,11 @@ function hasValueFieldFilter (field: any) {
 // GLOBAL OPTIONS
 /****************************************************************/
 
+const isDarkMode = ref(false)
+
 watch(() => optionsStore.getOptions, () => {
   isDarkMode.value = optionsStore.getOptions.darkMode
 }, { immediate: true, deep: true })
-
-const isDarkMode = ref(false)
 
 /****************************************************************/
 // VISIBILITY MANAGEMENT

@@ -83,7 +83,19 @@ export default configure(function (/* ctx */) {
     animations: "all",
 
     pwa: {
-      workboxMode: "generateSW",
+      workboxMode: "GenerateSW",
+      extendGenerateSWOptions (cfg) {
+        cfg.runtimeCaching = [
+          {
+            urlPattern: /^\/api\//,
+            handler: "NetworkOnly"
+          },
+          {
+            urlPattern: /^\/auth\//,
+            handler: "NetworkOnly"
+          }
+        ]
+      },
       manifest: {
         name: "Fantasia Archive",
         short_name: "Fantasia Archive",

@@ -431,6 +431,13 @@ const {
 // LOCAL SETTINGS
 /****************************************************************/
 
+const hideDocumentTitles = ref(false)
+const showDocumentID = ref(false)
+const preventAutoScroll = ref(false)
+const disableDocumentControlBar = ref(false)
+const isDarkMode = ref(false)
+const hideEmptyFields = ref(false)
+
 watch(() => optionsStore.getOptions, () => {
   const options = optionsStore.getOptions
   disableDocumentControlBar.value = options.disableDocumentControlBar
@@ -440,13 +447,6 @@ watch(() => optionsStore.getOptions, () => {
   preventAutoScroll.value = options.preventAutoScroll
   showDocumentID.value = options.showDocumentID
 }, { immediate: true, deep: true })
-
-const hideDocumentTitles = ref(false)
-const showDocumentID = ref(false)
-const preventAutoScroll = ref(false)
-const disableDocumentControlBar = ref(false)
-const isDarkMode = ref(false)
-const hideEmptyFields = ref(false)
 
 /****************************************************************/
 // BASIC DATA
@@ -462,6 +462,8 @@ const extraClasses = ref("")
 /****************************************************************/
 // DOCUMENT FUNCTIONALITY
 /****************************************************************/
+
+const documentTemplateList = ref<I_DocumentTemplate[]>([])
 
 watch(route, async () => {
   documentTemplateList.value = await retrieveAllDocumentTemplatesFromDB()
@@ -488,8 +490,6 @@ window.addEventListener("scroll", watchPageScroll)
 onUnmounted(() => {
   window.removeEventListener("scroll", watchPageScroll)
 })
-
-const documentTemplateList = ref<I_DocumentTemplate[]>([])
 
 const decounceScrollTimer = ref(false as any)
 

@@ -33,6 +33,11 @@
                 @keydown.enter.prevent="saveProjectSettings"
               />
             </div>
+            <div class="row justify-center q-mt-lg q-gutter-sm">
+              <q-btn outline color="primary" icon="mdi-download" label="Backup project" @click="backupProject" />
+              <q-btn outline color="warning" icon="mdi-backup-restore" label="Restore project" @click="restoreInput!.click()" />
+              <input ref="restoreInput" type="file" accept=".zip" style="display:none" @change="onRestoreFile" />
+            </div>
           </q-tab-panel>
 
           <!-- MASTER FIELDS TAB -->
@@ -192,16 +197,22 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue"
+import { useQuasar } from "quasar"
 import { useAppStores } from "src/composables/useAppStores"
 import { changeCurrentProjectSettings } from "src/scripts/projectManagement/projectManagent"
 import { projectApi, type ProjectMember } from "src/services/api/projectApi"
 import { blueprintApi, type BlueprintField } from "src/services/api/blueprintApi"
 import { userApi, type UserSearchResult } from "src/services/api/userApi"
+import { exportApi } from "src/services/api/exportApi"
+import { saveAs } from "file-saver"
 
 const props = defineProps<{ dialogTrigger?: string }>()
 const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
+const q = useQuasar()
 const { dialogsStore, projectStore, blueprintsStore } = useAppStores()
+
+const restoreInput = ref<HTMLInputElement | null>(null)
 
 const dialogModel = ref(false)
 const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
@@ -253,6 +264,29 @@ async function saveProjectSettings () {
   await changeCurrentProjectSettings({ projectName: projectName.value }, {} as any)
   projectStore.setProjectName(projectName.value)
   triggerDialogClose()
+}
+
+async function backupProject () {
+  if (!projectStore.getActiveProject) return
+  try {
+    const blob = await exportApi.exportZip(projectStore.getActiveProject.id)
+    saveAs(blob, `${projectStore.getActiveProject.name} - Backup.zip`)
+  } catch (e) {
+    q.notify({ type: "negative", message: "Backup failed." })
+  }
+}
+
+async function onRestoreFile (e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file || !projectStore.getActiveProject) return
+  try {
+    await exportApi.importZip(projectStore.getActiveProject.id, file)
+    q.notify({ type: "positive", message: "Project restored successfully" })
+  } catch (err) {
+    q.notify({ type: "negative", message: "Restore failed." })
+  } finally {
+    ;(e.target as HTMLInputElement).value = ""
+  }
 }
 
 // ── Master Fields ─────────────────────────────────────────────────

@@ -17,37 +17,37 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  projectsCreated   Project[]           @relation("ProjectCreator")
-  projectAccess     ProjectAccess[]
-  documentsCreated  Document[]          @relation("DocumentCreator")
-  templatesCreated  DocumentTemplate[]  @relation("TemplateCreator")
-  uploadedFiles     UploadedFile[]
-  settings          UserSetting[]
-  recentDocuments   UserRecentDocument[]
-  refreshTokens     RefreshToken[]
+  projectsCreated  Project[]            @relation("ProjectCreator")
+  projectAccess    ProjectAccess[]
+  documentsCreated Document[]           @relation("DocumentCreator")
+  templatesCreated DocumentTemplate[]   @relation("TemplateCreator")
+  uploadedFiles    UploadedFile[]
+  settings         UserSetting[]
+  recentDocuments  UserRecentDocument[]
+  refreshTokens    RefreshToken[]
 
   @@unique([oidcSub, oidcIss])
   @@map("users")
 }
 
 model Project {
-  id             String   @id @default(uuid())
-  name           String
-  customCss      String?  @map("custom_css")
-  corkboardText  String?  @map("corkboard_text")
-  appVersion     String?  @map("app_version")
-  createdById    String   @map("created_by")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid())
+  name          String
+  customCss     String?  @map("custom_css")
+  corkboardText String?  @map("corkboard_text")
+  appVersion    String?  @map("app_version")
+  createdById   String   @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  createdBy         User                @relation("ProjectCreator", fields: [createdById], references: [id])
-  access            ProjectAccess[]
-  blueprints        Blueprint[]
-  documents         Document[]
-  templates         DocumentTemplate[]
-  uploadedFiles     UploadedFile[]
-  userSettings      UserSetting[]
-  recentDocuments   UserRecentDocument[]
+  createdBy       User                 @relation("ProjectCreator", fields: [createdById], references: [id])
+  access          ProjectAccess[]
+  blueprints      Blueprint[]
+  documents       Document[]
+  templates       DocumentTemplate[]
+  uploadedFiles   UploadedFile[]
+  userSettings    UserSetting[]
+  recentDocuments UserRecentDocument[]
 
   @@map("projects")
 }
@@ -56,7 +56,7 @@ model ProjectAccess {
   id        String   @id @default(uuid())
   projectId String   @map("project_id")
   userId    String   @map("user_id")
-  role      String   // 'master' | 'player'
+  role      String // 'master' | 'player'
   createdAt DateTime @default(now()) @map("created_at")
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -69,7 +69,7 @@ model ProjectAccess {
 model Blueprint {
   id           String   @id @default(uuid())
   projectId    String   @map("project_id")
-  slug         String   // e.g. 'characters', 'locations'
+  slug         String // e.g. 'characters', 'locations'
   nameSingular String   @map("name_singular")
   namePlural   String   @map("name_plural")
   icon         String
@@ -90,7 +90,7 @@ model Blueprint {
 model Document {
   id          String   @id @default(uuid())
   projectId   String   @map("project_id")
-  type        String   // blueprint slug, e.g. 'characters'
+  type        String // blueprint slug, e.g. 'characters'
   // Array of {id: string, value: any} — persisted fields only, no UI state
   extraFields Json     @default("[]") @map("extra_fields")
   isCategory  Boolean  @default(false) @map("is_category")
@@ -119,8 +119,8 @@ model DocumentTemplate {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy   User?   @relation("TemplateCreator", fields: [createdById], references: [id])
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("TemplateCreator", fields: [createdById], references: [id])
 
   @@map("document_templates")
 }
@@ -156,14 +156,14 @@ model UserRecentDocument {
 }
 
 model UploadedFile {
-  id          String   @id @default(uuid())
-  projectId   String   @map("project_id")
-  uploadedById String? @map("uploaded_by")
-  filename    String
-  mimeType    String   @map("mime_type")
-  storagePath String   @map("storage_path")
-  sizeBytes   BigInt?  @map("size_bytes")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id           String   @id @default(uuid())
+  projectId    String   @map("project_id")
+  uploadedById String?  @map("uploaded_by")
+  filename     String
+  mimeType     String   @map("mime_type")
+  storagePath  String   @map("storage_path")
+  sizeBytes    BigInt?  @map("size_bytes")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   uploadedBy User?   @relation(fields: [uploadedById], references: [id])

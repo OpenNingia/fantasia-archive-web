@@ -88,7 +88,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from "vue"
 import { useRoute } from "vue-router"
-import { useQuasar, colors } from "quasar"
+import { useQuasar, setCssVar } from "quasar"
 import { defaultKeybinds } from "src/scripts/appSettings/defaultKeybinds"
 import appWindowButtons from "src/components/appHeader/AppWindowButtons.vue"
 import type { OptionsStateInteface } from "./store/module-options/state"
@@ -108,6 +108,12 @@ const {
   projectStore
 } = useAppStores()
 const { openLink, determineKeyBind } = useDocumentHelpers()
+
+// App is locked to dark mode — the original design assumes always-dark.
+// Apply before mount so Quasar components render with the right theme on first paint.
+q.dark.set(true)
+setCssVar("dark", "#1b333e")
+setCssVar("primary", "#ffd673")
 
 /****************************************************************/
 // APP START & END SETUP
@@ -299,6 +305,8 @@ function loadSettings () {
   if (raw) {
     try {
       const settings = JSON.parse(raw) as OptionsStateInteface
+      // App is locked to dark mode — override any persisted value.
+      settings.darkMode = true
       optionsStore.setOptions(settings)
     }
     catch (e) {
@@ -311,22 +319,13 @@ function loadSettings () {
 }
 
 /**
- * Update dark/light mode across the app based on what is currently in the store
+ * Propagate option changes that affect app-level UI state.
  */
 watch(() => optionsStore.getOptions, () => {
   const options = optionsStore.getOptions
 
   hidePlushes.value = options.hidePlushes
   allowWiderScrollbars.value = options.allowWiderScrollbars
-  q.dark.set(options.darkMode)
-  if (options.darkMode) {
-    colors.setBrand("dark", "#1b333e")
-    colors.setBrand("primary", "#ffd673")
-  }
-  else {
-    colors.setBrand("dark", "#18303a")
-    colors.setBrand("primary", "#e8bb50")
-  }
 
   disableDocumentControlBar.value = options.disableDocumentControlBar
   refreshDocumentPreviewWindow()
