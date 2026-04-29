@@ -109,7 +109,12 @@ export const useOptionsStore = defineStore("options", {
   state: defaultState,
 
   getters: {
-    getOptions: (state) => state
+    // Return $state, not `state` — in Pinia 3 the `state` argument resolves to the
+    // store proxy, which has its own `getOptions` accessor. That self-loop blows
+    // up Quasar's deep `extend()` (no cycle protection) and crashes the editor.
+    getOptions (): OptionsState {
+      return this.$state
+    }
   },
 
   actions: {
