@@ -28,7 +28,7 @@
       unit="px"
       emit-immediately
       :class="{splitterClass, 'splitterHidden': (hideHierarchyTree || floatingWindowsStore.getDocumentPreviewVisible !== '')}"
-      @input="onChange"
+      @update:model-value="onChange"
       :limits="[limiterWidth, Infinity]"
       class="pageSplitter"
       >
