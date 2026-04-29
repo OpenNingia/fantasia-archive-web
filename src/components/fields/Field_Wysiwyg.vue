@@ -19,8 +19,8 @@
     <!-- Insert existing document dialog -->
     <existingDocumentDialog
       v-if="editMode"
-      preventOpen="true"
-      quickInsertMode="true"
+      :prevent-open="true"
+      :quick-insert-mode="true"
       :dialog-trigger="existingObjectDialogTrigger"
       @trigger-dialog-close="existingObjectDialogClose"
       @signal-document-selected="handleDocumentSelected"
