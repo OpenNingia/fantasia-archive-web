@@ -571,6 +571,14 @@ const hideTreeIconEdit = ref(false)
 const hideTreeIconView = ref(false)
 const preventPreviewsTree = ref(true)
 
+// Declared before the immediate `optionsStore.getOptions` watcher below — that watcher
+// fires during setup and calls `buildCurrentObjectTree`, which reads/writes these refs.
+const hierarchicalTree = ref<{children: I_ShortenedDocument[], icon: string, label: string}[]>([])
+const expandedTreeNodes = ref<string[]>([])
+const newObjectList = ref<NewObjectDocument[]>([])
+const firstTimeRender = ref(true)
+const allTags = ref<string[]>([])
+
 watch(() => optionsStore.getOptions, () => {
   const options = optionsStore.getOptions
   tagsAtTop.value = options.tagsAtTop
@@ -641,11 +649,7 @@ const menuAddNewItem = ref({
   label: "Add new object type"
 })
 
-const hierarchicalTree = ref<{children: I_ShortenedDocument[], icon: string, label: string}[]>([])
-
 const selectedTreeNode = ref<null | string>(null)
-
-const expandedTreeNodes = ref<string[]>([])
 
 const treeFilter = ref("")
 
@@ -751,8 +755,6 @@ function mapImportantExtraFields (extraFields: I_ExtraDocumentFields[]) {
   })
   return extraFields
 }
-
-const newObjectList = ref<NewObjectDocument[]>([])
 
 watch(() => projectStore.getProjectLoadedStatus, () => {
   if (projectStore.getProjectLoadedStatus) {
@@ -1007,8 +1009,6 @@ function buildCurrentObjectTree () {
   // @ts-ignore
   hierarchicalTree.value = treeObject
 }
-
-const firstTimeRender = ref(true)
 
 function recursivelyFreezeChildren (children: {children: []}) {
   Object.freeze(children)
@@ -1405,8 +1405,6 @@ function setDocumentPreviewClose () {
 }
 
 const documentPreviewClose = ref("")
-
-const allTags = ref<string[]>([])
 
 /****************************************************************/
 // Mass delete documents dialog
