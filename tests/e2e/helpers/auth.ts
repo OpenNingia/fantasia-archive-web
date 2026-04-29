@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test'
+import { Page, request as baseRequest, APIRequestContext } from '@playwright/test'
 
 export const MASTER_EMAIL = 'e2e-master@test.local'
 export const PLAYER_EMAIL = 'e2e-player@test.local'
@@ -6,6 +6,16 @@ export const TEST_PASSWORD = 'E2eTestPass123!'
 
 export const MASTER_STATE = 'tests/e2e/.auth/master.json'
 export const PLAYER_STATE = 'tests/e2e/.auth/player.json'
+
+const API_URL = process.env.API_URL ?? 'http://localhost:3000'
+
+/** Logged-in API context for the given local user. Caller must dispose(). */
+export async function apiContextAs (email: string, password = TEST_PASSWORD): Promise<APIRequestContext> {
+  const ctx = await baseRequest.newContext({ baseURL: API_URL })
+  const res = await ctx.post('/auth/local/login', { data: { email, password } })
+  if (!res.ok()) throw new Error(`Login failed for ${email}: ${res.status()}`)
+  return ctx
+}
 
 export async function loginAs (page: Page, email: string, password: string) {
   await page.goto('/login')

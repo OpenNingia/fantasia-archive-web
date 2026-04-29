@@ -50,3 +50,93 @@ export async function getUserId (request: APIRequestContext): Promise<string> {
   const json = await res.json()
   return json.id as string
 }
+
+export async function updateProject (
+  request: APIRequestContext,
+  projectId: string,
+  data: { name?: string; customCss?: string; corkboardText?: string }
+) {
+  const res = await request.put(apiUrl(`/api/projects/${projectId}`), { data })
+  return { status: res.status(), body: await res.json().catch(() => ({})) }
+}
+
+export async function listProjects (request: APIRequestContext) {
+  const res = await request.get(apiUrl('/api/projects'))
+  return res.json() as Promise<Array<{ id: string; name: string; role: string }>>
+}
+
+export async function listProjectMembers (request: APIRequestContext, projectId: string) {
+  const res = await request.get(apiUrl(`/api/projects/${projectId}/access`))
+  return { status: res.status(), body: await res.json().catch(() => ({})) }
+}
+
+export async function updateProjectMemberRole (
+  request: APIRequestContext,
+  projectId: string,
+  userId: string,
+  role: 'master' | 'player'
+) {
+  const res = await request.put(apiUrl(`/api/projects/${projectId}/access/${userId}`), { data: { role } })
+  return { status: res.status(), body: await res.json().catch(() => ({})) }
+}
+
+export async function removeProjectMember (
+  request: APIRequestContext,
+  projectId: string,
+  userId: string
+) {
+  const res = await request.delete(apiUrl(`/api/projects/${projectId}/access/${userId}`))
+  return res.status()
+}
+
+export async function listDocuments (request: APIRequestContext, projectId: string) {
+  const res = await request.get(apiUrl(`/api/projects/${projectId}/documents`))
+  return res.json() as Promise<Array<{ id: string; type: string; extraFields: unknown[] }>>
+}
+
+export async function getDocument (
+  request: APIRequestContext,
+  projectId: string,
+  type: string,
+  docId: string
+) {
+  const res = await request.get(apiUrl(`/api/projects/${projectId}/documents/${type}/${docId}`))
+  return { status: res.status(), body: await res.json().catch(() => ({})) }
+}
+
+export async function updateDocument (
+  request: APIRequestContext,
+  projectId: string,
+  type: string,
+  docId: string,
+  data: { extraFields?: unknown[]; isCategory?: boolean; parentDocId?: string | null }
+) {
+  const res = await request.put(
+    apiUrl(`/api/projects/${projectId}/documents/${type}/${docId}`),
+    { data }
+  )
+  return { status: res.status(), body: await res.json().catch(() => ({})) }
+}
+
+export async function deleteDocument (
+  request: APIRequestContext,
+  projectId: string,
+  type: string,
+  docId: string
+) {
+  const res = await request.delete(apiUrl(`/api/projects/${projectId}/documents/${type}/${docId}`))
+  return res.status()
+}
+
+export async function updateBlueprint (
+  request: APIRequestContext,
+  projectId: string,
+  slug: string,
+  extraFields: unknown[]
+) {
+  const res = await request.put(
+    apiUrl(`/api/projects/${projectId}/blueprints/${slug}`),
+    { data: { extraFields } }
+  )
+  return { status: res.status(), body: await res.json().catch(() => ({})) }
+}

@@ -29,7 +29,10 @@ async function start () {
     origin: process.env.BASE_URL ?? 'http://localhost:9000',
     credentials: true
   })
-  await app.register(rateLimit, { max: 200, timeWindow: '1 minute' })
+  // Local-auth mode (dev/e2e tests) generates bursty traffic from parallel test runners —
+  // bump the limit so suites don't trip the global rate limiter.
+  const rateLimitMax = process.env.LOCAL_AUTH_ENABLED === 'true' ? 5000 : 200
+  await app.register(rateLimit, { max: rateLimitMax, timeWindow: '1 minute' })
   await app.register(cookie, { secret: process.env.COOKIE_SECRET ?? process.env.JWT_SECRET ?? 'change-me' })
   await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } })
 

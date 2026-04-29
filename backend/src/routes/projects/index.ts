@@ -28,7 +28,7 @@ export const projectRoutes: FastifyPluginAsync = async (fastify) => {
       data: { projectId: project.id, userId: req.user!.sub, role: 'master' }
     })
     await seedBlueprintsForProject(fastify.prisma, project.id)
-    return reply.status(201).send(project)
+    return reply.status(201).send({ ...project, role: 'master' })
   })
 
   // ─── Get project ─────────────────────────────────────────────────────────────

@@ -13,9 +13,11 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   })
 
   // GET /api/users/me/settings
+  // Global (non-project) settings are stored with projectId = null. Composite-unique
+  // findUnique can't accept null in an optional column, so use findFirst here.
   fastify.get('/me/settings', { preHandler: requireAuth }, async (req, reply) => {
-    const setting = await fastify.prisma.userSetting.findUnique({
-      where: { userId_projectId: { userId: req.user!.sub, projectId: null as unknown as string } }
+    const setting = await fastify.prisma.userSetting.findFirst({
+      where: { userId: req.user!.sub, projectId: null }
     })
     return reply.send(setting?.settings ?? {})
   })
@@ -23,11 +25,14 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   // PUT /api/users/me/settings
   fastify.put('/me/settings', { preHandler: requireAuth }, async (req, reply) => {
     const settings = req.body as object
-    await fastify.prisma.userSetting.upsert({
-      where: { userId_projectId: { userId: req.user!.sub, projectId: null as unknown as string } },
-      update: { settings },
-      create: { userId: req.user!.sub, settings }
+    const existing = await fastify.prisma.userSetting.findFirst({
+      where: { userId: req.user!.sub, projectId: null }
     })
+    if (existing) {
+      await fastify.prisma.userSetting.update({ where: { id: existing.id }, data: { settings } })
+    } else {
+      await fastify.prisma.userSetting.create({ data: { userId: req.user!.sub, settings } })
+    }
     return reply.send({ ok: true })
   })
 
