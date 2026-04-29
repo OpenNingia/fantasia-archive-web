@@ -115,6 +115,9 @@ const toolTip = computed(() => props.inputDataBluePrint?.tooltip)
 const isMasterOnlyField = computed(() => props.inputDataBluePrint?.masterOnly === true)
 const canEditMasterOnlyField = computed(() => projectStore.currentUserRole === "master")
 
+// Local settings
+const limitEditorHeight = ref(false)
+
 watch(() => optionsStore.getOptions, (options) => {
   isDarkMode.value = options.darkMode
   disableDocumentToolTips.value = options.disableDocumentToolTips
@@ -125,9 +128,6 @@ watch(() => optionsStore.getOptions, (options) => {
   agressiveRelationshipFilter.value = options.agressiveRelationshipFilter
   limitEditorHeight.value = options.limitEditorHeight
 }, { immediate: true, deep: true })
-
-// Local settings
-const limitEditorHeight = ref(false)
 
 // Input handling
 const localInput = ref("")

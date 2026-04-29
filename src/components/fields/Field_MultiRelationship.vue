@@ -567,6 +567,7 @@ import { createNewWithParent } from "src/scripts/documentActions/createNewWithPa
 import { copyDocumentName, copyDocumentTextColor, copyDocumentBackgroundColor } from "src/scripts/documentActions/uniqueFieldCopy"
 import { copyDocument } from "src/scripts/documentActions/copyDocument"
 import { useRouter } from "vue-router"
+import documentPreview from "src/components/DocumentPreview.vue"
 
 const props = defineProps<{
   inputDataBluePrint: I_ExtraFields

@@ -7,14 +7,15 @@
     />
 
     <q-page-container>
-      <router-view :key="$route.path" v-slot="{ Component }">
+      <router-view v-slot="{ Component }">
         <transition
           enter-active-class="animated fadeIn"
           leave-active-class="animated fadeOut"
+          mode="out-in"
           appear
           :duration="50"
         >
-          <component :is="Component" />
+          <component :is="Component" :key="$route.path" />
         </transition>
       </router-view>
     </q-page-container>

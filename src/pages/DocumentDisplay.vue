@@ -529,10 +529,15 @@ function checkHasEdits () {
   }
 }
 
+let isUnmounted = false
+onUnmounted(() => { isUnmounted = true })
+
 watch(() => openedDocumentsStore.getAllDocuments, async () => {
   checkHasEdits()
 
   await sleep(100)
+
+  if (isUnmounted) return
 
   const matchingDoc = findRequestedOrActiveDocument()
   if (matchingDoc && matchingDoc._id === currentData.value._id && !matchingDoc.hasEdits) {
@@ -553,7 +558,7 @@ function reloadLocalContent () {
     retrievedObject = openedDocumentsStore.getDocument(route.params.id as string)
   }
 
-  currentData.value = (retrievedObject) ? extend(true, [], retrievedObject) : createNewDocumentObject()
+  currentData.value = (retrievedObject) ? extend(true, {}, retrievedObject) : createNewDocumentObject()
 
   // @ts-ignore
   extraClasses.value = (retrieveFieldValue(currentData.value, "extraClasses")) ? retrieveFieldValue(currentData.value, "extraClasses") : ""
@@ -833,16 +838,36 @@ function mapNewObjectFields () {
           )
         }
         else {
-          currentExtraFields.push({ id: field.id, value: "" })
+          currentExtraFields.push({ id: field.id, value: defaultValueForFieldType(field.type) })
         }
       }
       else {
-        currentExtraFields.push({ id: field.id, value: "" })
+        currentExtraFields.push({ id: field.id, value: defaultValueForFieldType(field.type) })
       }
     }
   }
 
   return currentExtraFields
+}
+
+function defaultValueForFieldType (type: string): unknown {
+  switch (type) {
+    case "number":
+      return null
+    case "list":
+    case "tags":
+    case "multiSelect":
+      return []
+    case "singleToNoneRelationship":
+    case "singleToSingleRelationship":
+    case "singleToManyRelationship":
+    case "manyToNoneRelationship":
+    case "manyToSingleRelationship":
+    case "manyToManyRelationship":
+      return {}
+    default:
+      return ""
+  }
 }
 
 function createNewDocumentObject (): I_OpenedDocument {
