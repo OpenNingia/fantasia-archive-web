@@ -88,7 +88,7 @@ async function saveCustomCss () {
     projectCustomCSS: customCSS.value
   }
 
-  await changeCurrentProjectSettings(newSettings, {} as any)
+  await changeCurrentProjectSettings(newSettings)
   projectStore.setProjectCustomCSS(customCSS.value)
 
   triggerDialogClose()

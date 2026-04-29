@@ -177,7 +177,7 @@ function createNewProject () {
   projectStore.setProjectName(newProjectName.value)
   projectStore.setProjecLoadingState(false)
 
-  createNewProjectAction(newProjectName.value, router, q, null).catch(e => console.log(e))
+  createNewProjectAction(newProjectName.value, router, q).catch(e => console.log(e))
 }
 
 /**

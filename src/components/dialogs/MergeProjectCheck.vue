@@ -93,7 +93,7 @@ function mergeProject () {
   }
 
   projectStore.setProjecLoadingState(false)
-  mergeExistingProject(router, Loading, setup, q, {} as any)
+  mergeExistingProject(router, Loading, setup, q)
 }
 
 function commenceSave () {

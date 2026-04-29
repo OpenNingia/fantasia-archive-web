@@ -261,7 +261,7 @@ function reloadProjectSettings () {
 
 async function saveProjectSettings () {
   if (isInvalid.value) return
-  await changeCurrentProjectSettings({ projectName: projectName.value }, {} as any)
+  await changeCurrentProjectSettings({ projectName: projectName.value })
   projectStore.setProjectName(projectName.value)
   triggerDialogClose()
 }

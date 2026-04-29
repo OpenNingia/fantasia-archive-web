@@ -1,19 +1,35 @@
+import type { Router } from "vue-router"
 import { projectApi } from "src/services/api/projectApi"
+import { useProjectStore } from "src/stores/project"
+import { useAllDocumentsStore } from "src/stores/allDocuments"
+import { useOpenedDocumentsStore } from "src/stores/openedDocuments"
 
 const LAST_OPENED_KEY = "fa_lastOpenedDocs"
 
+// `quasar`/`Loading` are surfaced through Quasar's plugin namespace which has no
+// single exported "instance" type — these helpers are passed in from <script setup>
+// already typed via `useQuasar()`/`Loading`, so the intermediary is intentionally loose.
+type QuasarLike = { notify: (opts: { type: string; message: string }) => void }
+type LoadingLike = { show: (opts: unknown) => void; hide: () => void }
+
+function resetProjectStores () {
+  useAllDocumentsStore().resetDocuments()
+  useOpenedDocumentsStore().resetDocuments()
+}
+
 /**
- * Creates a new project via the API, commits it to Vuex, and navigates to /project.
+ * Creates a new project via the API, commits it to the project store, and navigates to /project.
  */
-export const createNewProject = async (projectName: string, vueRouter: any, quasar: any, vueInstance: any) => {
+export const createNewProject = async (projectName: string, vueRouter: Router, quasar: QuasarLike) => {
+  const projectStore = useProjectStore()
+
   const project = await projectApi.create(projectName)
 
-  vueInstance.SSET_currentProjectId(project.id)
-  vueInstance.SSET_setProjectName(project.name)
-  vueInstance.SSET_setProjectCustomCSS(project.customCss || "")
+  projectStore.setCurrentProjectId(project.id)
+  projectStore.setProjectName(project.name)
+  projectStore.setProjectCustomCSS(project.customCss || "")
 
-  vueInstance.SSET_resetDocuments()
-  vueInstance.SSET_resetAllDocuments()
+  resetProjectStores()
 
   await vueRouter.push({ path: "/project" })
 
@@ -23,7 +39,7 @@ export const createNewProject = async (projectName: string, vueRouter: any, quas
 /**
  * Triggers a browser download of the project export archive from the server.
  */
-export const saveProject = (projectId: string, _Loading: any, _loadingSetup: any, quasar: any) => {
+export const saveProject = (projectId: string, _Loading: LoadingLike, _loadingSetup: unknown, quasar: QuasarLike) => {
   if (!projectId) {
     quasar.notify({ type: "negative", message: "No project loaded" })
     return
@@ -35,11 +51,12 @@ export const saveProject = (projectId: string, _Loading: any, _loadingSetup: any
 }
 
 /**
- * Triggers a browser download — alias kept for dialogs that still call saveProject without projectId context.
- * Callers that don't have a projectId will get a silent no-op; update call sites as needed.
+ * Removes a project via the API.
  */
 export const removeCurrentProject = async (projectId: string) => {
-  if (!projectId) return
+  if (!projectId) {
+    return
+  }
   await projectApi.delete(projectId)
 }
 
@@ -47,27 +64,32 @@ export const removeCurrentProject = async (projectId: string) => {
  * Load an existing project from an export ZIP uploaded by the user.
  * Opens a hidden file input; on selection, posts to the import endpoint.
  */
-export const loadExistingProject = (vueRouter: any, Loading: any, loadingSetup: any, quasar: any, vueInstance: any) => {
+export const loadExistingProject = (vueRouter: Router, Loading: LoadingLike, loadingSetup: unknown, quasar: QuasarLike) => {
+  const projectStore = useProjectStore()
+
   const input = document.createElement("input")
   input.type = "file"
   input.accept = ".zip"
   input.onchange = async () => {
     const file = input.files?.[0]
-    if (!file) return
+    if (!file) {
+      return
+    }
 
     Loading.show(loadingSetup)
     try {
       const form = new FormData()
       form.append("file", file)
       const res = await fetch("/api/projects/import", { method: "POST", body: form, credentials: "include" })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
       const project = await res.json() as { id: string; name: string; customCss: string | null }
 
-      vueInstance.SSET_currentProjectId(project.id)
-      vueInstance.SSET_setProjectName(project.name)
-      vueInstance.SSET_setProjectCustomCSS(project.customCss || "")
-      vueInstance.SSET_resetDocuments()
-      vueInstance.SSET_resetAllDocuments()
+      projectStore.setCurrentProjectId(project.id)
+      projectStore.setProjectName(project.name)
+      projectStore.setProjectCustomCSS(project.customCss || "")
+      resetProjectStores()
 
       await vueRouter.push({ path: "/project" })
       quasar.notify({ type: "positive", message: "Project successfully loaded" })
@@ -86,8 +108,9 @@ export const loadExistingProject = (vueRouter: any, Loading: any, loadingSetup: 
 /**
  * Merge an exported project ZIP into the currently loaded project.
  */
-export const mergeExistingProject = (vueRouter: any, Loading: any, loadingSetup: any, quasar: any, vueInstance: any) => {
-  const projectId = vueInstance.SGET_currentProjectId as string | null
+export const mergeExistingProject = (vueRouter: Router, Loading: LoadingLike, loadingSetup: unknown, quasar: QuasarLike) => {
+  const projectStore = useProjectStore()
+  const projectId = projectStore.currentProjectId
   if (!projectId) {
     quasar.notify({ type: "negative", message: "No project loaded" })
     return
@@ -98,17 +121,20 @@ export const mergeExistingProject = (vueRouter: any, Loading: any, loadingSetup:
   input.accept = ".zip"
   input.onchange = async () => {
     const file = input.files?.[0]
-    if (!file) return
+    if (!file) {
+      return
+    }
 
     Loading.show(loadingSetup)
     try {
       const form = new FormData()
       form.append("file", file)
       const res = await fetch(`/api/projects/${projectId}/merge`, { method: "POST", body: form, credentials: "include" })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
 
-      vueInstance.SSET_resetDocuments()
-      vueInstance.SSET_resetAllDocuments()
+      resetProjectStores()
 
       await vueRouter.push({ path: "/project" })
       quasar.notify({ type: "positive", message: "Data successfully merged into the project" })
@@ -125,10 +151,10 @@ export const mergeExistingProject = (vueRouter: any, Loading: any, loadingSetup:
 }
 
 /**
- * Returns the current project name from Vuex (already set when project was loaded).
+ * Returns the current project name from the project store.
  */
-export const retrieveCurrentProjectName = (vueInstance?: any): Promise<string> => {
-  return Promise.resolve(vueInstance?.SGET_getProjectName || "")
+export const retrieveCurrentProjectName = (): Promise<string> => {
+  return Promise.resolve(useProjectStore().getProjectName || "")
 }
 
 /**
@@ -139,36 +165,44 @@ export const retrieveCurrentProjectVersion = (): Promise<number> => {
 }
 
 /**
- * Returns the current project custom CSS from Vuex.
+ * Returns the current project custom CSS from the project store.
  */
-export const retrieveCurrentProjectCustomCSS = (vueInstance?: any): Promise<string> => {
-  return Promise.resolve(vueInstance?.SGET_getProjectCustomCSS || "")
+export const retrieveCurrentProjectCustomCSS = (): Promise<string> => {
+  return Promise.resolve(useProjectStore().getProjectCustomCSS || "")
 }
 
 /**
- * Updates project settings via the API and syncs name/CSS to Vuex.
+ * Updates project settings via the API and syncs name/CSS to the project store.
  */
 export const changeCurrentProjectSettings = async (
-  input: { projectName?: string; createdOnVersion?: string; projectCustomCSS?: string },
-  vueInstance?: any
+  input: { projectName?: string; createdOnVersion?: string; projectCustomCSS?: string }
 ) => {
-  const projectId = vueInstance?.SGET_currentProjectId as string | null
-  if (!projectId) return
+  const projectStore = useProjectStore()
+  const projectId = projectStore.currentProjectId
+  if (!projectId) {
+    return
+  }
 
   const updated = await projectApi.update(projectId, {
     name: input.projectName,
     customCss: input.projectCustomCSS
   })
 
-  if (input.projectName) vueInstance?.SSET_setProjectName(updated.name)
-  if (input.projectCustomCSS !== undefined) vueInstance?.SSET_setProjectCustomCSS(updated.customCss || "")
+  if (input.projectName) {
+    projectStore.setProjectName(updated.name)
+  }
+  if (input.projectCustomCSS !== undefined) {
+    projectStore.setProjectCustomCSS(updated.customCss || "")
+  }
 }
 
 /**
  * Persists the corkboard text to the server.
  */
 export const saveCorkboard = async (input: string, projectId?: string | null) => {
-  if (!projectId) return
+  if (!projectId) {
+    return
+  }
   await projectApi.update(projectId, { corkboardText: input.trim() })
 }
 
@@ -176,7 +210,9 @@ export const saveCorkboard = async (input: string, projectId?: string | null) =>
  * Retrieves the corkboard text from the server.
  */
 export const retrieveCorkboard = async (projectId?: string | null): Promise<string> => {
-  if (!projectId) return ""
+  if (!projectId) {
+    return ""
+  }
   const project = await projectApi.get(projectId)
   return project.corkboardText || ""
 }
@@ -185,7 +221,9 @@ export const retrieveCorkboard = async (projectId?: string | null): Promise<stri
  * Adds a document ID to the per-project recently-opened list stored in localStorage.
  */
 export const updateLastOpenedDocuments = (newDocID: string, projectId?: string | null) => {
-  if (!projectId) return
+  if (!projectId) {
+    return
+  }
   const key = `${LAST_OPENED_KEY}_${projectId}`
   const existing: string[] = JSON.parse(localStorage.getItem(key) || "[]")
   const updated = [...new Set([newDocID, ...existing])].slice(0, 50)
@@ -196,7 +234,9 @@ export const updateLastOpenedDocuments = (newDocID: string, projectId?: string |
  * Retrieves the recently-opened document ID list from localStorage.
  */
 export const retrieveLastOpenedDocuments = (projectId?: string | null): Promise<string[]> => {
-  if (!projectId) return Promise.resolve([])
+  if (!projectId) {
+    return Promise.resolve([])
+  }
   const key = `${LAST_OPENED_KEY}_${projectId}`
   return Promise.resolve(JSON.parse(localStorage.getItem(key) || "[]"))
 }

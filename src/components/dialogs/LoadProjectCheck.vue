@@ -96,7 +96,7 @@ function loadProject () {
   }
 
   projectStore.setProjecLoadingState(false)
-  loadExistingProject(router, Loading, setup, q, {} as any)
+  loadExistingProject(router, Loading, setup, q)
 }
 
 function commenceSave () {

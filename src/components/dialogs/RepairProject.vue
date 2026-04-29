@@ -138,7 +138,7 @@ async function repairProject () {
   optionsSnapShot.pre017check = false
   void optionsStore.setOptions(optionsSnapShot)
 
-  await changeCurrentProjectSettings({ createdOnVersion: "web" }, {} as any)
+  await changeCurrentProjectSettings({ createdOnVersion: "web" })
 
   repairFinished.value = true
 }
