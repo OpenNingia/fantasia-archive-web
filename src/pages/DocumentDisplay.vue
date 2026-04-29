@@ -396,6 +396,7 @@ import Field_Tags from "src/components/fields/Field_Tags.vue"
 import Field_DocumentTemplate from "src/components/fields/Field_DocumentTemplate.vue"
 
 import { updateLastOpenedDocuments } from "src/scripts/projectManagement/projectManagent"
+import { defaultValueForFieldType } from "src/scripts/databaseManager/fieldDefaults"
 import type { I_DocumentTemplate } from "src/interfaces/I_DocumentTemplate"
 
 import { useAppStores } from "src/composables/useAppStores"
@@ -824,7 +825,7 @@ function mapNewObjectFields () {
           )
         }
         else {
-          currentExtraFields.push({ id: field.id, value: "" })
+          currentExtraFields.push({ id: field.id, value: defaultValueForFieldType(field.type) })
         }
       }
       else if (field.id === "tags") {
@@ -848,26 +849,6 @@ function mapNewObjectFields () {
   }
 
   return currentExtraFields
-}
-
-function defaultValueForFieldType (type: string): unknown {
-  switch (type) {
-    case "number":
-      return null
-    case "list":
-    case "tags":
-    case "multiSelect":
-      return []
-    case "singleToNoneRelationship":
-    case "singleToSingleRelationship":
-    case "singleToManyRelationship":
-    case "manyToNoneRelationship":
-    case "manyToSingleRelationship":
-    case "manyToManyRelationship":
-      return {}
-    default:
-      return ""
-  }
 }
 
 function createNewDocumentObject (): I_OpenedDocument {

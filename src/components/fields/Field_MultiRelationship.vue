@@ -566,6 +566,7 @@ import type { I_FieldRelationship, I_RelationshipPair } from "src/interfaces/I_F
 import { createNewWithParent } from "src/scripts/documentActions/createNewWithParent"
 import { copyDocumentName, copyDocumentTextColor, copyDocumentBackgroundColor } from "src/scripts/documentActions/uniqueFieldCopy"
 import { copyDocument } from "src/scripts/documentActions/copyDocument"
+import { buildDefaultExtraFields } from "src/scripts/databaseManager/fieldDefaults"
 import { useRouter } from "vue-router"
 import documentPreview from "src/components/DocumentPreview.vue"
 
@@ -924,19 +925,7 @@ function addNewRelationshipObject (input: string) {
   const newDocument = {
     bgColor: undefined,
     color: undefined,
-    extraFields: [
-      { id: "name", value: input },
-      { id: "parentDoc", value: "" },
-      { id: "documentColor", value: "" },
-      { id: "documentBackgroundColor", value: "" },
-      { id: "finishedSwitch", value: "" },
-      { id: "minorSwitch", value: "" },
-      { id: "deadSwitch", value: "" },
-      { id: "categorySwitch", value: "" },
-      { id: "order", value: "" },
-      { id: "tags", value: [] },
-      { id: "categoryDescription", value: "" }
-    ],
+    extraFields: buildDefaultExtraFields(pairedBlueprint, { name: input }),
     hierarchicalPath: pairedBlueprint.namePlural,
     icon: pairedBlueprint.icon,
     id: newObjectID,

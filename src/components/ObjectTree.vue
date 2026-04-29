@@ -806,7 +806,7 @@ function buildCurrentObjectTree () {
     if (allDocuments && allDocuments.docs) {
       allDocumentsRows = allDocuments.docs
         .map((doc) => {
-          const parentDocID = doc.extraFields.find(e => e.id === "parentDoc")?.value.value as unknown as {_id: string}
+          const parentDocID = (doc.extraFields.find(e => e.id === "parentDoc")?.value as { value?: { _id: string } } | null)?.value as unknown as {_id: string}
           const color = doc.extraFields.find(e => e.id === "documentColor")?.value as unknown as string
           const bgColor = doc.extraFields.find(e => e.id === "documentBackgroundColor")?.value as unknown as string
 
