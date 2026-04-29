@@ -707,7 +707,7 @@ async function saveCurrentDocument (editMode: boolean, saveAsFinished = false) {
     const savedDocument: {
       documentCopy: I_OpenedDocument,
       allOpenedDocuments: I_OpenedDocument[]
-    } = await saveDocument(docCopy, documentsCopy.value, allDocumentsStore.getAllDocuments.docs, editMode, { SGET_allDocuments: allDocumentsStore.getAllDocuments, SGET_allDocumentsByType: (id: string) => allDocumentsStore.getDocumentsByType(id), SSET_updateDocument: (p: any) => allDocumentsStore.updateDocument(p), SSET_addDocument: (p: any) => allDocumentsStore.addDocument(p) }).catch(err => console.log(err))
+    } = await saveDocument(docCopy, documentsCopy.value, editMode).catch(err => console.log(err))
 
     // Update the opened document
     const dataPass = { doc: savedDocument.documentCopy, treeAction: true }
@@ -826,7 +826,7 @@ async function saveOpenedDocument (doc: I_OpenedDocument) {
   const savedDocument: {
     documentCopy: I_OpenedDocument,
     allOpenedDocuments: I_OpenedDocument[]
-  } = await saveDocument(docCopy, allOpenedDocuments, allDocumentsStore.getAllDocuments.docs, false, { SGET_allDocuments: allDocumentsStore.getAllDocuments, SGET_allDocumentsByType: (id: string) => allDocumentsStore.getDocumentsByType(id), SSET_updateDocument: (p: any) => allDocumentsStore.updateDocument(p), SSET_addDocument: (p: any) => allDocumentsStore.addDocument(p) }, true)
+  } = await saveDocument(docCopy, allOpenedDocuments, false, true)
 
   // Update the opened document
   const dataPass = { doc: savedDocument.documentCopy, treeAction: true }

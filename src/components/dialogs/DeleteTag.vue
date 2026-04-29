@@ -109,8 +109,6 @@ async function deleteTag () {
       // @ts-ignore
       updatedDocumentList[index],
       documentsCopy.value,
-      allDocumentsStore.getAllDocuments.docs,
-      null,
       null,
       true
     ).catch((err: any) => console.log(err))

@@ -132,9 +132,7 @@ async function renameTags () {
       // @ts-ignore
       updatedDocumentList[index],
       documentsCopy.value,
-      allDocumentsStore.getAllDocuments.docs,
       null,
-      {} as any,
       true
     ).catch((err: any) => console.log(err))
 

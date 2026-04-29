@@ -215,7 +215,7 @@ async function saveOpenedDocument (document: I_OpenedDocument) {
   const savedDocument: {
     documentCopy: I_OpenedDocument,
     allOpenedDocuments: I_OpenedDocument[]
-  } = await saveDocument(docCopy, allOpenedDocuments, allDocumentsStore.getAllDocuments.docs, false, null, true)
+  } = await saveDocument(docCopy, allOpenedDocuments, false, true)
 
   // Update the opened document
   const dataPass = { doc: savedDocument.documentCopy, treeAction: true }

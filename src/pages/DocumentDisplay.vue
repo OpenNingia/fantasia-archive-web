@@ -1107,7 +1107,7 @@ async function saveCurrentDocument (keepEditMode: boolean) {
     const savedDocument: {
       documentCopy: I_OpenedDocument,
       allOpenedDocuments: I_OpenedDocument[]
-    } = await saveDocument(docCopy, openedDocumentsCopy, allDocumentsStore.getAllDocuments.docs, keepEditMode, { SGET_allDocuments: allDocumentsStore.getAllDocuments, SGET_allDocumentsByType: (id: string) => allDocumentsStore.getDocumentsByType(id), SSET_updateDocument: (p: any) => allDocumentsStore.updateDocument(p), SSET_addDocument: (p: any) => allDocumentsStore.addDocument(p) })
+    } = await saveDocument(docCopy, openedDocumentsCopy, keepEditMode)
 
     const dataPass = { doc: savedDocument.documentCopy, treeAction: true }
     openedDocumentsStore.updateDocument(dataPass)
