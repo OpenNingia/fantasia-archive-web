@@ -713,7 +713,7 @@ function commenceSave () {
     // @ts-ignore
     spinner: QSpinnerGears
   }
-  saveProject(projectStore.currentProjectId as string, Loading, setup, q)
+  void saveProject(projectStore.currentProjectId as string, Loading, setup, q)
 }
 
 /****************************************************************/

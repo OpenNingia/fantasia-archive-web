@@ -1,5 +1,7 @@
 import type { Router } from "vue-router"
+import { saveAs } from "file-saver"
 import { projectApi } from "src/services/api/projectApi"
+import { exportApi } from "src/services/api/exportApi"
 import { useProjectStore } from "src/stores/project"
 import { useAllDocumentsStore } from "src/stores/allDocuments"
 import { useOpenedDocumentsStore } from "src/stores/openedDocuments"
@@ -37,17 +39,27 @@ export const createNewProject = async (projectName: string, vueRouter: Router, q
 }
 
 /**
- * Triggers a browser download of the project export archive from the server.
+ * Downloads the project export archive (ZIP) via authenticated XHR.
+ * Using `<a href>.click()` is brittle: if the session is expired the browser
+ * follows the redirect and saves the login HTML as "export.html".
  */
-export const saveProject = (projectId: string, _Loading: LoadingLike, _loadingSetup: unknown, quasar: QuasarLike) => {
+export const saveProject = async (projectId: string, Loading: LoadingLike, loadingSetup: unknown, quasar: QuasarLike) => {
   if (!projectId) {
     quasar.notify({ type: "negative", message: "No project loaded" })
     return
   }
-  const link = document.createElement("a")
-  link.href = `/api/projects/${projectId}/export`
-  link.download = ""
-  link.click()
+  Loading.show(loadingSetup)
+  try {
+    const projectName = useProjectStore().getProjectName || "project"
+    const blob = await exportApi.exportZip(projectId)
+    saveAs(blob, `${projectName} - Backup.zip`)
+    quasar.notify({ type: "positive", message: "Project saved" })
+  } catch (err) {
+    console.error("saveProject failed", err)
+    quasar.notify({ type: "negative", message: "Failed to save project" })
+  } finally {
+    Loading.hide()
+  }
 }
 
 /**

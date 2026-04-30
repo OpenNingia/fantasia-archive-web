@@ -17,7 +17,7 @@ Bugs che ho trovato
 - [] Menù Project -> Project settings -> Backup project -- non fa niente
 - [] Menù Project -> Project settings -> Restore project -- non fa niente
 - [] Menù Project -> Close project -- non fa niente
-- [] Menù Project -> Save current project -- produce un file export.html quasi vuoto
+- [x] Menù Project -> Save current project -- produce un file export.html quasi vuoto
 
 
 ## Build
