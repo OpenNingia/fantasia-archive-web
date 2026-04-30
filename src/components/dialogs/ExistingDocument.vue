@@ -36,7 +36,7 @@
               input-debounce="500"
               v-model="existingDocumentModel"
               @filter="filterExistingSelect"
-              @input="openExistingInput"
+              @update:model-value="openExistingInput"
             >
               <template v-slot:append v-if="!hideAdvSearchCheatsheetButton">
                 <q-btn round dense flat icon="mdi-help-rhombus" @click.stop.prevent="floatingWindowsStore.setAdvSearchWindowVisible"

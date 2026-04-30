@@ -29,7 +29,7 @@
               input-debounce="0"
               v-model="newDocumentModel"
               @filter="filterNewSelect"
-              @input="triggerNewInput"
+              @update:model-value="triggerNewInput"
             >
               <template v-slot:option="{ itemProps, itemEvents, opt }">
                   <q-item
