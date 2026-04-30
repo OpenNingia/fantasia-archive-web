@@ -1,12 +1,15 @@
 FROM node:20-alpine AS builder
 RUN apk add --no-cache openssl
 WORKDIR /app
-COPY package*.json ./
+COPY backend/package*.json ./
 RUN npm ci
-COPY tsconfig.json ./
-COPY prisma ./prisma
+COPY backend/tsconfig.json ./
+COPY backend/prisma ./prisma
 RUN npx prisma generate
-COPY src ./src
+# Frontend blueprints — extractBlueprints.ts imports from ../../src/scripts/...
+COPY src/scripts/databaseManager/blueprints /src/scripts/databaseManager/blueprints
+COPY backend/scripts ./scripts
+COPY backend/src ./src
 RUN npm run build
 
 FROM node:20-alpine
@@ -16,7 +19,7 @@ ENV NODE_ENV=production
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
-COPY package.json ./
+COPY backend/package.json ./
 RUN mkdir -p /app/uploads
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

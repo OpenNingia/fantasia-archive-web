@@ -1,7 +1,9 @@
 node_modules
+**/node_modules
 dist
 .quasar
-backend
+backend/dist
+backend/node_modules
 src-electron
 src-pwa/dev-sw.js
 src-pwa/registerServiceWorker.js

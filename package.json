@@ -12,7 +12,9 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "dev": "quasar dev -m electron",
-    "build": "quasar build -m electron --publish never"
+    "dev:web": "quasar dev -m pwa",
+    "build": "quasar build -m electron --publish never",
+    "build:web": "quasar build -m pwa"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
