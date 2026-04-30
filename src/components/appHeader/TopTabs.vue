@@ -38,7 +38,7 @@
         <q-route-tab
           :ripple="false"
           v-for="document in localDocuments"
-          :to="`/project/display-content/${document.type}/${document._id}`"
+          :to="documentPath(projectStore.currentProjectId, document.type, document._id)"
           :key="document.type+document._id"
           :icon="(retrieveFieldValue(document,'categorySwitch') ? 'fas fa-folder-open' : document.icon)"
           :style="`
@@ -98,7 +98,7 @@
                   <q-menu anchor="top end" self="top start">
                     <q-list class="bg-gunmetal text-accent">
                       <q-item
-                        :to="`/project/display-content/${menuDoc.type}/${menuDoc._id}`"
+                        :to="documentPath(projectStore.currentProjectId, menuDoc.type, menuDoc._id)"
                         v-for="menuDoc in localDocuments"
                         :key="menuDoc._id"
                         clickable
@@ -238,6 +238,7 @@ import documentPreview from "src/components/DocumentPreview.vue"
 
 import { useAppStores } from "src/composables/useAppStores"
 import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+import { documentPath } from "src/scripts/utilities/projectRoutes"
 
 const route = useRoute()
 const router = useRouter()
@@ -247,7 +248,8 @@ const {
   openedDocumentsStore,
   keybindsStore,
   dialogsStore,
-  optionsStore
+  optionsStore,
+  projectStore
 } = useAppStores()
 
 const {
@@ -500,7 +502,7 @@ function copyTargetDocument (currentDoc: I_OpenedDocument) {
 /****************************************************************/
 function addNewUnderParent (currentDoc: I_OpenedDocument) {
   createNewWithParent(currentDoc, {
-    addNewObjectRoute: (obj: any) => router.push({ path: `/project/display-content/${obj._id}/${uid()}`, query: { parent: obj.parent ?? "", tag: obj.tag ?? "" } }).catch(console.log)
+    addNewObjectRoute: (obj: any) => router.push({ path: documentPath(projectStore.currentProjectId, obj._id, uid()), query: { parent: obj.parent ?? "", tag: obj.tag ?? "" } }).catch(console.log)
   })
 }
 

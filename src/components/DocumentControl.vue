@@ -185,7 +185,7 @@
           </q-btn>
 
           <template
-            v-if="openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
+            v-if="openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
           >
             <q-separator vertical inset color="accent" />
 
@@ -215,7 +215,7 @@
             color="primary"
             outline
             @click="toggleEditMode"
-            v-if="currentyEditable && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
+            v-if="currentyEditable && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
           >
             <q-tooltip
               :delay="500"
@@ -231,7 +231,7 @@
             :color="(!hasEdits) ? 'teal-14' : 'primary'"
             outline
             @click="saveCurrentDocument(true)"
-            v-if="!currentyEditable && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
+            v-if="!currentyEditable && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
           >
             <q-tooltip
               :delay="500"
@@ -248,7 +248,7 @@
             :color="(!hasEdits) ? 'teal-14' : 'primary'"
             outline
             @click="saveCurrentDocument(false)"
-            v-if="!currentyEditable && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
+            v-if="!currentyEditable && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
           >
             <q-tooltip
               :delay="500"
@@ -265,7 +265,7 @@
             color="primary"
             outline
             @click="openThisDocumentInSidebar"
-            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
           >
             <q-tooltip
               :delay="500"
@@ -282,7 +282,7 @@
             color="primary"
             outline
             @click="addNewUnderParent"
-            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
           >
             <q-tooltip
               :delay="500"
@@ -299,7 +299,7 @@
             color="primary"
             outline
             @click="copyTargetDocument"
-            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0 && route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0 && route.name === 'project-document'"
           >
             <q-tooltip
               :delay="500"
@@ -312,7 +312,7 @@
           </q-btn>
 
            <q-separator vertical inset color="accent"
-            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
           />
 
           <q-btn
@@ -320,7 +320,7 @@
             icon="mdi-database-export-outline"
             @click="triggerExport"
             outline
-            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
             >
               <q-tooltip
                 :delay="500"
@@ -341,7 +341,7 @@
             </q-btn>
 
           <q-separator vertical inset color="accent"
-            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
           />
 
           <q-btn
@@ -349,7 +349,7 @@
             color="secondary"
             outline
             @click="deleteObjectAssignUID"
-            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.path !== '/project'"
+            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
           >
             <q-tooltip
               :delay="500"
@@ -386,6 +386,7 @@ import { saveDocument } from "src/scripts/databaseManager/documentManager"
 import { createNewWithParent } from "src/scripts/documentActions/createNewWithParent"
 import { copyDocument } from "src/scripts/documentActions/copyDocument"
 import { saveProject } from "src/scripts/projectManagement/projectManagent"
+import { documentPath } from "src/scripts/utilities/projectRoutes"
 
 import { useAppStores } from "src/composables/useAppStores"
 import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
@@ -461,61 +462,61 @@ watch(() => keybindsStore.getCurrentKeyBindData, async () => {
   }
 
   // Quick open existing document
-  if (determineKeyBind("openDocInSide") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+  if (determineKeyBind("openDocInSide") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
     openThisDocumentInSidebar()
   }
 
   // Delete dialog - CTRL + D
-  if (determineKeyBind("deleteDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+  if (determineKeyBind("deleteDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
     deleteObjectAssignUID()
   }
 
   // Export document - NONE
-  if (determineKeyBind("exportDocument") && currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+  if (determineKeyBind("exportDocument") && currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
     triggerExport()
   }
 
   // Edit document - CTRL + E
-  if (determineKeyBind("editDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+  if (determineKeyBind("editDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
     toggleEditMode()
   }
 
   // Save document - CTRL + S
-  if (determineKeyBind("saveDocument") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+  if (determineKeyBind("saveDocument") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
     setTimeout(() => {
       saveCurrentDocument(false).catch(e => console.log(e))
     }, 500)
   }
 
   // Save document without exiting edit mode - CTRL + ALT + S
-  if (determineKeyBind("saveDocumentNoExit") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+  if (determineKeyBind("saveDocumentNoExit") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
     setTimeout(() => {
       saveCurrentDocument(true).catch(e => console.log(e))
     }, 500)
   }
 
   // Mass document save - CTRL + SHIFT + S
-  if (determineKeyBind("saveDocumentMass") && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+  if (determineKeyBind("saveDocumentMass") && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
     setTimeout(() => {
       massSave().catch(e => console.log(e))
     }, 500)
   }
 
   // Save document and mark it as finished - NONE
-  if (determineKeyBind("saveDocumentTickFinish") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+  if (determineKeyBind("saveDocumentTickFinish") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
     setTimeout(() => {
       saveCurrentDocument(false, true).catch(e => console.log(e))
     }, 500)
   }
 
   // Add new under parent - CTRL + SHIFT + N
-  if (determineKeyBind("addUnderParent") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+  if (determineKeyBind("addUnderParent") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
     await sleep(100)
     addNewUnderParent()
   }
 
   // Copy document - CTRL + ALT + C
-  if (determineKeyBind("copyDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.path !== "/project") {
+  if (determineKeyBind("copyDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
     await sleep(100)
     copyTargetDocument()
   }
@@ -626,7 +627,7 @@ function commenceSave () {
 function addNewUnderParent () {
   const currentDoc = findRequestedOrActiveDocument() as I_OpenedDocument
   createNewWithParent(currentDoc, {
-    addNewObjectRoute: (obj: any) => router.push({ path: `/project/display-content/${obj._id}/${generateUID()}`, query: { parent: obj.parent ?? "", tag: obj.tag ?? "" } }).catch(console.log)
+    addNewObjectRoute: (obj: any) => router.push({ path: documentPath(projectStore.currentProjectId, obj._id, generateUID()), query: { parent: obj.parent ?? "", tag: obj.tag ?? "" } }).catch(console.log)
   })
 }
 

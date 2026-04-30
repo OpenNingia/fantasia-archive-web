@@ -1,12 +1,14 @@
 import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 import type { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
+import { useProjectStore } from "src/stores/project"
+import { documentPath } from "src/scripts/utilities/projectRoutes"
 
 export const copyDocument = (currentDoc: I_OpenedDocument | I_ShortenedDocument, newDocumentID: string, documentBlueprint: I_Blueprint) : I_OpenedDocument => {
   currentDoc._id = newDocumentID
   currentDoc.isNew = true
   currentDoc.editMode = true
   currentDoc.hasEdits = false
-  currentDoc.url = `/project/display-content/${currentDoc.type}/${newDocumentID}`
+  currentDoc.url = documentPath(useProjectStore().currentProjectId, currentDoc.type, newDocumentID)
 
   // @ts-ignore
   if (currentDoc.key) {

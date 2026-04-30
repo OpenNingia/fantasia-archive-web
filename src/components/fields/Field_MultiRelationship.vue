@@ -567,6 +567,7 @@ import { createNewWithParent } from "src/scripts/documentActions/createNewWithPa
 import { copyDocumentName, copyDocumentTextColor, copyDocumentBackgroundColor } from "src/scripts/documentActions/uniqueFieldCopy"
 import { copyDocument } from "src/scripts/documentActions/copyDocument"
 import { buildDefaultExtraFields } from "src/scripts/databaseManager/fieldDefaults"
+import { documentPath } from "src/scripts/utilities/projectRoutes"
 import { useRouter } from "vue-router"
 import documentPreview from "src/components/DocumentPreview.vue"
 
@@ -936,7 +937,7 @@ function addNewRelationshipObject (input: string) {
     label: input,
     tags: [],
     type: newObjectType,
-    url: `/project/display-content/${newObjectType}/${newObjectID}`,
+    url: documentPath(projectStore.currentProjectId, newObjectType, newObjectID),
     _id: newObjectID
   }
 

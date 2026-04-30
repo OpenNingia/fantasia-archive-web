@@ -1,6 +1,7 @@
 import { useRouter, useRoute } from "vue-router"
 import { uid, colors, extend, getCssVar } from "quasar"
 import { useAppStores } from "./useAppStores"
+import { documentPath, projectHomePath } from "src/scripts/utilities/projectRoutes"
 import type { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import type { I_NewObjectTrigger } from "src/interfaces/I_NewObjectTrigger"
 import type { I_FieldRelationship } from "src/interfaces/I_FieldRelationship"
@@ -16,7 +17,8 @@ export function useDocumentHelpers () {
     keybindsStore,
     dialogsStore,
     optionsStore,
-    floatingWindowsStore
+    floatingWindowsStore,
+    projectStore
   } = useAppStores()
 
   /****************************************************************/
@@ -224,7 +226,7 @@ export function useDocumentHelpers () {
     const parentID = newObject?.parent ?? ""
     const tag = newObject?.tag ?? ""
     router.push({
-      path: `/project/display-content/${newObject._id}/${uid()}`,
+      path: documentPath(projectStore.currentProjectId, newObject._id, uid()),
       query: { parent: parentID, tag }
     }).catch((e: { name: string }) => {
       if (e.name !== "NavigationDuplicated") console.log(e)
@@ -269,13 +271,13 @@ export function useDocumentHelpers () {
       if (existingDocument) return
 
       const lastDocument = remainingDocuments[newIndex]
-      const newRoute = `/project/display-content/${lastDocument.type}/${lastDocument._id}`
+      const newRoute = documentPath(projectStore.currentProjectId, lastDocument.type, lastDocument._id)
       if (currentRoute !== newRoute) {
         router.push({ path: newRoute }).catch((e) => console.log(e))
       }
     }
     else {
-      router.push({ path: "/project" }).catch((e: { name: string }) => {
+      router.push({ path: projectHomePath(projectStore.currentProjectId) }).catch((e: { name: string }) => {
         if (e && e.name !== "NavigationDuplicated") console.log(e)
       })
     }

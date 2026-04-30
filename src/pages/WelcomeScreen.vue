@@ -183,7 +183,7 @@ function openSelectedProject () {
   if (!project) return
   projectStore.setCurrentProjectId(project.id)
   projectStore.setCurrentUserRole(project.role)
-  router.push("/project")
+  router.push(`/project/${project.id}`)
 }
 
 function openNewProjectDialog () {

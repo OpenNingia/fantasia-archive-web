@@ -642,6 +642,7 @@ import customCssEditorDialog from "src/components/dialogs/CustomCssEditor.vue"
 import { Loading, QSpinnerGears } from "quasar"
 import { saveProject } from "src/scripts/projectManagement/projectManagent"
 import { toggleDevTools } from "src/scripts/utilities/devTools"
+import { projectHomePath } from "src/scripts/utilities/projectRoutes"
 import { authApi } from "src/services/api/authApi"
 
 import appLogo from "src/assets/appLogo.png"
@@ -688,10 +689,14 @@ watch(() => projectStore.getProjectName, () => {
   checkProjectStatus()
 })
 
+watch(() => route.path, () => {
+  checkProjectStatus()
+})
+
 function checkProjectStatus () {
   projectExists.value = (projectStore.getProjectName.length > 0)
   isFrontpage.value = (route.path === "/")
-  isProjectPage.value = (route.path === "/project")
+  isProjectPage.value = (route.name === "project-home")
 }
 
 /****************************************************************/
@@ -752,7 +757,7 @@ function fullPageSeachPopupAssignUID () {
 /****************************************************************/
 
 function navigateToProjectPage () {
-  router.push({ path: "/project" }).catch((e: {name: string}) => {
+  router.push({ path: projectHomePath(projectStore.currentProjectId) }).catch((e: {name: string}) => {
     if (e && e.name !== "NavigationDuplicated") {
       console.log(e)
     }

@@ -380,6 +380,7 @@ import { copyDocument } from "src/scripts/documentActions/copyDocument"
 import { saveDocument } from "src/scripts/databaseManager/documentManager"
 import deleteDocumentCheckDialog from "src/components/dialogs/DeleteDocumentCheck.vue"
 import { retrieveAllDocumentTemplatesFromDB } from "src/scripts/projectManagement/documentTemplates"
+import { documentPath, projectHomePath } from "src/scripts/utilities/projectRoutes"
 
 import Field_Break from "src/components/fields/Field_Break.vue"
 import Field_Text from "src/components/fields/Field_Text.vue"
@@ -565,7 +566,7 @@ function reloadLocalContent () {
   extraClasses.value = (retrieveFieldValue(currentData.value, "extraClasses")) ? retrieveFieldValue(currentData.value, "extraClasses") : ""
 
   if (!currentData.value) {
-    router.push({ path: "/project" }).catch((e: {name: string}) => {
+    router.push({ path: projectHomePath(projectStore.currentProjectId) }).catch((e: {name: string}) => {
       if (e && e.name !== "NavigationDuplicated") {
         console.log(e)
       }
@@ -868,7 +869,7 @@ function createNewDocumentObject (): I_OpenedDocument {
     isNew: true,
     isFinished: false,
     hasEdits: false,
-    url: `/project/display-content/${bluePrintData.value._id}/${uniqueID}`,
+    url: documentPath(projectStore.currentProjectId, bluePrintData.value._id, uniqueID),
     extraFields: []
   }
 }

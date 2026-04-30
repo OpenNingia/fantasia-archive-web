@@ -16,7 +16,7 @@ test('typing in a document field does not throw stack-overflow on extend', async
   const pageErrors: string[] = []
   page.on('pageerror', err => pageErrors.push(err.message))
 
-  await page.goto(`/project/display-content/${doc.id}/${doc.id}?editMode=editMode`)
+  await page.goto(`/project/${projectId}/display-content/${doc.id}/${doc.id}?editMode=editMode`)
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(1500)
 

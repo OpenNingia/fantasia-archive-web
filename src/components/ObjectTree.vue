@@ -480,6 +480,7 @@ import massDeleteDocumentsCheckDialog from "src/components/dialogs/MassDeleteDoc
 
 import { extend, colors, uid, getCssVar } from "quasar"
 import { tagListBuildFromBlueprints } from "src/scripts/utilities/tagListBuilder"
+import { documentPath } from "src/scripts/utilities/projectRoutes"
 import { createNewWithParent } from "src/scripts/documentActions/createNewWithParent"
 import { copyDocumentName, copyDocumentTextColor, copyDocumentBackgroundColor } from "src/scripts/documentActions/uniqueFieldCopy"
 import { copyDocument } from "src/scripts/documentActions/copyDocument"
@@ -1313,7 +1314,7 @@ function copyTargetDocument (currentDoc: I_OpenedDocument) {
 /****************************************************************/
 function addNewUnderParent (currentDoc: I_OpenedDocument) {
   createNewWithParent(currentDoc, {
-    addNewObjectRoute: (obj: any) => router.push({ path: `/project/display-content/${obj._id}/${uid()}`, query: { parent: obj.parent ?? "", tag: obj.tag ?? "" } }).catch(console.log)
+    addNewObjectRoute: (obj: any) => router.push({ path: documentPath(projectStore.currentProjectId, obj._id, uid()), query: { parent: obj.parent ?? "", tag: obj.tag ?? "" } }).catch(console.log)
   })
 }
 

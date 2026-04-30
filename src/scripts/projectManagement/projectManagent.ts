@@ -31,7 +31,7 @@ export const createNewProject = async (projectName: string, vueRouter: Router, q
 
   resetProjectStores()
 
-  await vueRouter.push({ path: "/project" })
+  await vueRouter.push({ path: `/project/${project.id}` })
 
   quasar.notify({ type: "positive", message: "New project successfully created" })
 }
@@ -91,7 +91,7 @@ export const loadExistingProject = (vueRouter: Router, Loading: LoadingLike, loa
       projectStore.setProjectCustomCSS(project.customCss || "")
       resetProjectStores()
 
-      await vueRouter.push({ path: "/project" })
+      await vueRouter.push({ path: `/project/${project.id}` })
       quasar.notify({ type: "positive", message: "Project successfully loaded" })
     }
     catch (err) {
@@ -136,7 +136,7 @@ export const mergeExistingProject = (vueRouter: Router, Loading: LoadingLike, lo
 
       resetProjectStores()
 
-      await vueRouter.push({ path: "/project" })
+      await vueRouter.push({ path: `/project/${projectId}` })
       quasar.notify({ type: "positive", message: "Data successfully merged into the project" })
     }
     catch (err) {

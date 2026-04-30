@@ -16,11 +16,11 @@ const routes: RouteRecordRaw[] = [
     ]
   },
   {
-    path: "/project",
+    path: "/project/:projectId",
     component: DocumentLayout,
     children: [
-      { path: "/project", component: () => import("pages/ProjectScreen.vue") },
-      { path: "/project/display-content/:type/:id", component: () => import("pages/DocumentDisplay.vue") }
+      { path: "", name: "project-home", component: () => import("pages/ProjectScreen.vue") },
+      { path: "display-content/:type/:id", name: "project-document", component: () => import("pages/DocumentDisplay.vue") }
     ]
   },
   {

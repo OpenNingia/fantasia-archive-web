@@ -92,6 +92,7 @@
 <script setup lang="ts">
 
 import { ref, computed, watch, onMounted, nextTick } from "vue"
+import { useRoute, useRouter } from "vue-router"
 import objectTree from "src/components/ObjectTree.vue"
 import appHeader from "src/components/AppHeader.vue"
 import documentControl from "src/components/DocumentControl.vue"
@@ -103,10 +104,14 @@ import type { OptionsState as OptionsStateInteface } from "src/stores/options"
 import type { I_Blueprint } from "src/interfaces/I_Blueprint"
 import type { I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import { documentApi } from "src/services/api/documentApi"
+import { projectApi } from "src/services/api/projectApi"
+import { documentPath } from "src/scripts/utilities/projectRoutes"
 import { useAppStores } from "src/composables/useAppStores"
 import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 
 const q = useQuasar()
+const route = useRoute()
+const router = useRouter()
 const {
   blueprintsStore,
   openedDocumentsStore,
@@ -148,7 +153,7 @@ async function loadAllProjectDocuments () {
           _id: d.id,
           id: d.id,
           icon: blueprint.icon,
-          url: `/project/display-content/${d.type}/${d.id}`,
+          url: documentPath(projectId, d.type, d.id),
           type: d.type,
           extraFields: d.extraFields
         } as unknown as I_ShortenedDocument,
@@ -163,7 +168,36 @@ async function loadAllProjectDocuments () {
 }
 
 onMounted(async () => {
-  if (allDocumentsStore.getFirstRunState && projectStore.currentProjectId) {
+  // The project id lives in the route — on F5 the URL is the only source of truth,
+  // since Pinia state is cleared. Without a route param we have nothing to load,
+  // so bounce back to the project picker.
+  const projectId = route.params.projectId as string | undefined
+  if (!projectId) {
+    await router.replace("/")
+    return
+  }
+
+  projectStore.setCurrentProjectId(projectId)
+
+  // Refetch project metadata if missing (i.e. after a refresh). If the project was
+  // deleted or access was revoked, clear the stale id and bounce home.
+  if (!projectStore.getProjectName) {
+    try {
+      const project = await projectApi.get(projectId)
+      projectStore.setProjectName(project.name)
+      projectStore.setProjectCustomCSS(project.customCss || "")
+      projectStore.setCurrentUserRole(project.role)
+    }
+    catch (e) {
+      console.error("Failed to reload project after refresh", e)
+      projectStore.setCurrentProjectId(null)
+      projectStore.setCurrentUserRole(null)
+      await router.replace("/")
+      return
+    }
+  }
+
+  if (allDocumentsStore.getFirstRunState) {
     await processBluePrints()
     await loadAllProjectDocuments()
   }
