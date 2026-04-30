@@ -1,4 +1,8 @@
 FROM node:22-alpine AS builder
+# git is needed at build time so quasar.config.js can stamp the bundle with
+# the short SHA + commit date. The builder stage is discarded — the final
+# nginx image stays slim.
+RUN apk add --no-cache git
 WORKDIR /app
 ARG API_URL=""
 ENV API_URL=$API_URL
