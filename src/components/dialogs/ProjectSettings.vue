@@ -267,10 +267,12 @@ async function saveProjectSettings () {
 }
 
 async function backupProject () {
-  if (!projectStore.getActiveProject) return
+  const projectId = projectStore.currentProjectId
+  if (!projectId) return
   try {
-    const blob = await exportApi.exportZip(projectStore.getActiveProject.id)
-    saveAs(blob, `${projectStore.getActiveProject.name} - Backup.zip`)
+    const blob = await exportApi.exportZip(projectId)
+    saveAs(blob, `${projectStore.getProjectName || "project"} - Backup.zip`)
+    q.notify({ type: "positive", message: "Backup downloaded" })
   } catch (e) {
     q.notify({ type: "negative", message: "Backup failed." })
   }
@@ -278,9 +280,10 @@ async function backupProject () {
 
 async function onRestoreFile (e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file || !projectStore.getActiveProject) return
+  const projectId = projectStore.currentProjectId
+  if (!file || !projectId) return
   try {
-    await exportApi.importZip(projectStore.getActiveProject.id, file)
+    await exportApi.importZip(projectId, file)
     q.notify({ type: "positive", message: "Project restored successfully" })
   } catch (err) {
     q.notify({ type: "negative", message: "Restore failed." })

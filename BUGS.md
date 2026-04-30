@@ -14,8 +14,8 @@ Bugs che ho trovato
 - [x] Menù Help & Info -> Advanced search guide  -- apre una finestra vuota, indagare cosa dovrebbe mostrare
 - [x] Menù Help & Info -> Show binding cheatsheet -- apre una finestra vuota, dovrebbe mostrare la cheatsheet delle combinazioni di tasti
 
-- [] Menù Project -> Project settings -> Backup project -- non fa niente
-- [] Menù Project -> Project settings -> Restore project -- non fa niente
+- [x] Menù Project -> Project settings -> Backup project -- non fa niente (early return su getter inesistente)
+- [x] Menù Project -> Project settings -> Restore project -- non fa niente (stesso bug del Backup)
 - [] Menù Project -> Close project -- non fa niente
 - [x] Menù Project -> Save current project -- produce un file export.html quasi vuoto
 
