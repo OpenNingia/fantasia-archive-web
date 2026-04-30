@@ -9,8 +9,7 @@ src-pwa/registerServiceWorker.js
 tests
 playwright-report
 test-results
-# .git intentionally NOT excluded — quasar.config.js reads the short SHA at
-# build time to surface the deployed version in the About dialog.
+.git
 .gitignore
 .env
 .env.example

@@ -1,5 +1,0 @@
-# Substitute $Format$ placeholders inside .git_archival.txt when the repo
-# is exported via `git archive` (e.g. by some Portainer / GitHub tarball
-# deploy paths). Used at Docker build time to stamp the bundle with the
-# git SHA + commit date even when the .git directory isn't shipped.
-.git_archival.txt  export-subst
