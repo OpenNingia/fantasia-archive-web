@@ -1,8 +1,8 @@
-# Production compose — frontend is pulled from ghcr.io (built by GHA),
-# not built locally. Use this file in Portainer.
+# Production compose — frontend and backend are pulled from ghcr.io
+# (both built by GHA), not built locally. Use this file in Portainer.
 #
 # For local image building / Dockerfile testing, use docker-compose.yml,
-# which keeps the `build:` section.
+# which keeps the `build:` sections.
 
 services:
   postgres:
@@ -32,9 +32,8 @@ services:
       - internal
 
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+    image: ghcr.io/openningia/fantasia-archive-web/backend:${BACKEND_TAG:-latest}
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       postgres:
