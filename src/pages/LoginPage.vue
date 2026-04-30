@@ -12,7 +12,7 @@
           class="full-width q-mb-md"
           icon="mdi-login"
           label="Sign in with SSO"
-          :href="oidcLoginUrl"
+          @click="goToOidc"
         />
         <q-separator dark class="q-mb-md" />
       </q-card-section>
@@ -88,6 +88,10 @@ export default defineComponent({
       }
     })
 
+    function goToOidc () {
+      window.location.assign(oidcLoginUrl)
+    }
+
     async function submitLocalLogin () {
       error.value = ""
       loading.value = true
@@ -104,7 +108,7 @@ export default defineComponent({
       }
     }
 
-    return { email, password, loading, error, localAuthEnabled, oidcAvailable, oidcLoginUrl, submitLocalLogin }
+    return { email, password, loading, error, localAuthEnabled, oidcAvailable, goToOidc, submitLocalLogin }
   }
 })
 </script>
