@@ -43,7 +43,6 @@ export default configure(function (/* ctx */) {
           ...(viteConf.resolve.alias || {}),
           // Use browser-only build of PouchDB — avoids Node.js fs/leveldb adapters
           pouchdb: resolve(__dirname, "node_modules/pouchdb-browser/lib/index.js"),
-          electron: resolve(__dirname, "src/electronStub.ts"),
           // ExportProject.vue still uses these Node.js modules — stub them until Phase 6 rewrites it
           "fs-extra": resolve(__dirname, "src/shims/node-stub.ts"),
           request: resolve(__dirname, "src/shims/node-stub.ts"),

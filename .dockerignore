@@ -4,7 +4,6 @@ dist
 .quasar
 backend/dist
 backend/node_modules
-src-electron
 src-pwa/dev-sw.js
 src-pwa/registerServiceWorker.js
 tests
