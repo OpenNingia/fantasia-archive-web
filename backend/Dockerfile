@@ -7,7 +7,10 @@ COPY backend/tsconfig.json ./
 COPY backend/prisma ./prisma
 RUN npx prisma generate
 # Frontend blueprints — extractBlueprints.ts imports from ../../src/scripts/...
+# extraFieldLists is a sibling dir referenced by some blueprints (e.g. RPGSystemsStats);
+# without it the dynamic import in extractBlueprints.ts silently skips those entries.
 COPY src/scripts/databaseManager/blueprints /src/scripts/databaseManager/blueprints
+COPY src/scripts/databaseManager/extraFieldLists /src/scripts/databaseManager/extraFieldLists
 COPY backend/scripts ./scripts
 COPY backend/src ./src
 RUN npm run build

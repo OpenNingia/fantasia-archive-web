@@ -20,6 +20,21 @@ Bugs che ho trovato
 - [] Menù Project -> Save current project -- produce un file export.html quasi vuoto
 
 
+## Build
 
+- [x] Sembra che non trovi 'professions' e 'conditions' (Dockerfile non copiava extraFieldLists; extractBlueprints ingoiava silenziosamente l'errore)
 
-
+#27 [backend builder 12/12] RUN npm run build
+#27 0.734   ✗ professions: Cannot find module '../extraFieldLists/RPGSystemsStats'
+#27 0.734 Require stack:
+#27 0.734 - /src/scripts/databaseManager/blueprints/professions.ts
+#27 0.743   ✓ resources
+#27 0.753   ✗ conditions: Cannot find module './../extraFieldLists/RPGSystemsStats'
+#27 0.753 Require stack:
+#27 0.753 - /src/scripts/databaseManager/blueprints/conditions.ts
+#27 0.760   ✓ myths
+#27 0.769   ✓ loreNotes
+#27 0.775   ✓ chapters
+#27 0.785   ✓ scienceTechnology
+#27 0.794   ✓ politicalGroups
+#27 0.802   ✓ culture
