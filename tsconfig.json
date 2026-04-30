@@ -4,16 +4,15 @@
     "module": "Preserve",
     "moduleResolution": "Bundler",
     "lib": ["ES2022", "dom"],
-    "baseUrl": ".",
     "paths": {
-      "src/*": ["src/*"],
+      "src/*": ["./src/*"],
       "app/*": ["./*"],
-      "components/*": ["src/components/*"],
-      "layouts/*": ["src/layouts/*"],
-      "pages/*": ["src/pages/*"],
-      "assets/*": ["src/assets/*"],
-      "boot/*": ["src/boot/*"],
-      "stores/*": ["src/stores/*"]
+      "components/*": ["./src/components/*"],
+      "layouts/*": ["./src/layouts/*"],
+      "pages/*": ["./src/pages/*"],
+      "assets/*": ["./src/assets/*"],
+      "boot/*": ["./src/boot/*"],
+      "stores/*": ["./src/stores/*"]
     },
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -21,7 +20,6 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "strictPropertyInitialization": false,
-    "suppressImplicitAnyIndexErrors": true,
     "strict": true,
     "noImplicitAny": false
   },
