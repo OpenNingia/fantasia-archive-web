@@ -8,6 +8,12 @@ const AUTH_RATE_LIMIT_MAX = process.env.LOCAL_AUTH_ENABLED === 'true' ? 500 : 10
 const authRateLimit = { rateLimit: { max: AUTH_RATE_LIMIT_MAX, timeWindow: '1 minute' } }
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
+  // ─── Public auth-mode discovery (used by login UI to pick which buttons to show) ─
+  fastify.get('/config', async () => ({
+    oidcEnabled: !!fastify.oidcClient,
+    localAuthEnabled: process.env.LOCAL_AUTH_ENABLED === 'true'
+  }))
+
   // ─── OIDC login redirect ────────────────────────────────────────────────────
   fastify.get('/login', { config: authRateLimit }, async (req, reply) => {
     if (!fastify.oidcClient) {

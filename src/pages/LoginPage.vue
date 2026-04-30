@@ -56,7 +56,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed } from "vue"
+import { defineComponent, ref, onMounted } from "vue"
 import { useRouter, useRoute } from "vue-router"
 import { authApi } from "src/services/api/authApi"
 import { useProjectStore } from "src/stores/project"
@@ -74,9 +74,19 @@ export default defineComponent({
     const loading = ref(false)
     const error = ref("")
 
-    const localAuthEnabled = computed(() => process.env.LOCAL_AUTH_ENABLED !== "false")
-    const oidcAvailable = computed(() => !!process.env.OIDC_ISSUER_URL)
-    const oidcLoginUrl = computed(() => authApi.oidcLoginUrl())
+    const localAuthEnabled = ref(false)
+    const oidcAvailable = ref(false)
+    const oidcLoginUrl = authApi.oidcLoginUrl()
+
+    onMounted(async () => {
+      try {
+        const cfg = await authApi.getConfig()
+        oidcAvailable.value = cfg.oidcEnabled
+        localAuthEnabled.value = cfg.localAuthEnabled
+      } catch {
+        // Backend unreachable — leave both disabled and let the user retry.
+      }
+    })
 
     async function submitLocalLogin () {
       error.value = ""

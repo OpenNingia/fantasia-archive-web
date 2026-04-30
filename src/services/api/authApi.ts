@@ -6,9 +6,19 @@ export interface AuthUser {
   displayName: string | null
 }
 
+export interface AuthConfig {
+  oidcEnabled: boolean
+  localAuthEnabled: boolean
+}
+
 export const authApi = {
   async me (): Promise<AuthUser> {
     const { data } = await api.get<AuthUser>("/auth/me")
+    return data
+  },
+
+  async getConfig (): Promise<AuthConfig> {
+    const { data } = await api.get<AuthConfig>("/auth/config")
     return data
   },
 
