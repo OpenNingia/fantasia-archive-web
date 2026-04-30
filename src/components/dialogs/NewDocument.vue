@@ -31,11 +31,10 @@
               @filter="filterNewSelect"
               @update:model-value="triggerNewInput"
             >
-              <template v-slot:option="{ itemProps, itemEvents, opt }">
+              <template v-slot:option="{ itemProps, opt }">
                   <q-item
                     :class="{'hasTextShadow': textShadow}"
                     v-bind="itemProps"
-                    v-on="itemEvents"
                   >
                   <q-item-section avatar>
                     <q-icon :name="opt.icon" />

@@ -147,7 +147,6 @@
                 clickable
                 v-ripple
                 v-bind="scope.itemProps"
-                v-on="scope.itemEvents"
                 v-close-popup
               >
                 {{scope.opt}}
@@ -273,7 +272,6 @@
                 v-ripple
                 v-close-popup
                 v-bind="scope.itemProps"
-                v-on="scope.itemEvents"
               >
                 {{scope.opt}}
               </q-item>

@@ -44,10 +44,9 @@
       <template v-slot:selected-item="scope">
           {{scope.opt.name}}
       </template>
-      <template v-slot:option="{ itemProps, itemEvents, opt }">
+      <template v-slot:option="{ itemProps, opt }">
         <q-item
           v-bind="itemProps"
-          v-on="itemEvents"
           :key="opt.id"
         >
           <q-item-section>

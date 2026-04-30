@@ -341,11 +341,10 @@
           </q-chip>
           </template>
 
-        <template v-slot:option="{ itemProps, itemEvents, opt }" >
+        <template v-slot:option="{ itemProps, opt }" >
             <q-item
               :class="{'hasTextShadow': textShadow, 'isMinor':opt.isMinor}"
               v-bind="itemProps"
-              v-on="itemEvents"
               :key="opt.id"
               :style="`background-color: ${opt.bgColor}`"
               :title="(disabledIDList.includes(opt._id)) ? 'This option is unavailable for selection as it is already paired to another.': ''"

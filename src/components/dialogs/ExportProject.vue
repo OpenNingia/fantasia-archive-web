@@ -324,10 +324,9 @@
                   <template v-slot:selected-item="scope">
                     {{scope.opt.name}}
                   </template>
-                  <template v-slot:option="{ itemProps, itemEvents, opt }">
+                  <template v-slot:option="{ itemProps, opt }">
                     <q-item
                       v-bind="itemProps"
-                      v-on="itemEvents"
                       :key="opt.id"
                     >
                       <q-item-section>
@@ -413,11 +412,10 @@
                     </q-tooltip>
                   </q-btn>
                 </template>
-                <template v-slot:option="{ itemProps, itemEvents, opt }">
+                <template v-slot:option="{ itemProps, opt }">
                     <q-item
                       :class="{'hasTextShadow': textShadow, 'isMinor':opt.isMinor}"
                       v-bind="itemProps"
-                      v-on="itemEvents"
                       :key="opt.id"
                       :style="`color: ${opt.color}; background-color: ${opt.bgColor}`"
                       @mouseleave="setDocumentPreviewClose"
