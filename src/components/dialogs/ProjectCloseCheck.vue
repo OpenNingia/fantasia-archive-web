@@ -66,7 +66,7 @@
 
 import { ref, computed, watch } from "vue"
 import { useRouter } from "vue-router"
-import { extend, QSpinnerGears, Loading } from "quasar"
+import { extend, QSpinnerGears, Loading, useQuasar } from "quasar"
 import { useAppStores } from "src/composables/useAppStores"
 import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
@@ -79,7 +79,8 @@ const props = defineProps<{
 const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
 const router = useRouter()
-const { dialogsStore, openedDocumentsStore, allDocumentsStore } = useAppStores()
+const q = useQuasar()
+const { dialogsStore, openedDocumentsStore, allDocumentsStore, projectStore } = useAppStores()
 const { retrieveFieldValue, mapShortDocument, sleep } = useDocumentHelpers()
 
 const dialogModel = ref(false)
@@ -185,12 +186,20 @@ async function determineMassSaveAction () {
 }
 
 /**
- * Close the project and navigate to the intro screen
+ * Close the project and navigate to the intro screen.
+ * Clearing project-store state too — without it, currentProjectId stays
+ * pinned and downstream components keep reading a project that, from
+ * the user's perspective, is no longer open.
  */
 function closeProject () {
   openedDocumentsStore.resetDocuments()
+  projectStore.setCurrentProjectId(null)
+  projectStore.setProjectName("")
+  projectStore.setProjectCustomCSS("")
   triggerDialogClose()
-  router.push({ path: "/" }).catch((e: {name: string}) => {
+  router.push({ path: "/" }).then(() => {
+    q.notify({ type: "positive", message: "Project closed" })
+  }).catch((e: {name: string}) => {
     if (e && e.name !== "NavigationDuplicated") {
       console.log(e)
     }

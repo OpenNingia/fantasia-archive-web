@@ -5,6 +5,7 @@ Bugs che ho trovato
 ## App
 
 - [x] Bottoni minimizza, massimizza, chiudi sono un retaggio di electron -- rimuovere
+- [] Program settings -> Keybinds -> pagina vuota
 
 ## Menu
 - [x] Menù Help & Info -> Toggle developer tools -- refuso di app electron
@@ -16,7 +17,7 @@ Bugs che ho trovato
 
 - [x] Menù Project -> Project settings -> Backup project -- non fa niente (early return su getter inesistente)
 - [x] Menù Project -> Project settings -> Restore project -- non fa niente (stesso bug del Backup)
-- [] Menù Project -> Close project -- non fa niente
+- [x] Menù Project -> Close project -- non fa niente (puliti currentProjectId/name/css del project store + toast feedback; da verificare in browser)
 - [x] Menù Project -> Save current project -- produce un file export.html quasi vuoto
 
 
@@ -24,17 +25,3 @@ Bugs che ho trovato
 
 - [x] Sembra che non trovi 'professions' e 'conditions' (Dockerfile non copiava extraFieldLists; extractBlueprints ingoiava silenziosamente l'errore)
 
-#27 [backend builder 12/12] RUN npm run build
-#27 0.734   ✗ professions: Cannot find module '../extraFieldLists/RPGSystemsStats'
-#27 0.734 Require stack:
-#27 0.734 - /src/scripts/databaseManager/blueprints/professions.ts
-#27 0.743   ✓ resources
-#27 0.753   ✗ conditions: Cannot find module './../extraFieldLists/RPGSystemsStats'
-#27 0.753 Require stack:
-#27 0.753 - /src/scripts/databaseManager/blueprints/conditions.ts
-#27 0.760   ✓ myths
-#27 0.769   ✓ loreNotes
-#27 0.775   ✓ chapters
-#27 0.785   ✓ scienceTechnology
-#27 0.794   ✓ politicalGroups
-#27 0.802   ✓ culture
