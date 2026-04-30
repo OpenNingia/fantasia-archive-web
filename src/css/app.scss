@@ -87,7 +87,7 @@ body {
       background-color: transparent;
     }
 
-    .q-markdown {
+    .markdown-body {
       color: #d4d0c9;
     }
 
@@ -167,7 +167,7 @@ img {
 }
 
 .advSearchWindow {
-  .q-markdown {
+  .markdown-body {
     & > ul {
       margin-top: 0;
     }
@@ -559,14 +559,26 @@ body .q-tooltip {
   z-index: 999999999 !important;
 }
 
-.q-markdown {
+.markdown-body {
   line-height: 1.75;
+  color: #d4d0c9;
 
-  .q-markdown--token {
+  h1, h2, h3, h4, h5, h6 {
+    color: #fff;
+    margin: 1.2em 0 0.5em;
+  }
+
+  code {
     font-weight: 600;
     padding: 0 5px;
-    background-color: $accent !important;
-    color: $dark !important;
+    background-color: $accent;
+    color: $dark;
+    border-radius: 3px;
+  }
+
+  pre code {
+    display: block;
+    padding: 8px 12px;
   }
 
   strong {

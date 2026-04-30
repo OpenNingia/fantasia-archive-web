@@ -5,7 +5,6 @@
 
     <component v-if="allowWiderScrollbars" v-bind:is="'style'" type="text/css" v-html="widerScrollBarCSSS"></component>
 
-    <appWindowButtons />
     <router-view />
 
     <!-- Document preview panel (replaces Vue-2-only q-window) -->
@@ -48,9 +47,7 @@
           <q-btn icon="mdi-close" flat round dense @click="advSearchWindowVisible = false" />
         </q-card-section>
         <q-card-section>
-          <q-markdown no-heading-anchor-links>
-            {{$t('documents.advancedSearchCheatSheet')}}
-          </q-markdown>
+          <div class="markdown-body" v-html="renderedSearchCheatSheet" />
         </q-card-section>
       </q-card>
     </q-dialog>
@@ -86,11 +83,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from "vue"
+import { ref, watch, computed, onMounted, onUnmounted } from "vue"
 import { useRoute } from "vue-router"
+import { useI18n } from "vue-i18n"
 import { useQuasar, setCssVar } from "quasar"
 import { defaultKeybinds } from "src/scripts/appSettings/defaultKeybinds"
-import appWindowButtons from "src/components/appHeader/AppWindowButtons.vue"
 import type { OptionsStateInteface } from "./store/module-options/state"
 import { tipsTricks } from "src/scripts/utilities/tipsTricks"
 import { summonAllPlusheForms } from "src/scripts/utilities/plusheMascot"
@@ -98,6 +95,7 @@ import { saveCorkboard, retrieveCorkboard } from "src/scripts/projectManagement/
 import documentPreview from "src/components/DocumentPreview.vue"
 import { useAppStores } from "src/composables/useAppStores"
 import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+import { useMarkdown } from "src/composables/useMarkdown"
 
 const q = useQuasar()
 const route = useRoute()
@@ -108,6 +106,9 @@ const {
   projectStore
 } = useAppStores()
 const { openLink, determineKeyBind } = useDocumentHelpers()
+const { t } = useI18n()
+const { render: renderMarkdown } = useMarkdown()
+const renderedSearchCheatSheet = computed(() => renderMarkdown(t("documents.advancedSearchCheatSheet")))
 
 // App is locked to dark mode — the original design assumes always-dark.
 // Apply before mount so Quasar components render with the right theme on first paint.

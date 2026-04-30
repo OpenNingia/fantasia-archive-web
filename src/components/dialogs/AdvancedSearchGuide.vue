@@ -16,9 +16,7 @@
             dark
             :thumb-style="thumbStyle"
             style="max-height: calc(100vh - 235px); height: 800px; width: 100%;">
-            <q-markdown no-heading-anchor-links>
-            {{$t('documents.advancedSearchGuide')}}
-            </q-markdown>
+            <div class="markdown-body" v-html="renderedGuide" />
           </q-scroll-area>
         </div>
        </q-card-section>
@@ -33,13 +31,18 @@
 
 <script setup lang="ts">
 
-import { ref, watch } from "vue"
+import { ref, watch, computed } from "vue"
+import { useI18n } from "vue-i18n"
 import { useAppStores } from "src/composables/useAppStores"
+import { useMarkdown } from "src/composables/useMarkdown"
 
 const props = defineProps<{ dialogTrigger?: string }>()
 const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
 const { dialogsStore } = useAppStores()
+const { t } = useI18n()
+const { render } = useMarkdown()
+const renderedGuide = computed(() => render(t("documents.advancedSearchGuide")))
 
 const dialogModel = ref(false)
 

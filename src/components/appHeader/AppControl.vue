@@ -63,22 +63,10 @@
       @trigger-dialog-close="aboutAppDialogClose"
     />
 
-    <!-- Changelog dialog -->
-    <changeLogDialog
-      :dialog-trigger="changeLogDialogTrigger"
-      @trigger-dialog-close="changeLogDialogClose"
-    />
-
     <!-- Program settings dialog -->
     <programSettingsDialog
       :dialog-trigger="programSettingsDialogTrigger"
       @trigger-dialog-close="programSettingsDialogClose"
-    />
-
-    <!-- Program tutorials dialog -->
-    <programTutorialsDialog
-      :dialog-trigger="programTutorialsDialogTrigger"
-      @trigger-dialog-close="programTutorialsDialogClose"
     />
 
     <!-- Advanced search guide dialog -->
@@ -514,35 +502,7 @@
               </q-item-section>
             </q-item>
 
-             <q-item
-              @click="programTutorialsDialogAssignUID"
-              v-close-popup
-              clickable
-              active
-              active-class="bg-gunmetal-light text-cultured"
-              class="noHigh"
-              >
-              <q-item-section>Program tutorials</q-item-section>
-              <q-item-section avatar>
-                <q-icon name="mdi-book-open-page-variant" />
-              </q-item-section>
-            </q-item>
-
             <q-separator dark />
-
-            <q-item
-              @click="changeLogDialogAssignUID"
-              v-close-popup
-              clickable
-              active
-              active-class="bg-gunmetal-light text-cultured"
-              class="noHigh"
-              >
-              <q-item-section>Changelog</q-item-section>
-              <q-item-section avatar>
-                <q-icon name="mdi-clipboard-text" />
-              </q-item-section>
-            </q-item>
 
             <q-item
               @click="aboutAppDialogAssignUID"
@@ -569,22 +529,6 @@
               <q-item-section>License</q-item-section>
               <q-item-section avatar>
                 <q-icon name="mdi-script-text-outline" />
-              </q-item-section>
-            </q-item>
-
-            <q-separator dark />
-
-            <q-item
-              @click="toggleDevTools"
-              v-close-popup
-              clickable
-              active
-              active-class="bg-gunmetal-light text-cultured"
-              class="noHigh"
-              >
-              <q-item-section>Toggle developer tools</q-item-section>
-              <q-item-section avatar>
-                <q-icon name="mdi-code-tags" />
               </q-item-section>
             </q-item>
 
@@ -626,9 +570,7 @@ import mergeProjectCheckDialog from "src/components/dialogs/MergeProjectCheck.vu
 import newProjectCheckDialog from "src/components/dialogs/NewProjectCheck.vue"
 import repairProjectDialog from "src/components/dialogs/RepairProject.vue"
 import aboutAppDialog from "src/components/dialogs/AboutApp.vue"
-import changeLogDialog from "src/components/dialogs/ChangeLog.vue"
 import programSettingsDialog from "src/components/dialogs/ProgramSettings.vue"
-import programTutorialsDialog from "src/components/dialogs/ProgramTutorials.vue"
 import advancedSearchGuideDialog from "src/components/dialogs/AdvancedSearchGuide.vue"
 import newDocumentDialog from "src/components/dialogs/NewDocument.vue"
 import existingDocumentDialog from "src/components/dialogs/ExistingDocument.vue"
@@ -641,7 +583,6 @@ import customCssEditorDialog from "src/components/dialogs/CustomCssEditor.vue"
 
 import { Loading, QSpinnerGears } from "quasar"
 import { saveProject } from "src/scripts/projectManagement/projectManagent"
-import { toggleDevTools } from "src/scripts/utilities/devTools"
 import { projectHomePath } from "src/scripts/utilities/projectRoutes"
 import { authApi } from "src/services/api/authApi"
 
@@ -726,11 +667,6 @@ watch(() => keybindsStore.getCurrentKeyBindData, () => {
   // Navigate to project overview
   if (determineKeyBind("navigateToProjectOverview") && projectExists.value && !isProjectPage.value) {
     navigateToProjectPage()
-  }
-
-  // Toggle dev tools
-  if (determineKeyBind("toggleDeveloperTools")) {
-    toggleDevTools()
   }
 
   // Toggle custom CSS editor
@@ -897,19 +833,6 @@ function aboutAppDialogAssignUID () {
 }
 
 /****************************************************************/
-// Changelog dialog
-/****************************************************************/
-
-const changeLogDialogTrigger = ref("")
-function changeLogDialogClose () {
-  changeLogDialogTrigger.value = ""
-}
-
-function changeLogDialogAssignUID () {
-  changeLogDialogTrigger.value = generateUID()
-}
-
-/****************************************************************/
 // Program settings dialog
 /****************************************************************/
 
@@ -920,19 +843,6 @@ function programSettingsDialogClose () {
 
 function programSettingsDialogAssignUID () {
   programSettingsDialogTrigger.value = generateUID()
-}
-
-/****************************************************************/
-// Program tutorials dialog
-/****************************************************************/
-
-const programTutorialsDialogTrigger = ref("")
-function programTutorialsDialogClose () {
-  programTutorialsDialogTrigger.value = ""
-}
-
-function programTutorialsDialogAssignUID () {
-  programTutorialsDialogTrigger.value = generateUID()
 }
 
 /****************************************************************/

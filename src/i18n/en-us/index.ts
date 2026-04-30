@@ -1,4 +1,3 @@
-import changeLog from "src/documents/changeLog.md"
 import advancedSearchGuide from "src/documents/advancedSearchGuide.md"
 import advancedSearchCheatSheet from "src/documents/advancedSearchCheatSheet.md"
 
@@ -9,7 +8,6 @@ export default {
   documents: {
     advancedSearchGuide: advancedSearchGuide,
     advancedSearchCheatSheet: advancedSearchCheatSheet,
-    changeLog: changeLog,
     license: license
   }
 }

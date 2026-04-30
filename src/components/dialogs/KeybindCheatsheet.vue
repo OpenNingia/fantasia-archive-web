@@ -25,11 +25,11 @@
                 flat
                 :filter="filter"
                 hide-bottom
-                :pagination.sync="pagination"
+                v-model:pagination="pagination"
                 :rows-per-page-options="[0]"
                 :virtual-scroll-sticky-size-start="48"
                 row-key="id"
-                :data="localCheatSheet"
+                :rows="localCheatSheet"
                 :columns="keybindListCollums"
               >
               <template v-slot:top-right>
@@ -163,14 +163,14 @@ const keybindListCollums = [
     name: "name",
     required: true,
     label: "Action",
-    align: "left",
+    align: "left" as const,
     field: (row: {name: string}) => row.name,
     format: (val: string) => `${val}`,
     sortable: true
   },
   {
     name: "keybind",
-    align: "left",
+    align: "left" as const,
     label: "Keybind",
     field: "userKeybind"
   }

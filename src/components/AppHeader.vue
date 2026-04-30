@@ -43,12 +43,5 @@ import appControl from "src/components/appHeader/AppControl.vue"
   .topTabs {
     max-width: calc(100% - 415px);
   }
-
-  .appWindowButtons {
-    //width: 200px;
-    flex-shrink: 0;
-    flex-grow: 0;
-    margin-left: auto;
-  }
 }
 </style>

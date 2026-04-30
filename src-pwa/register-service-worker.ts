@@ -1,41 +1,38 @@
 import { register } from 'register-service-worker';
+import { Notify } from 'quasar';
 
-// The ready(), registered(), cached(), updatefound() and updated()
-// events passes a ServiceWorkerRegistration instance in their arguments.
-// ServiceWorkerRegistration: https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1h
+
+function notifyNewVersion () {
+  Notify.create({
+    type: 'info',
+    message: 'A new version is available.',
+    timeout: 0,
+    position: 'bottom-right',
+    actions: [
+      {
+        label: 'Reload',
+        color: 'primary',
+        noDismiss: true,
+        handler: () => { window.location.reload(); },
+      },
+    ],
+  });
+}
 
 register(process.env.SERVICE_WORKER_FILE, {
-  // The registrationOptions object will be passed as the second argument
-  // to ServiceWorkerContainer.register()
-  // https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/register#Parameter
+  // updateViaCache:'none' tells the browser to bypass HTTP cache when fetching
+  // sw.js — without it, an aggressive Cache-Control on sw.js can pin the old
+  // worker for up to 24h (or longer, in violation of spec).
+  registrationOptions: { updateViaCache: 'none' },
 
-  // registrationOptions: { scope: './' },
-
-  ready (/* registration */) {
-    // console.log('Service worker is active.')
+  ready (registration) {
+    // Poll for updates while the tab is open so users on long-lived sessions
+    // still see "Nuova versione disponibile" without manually reloading.
+    setInterval(() => { void registration.update(); }, UPDATE_CHECK_INTERVAL_MS);
   },
 
-  registered (/* registration */) {
-    // console.log('Service worker has been registered.')
-  },
-
-  cached (/* registration */) {
-    // console.log('Content has been cached for offline use.')
-  },
-
-  updatefound (/* registration */) {
-    // console.log('New content is downloading.')
-  },
-
-  updated (/* registration */) {
-    // console.log('New content is available; please refresh.')
-  },
-
-  offline () {
-    // console.log('No internet connection found. App is running in offline mode.')
-  },
-
-  error (/* err */) {
-    // console.error('Error during service worker registration:', err)
+  updated () {
+    notifyNewVersion();
   },
 });
