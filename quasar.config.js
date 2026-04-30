@@ -2,8 +2,20 @@
 import { configure } from "quasar/wrappers"
 import { resolve, dirname } from "path"
 import { fileURLToPath } from "url"
+import { execSync } from "child_process"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
+function gitOutput (cmd, fallback) {
+  try {
+    return execSync(cmd, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim()
+  } catch {
+    return fallback
+  }
+}
+
+const APP_VERSION = gitOutput("git rev-parse --short HEAD", "unknown")
+const BUILD_DATE = gitOutput("git log -1 --format=%cI", new Date().toISOString())
 
 export default configure(function (/* ctx */) {
   return {
@@ -35,8 +47,14 @@ export default configure(function (/* ctx */) {
         API_URL: process.env.API_URL || ""
       },
       extendViteConf (viteConf) {
-        // PouchDB expects Node.js `global` — polyfill it for browser builds
-        viteConf.define = { ...(viteConf.define || {}), global: "globalThis" }
+        // PouchDB expects Node.js `global` — polyfill it for browser builds.
+        // __APP_VERSION__/__BUILD_DATE__ surface the git SHA + commit date in the UI.
+        viteConf.define = {
+          ...(viteConf.define || {}),
+          global: "globalThis",
+          __APP_VERSION__: JSON.stringify(APP_VERSION),
+          __BUILD_DATE__: JSON.stringify(BUILD_DATE)
+        }
         viteConf.resolve = viteConf.resolve || {}
         viteConf.resolve.alias = {
           ...(viteConf.resolve.alias || {}),

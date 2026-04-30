@@ -14,7 +14,11 @@
 
         <q-card-section>
           <div>
-            Currently running Fantasia Archive version: <span class="text-bold text-primary">{{appVersion}}</span>
+            Currently running Fantasia Archive version:
+            <span class="text-bold text-primary">{{ appVersion }}</span>
+          </div>
+          <div class="text-caption q-mt-xs" style="opacity: 0.7;">
+            Built {{ buildDate }}
           </div>
        </q-card-section>
 
@@ -105,9 +109,10 @@ function triggerDialogClose () { dialogsStore.setDialogState(false); emit("trigg
 function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
 
 /**
- * Current app version
+ * Build-time identifiers injected by quasar.config.js (git SHA + commit date).
  */
-const appVersion = "1.0.0"
+const appVersion = __APP_VERSION__
+const buildDate = new Date(__BUILD_DATE__).toLocaleString()
 
 /**
  * Open Discord invite link in the default browser window
