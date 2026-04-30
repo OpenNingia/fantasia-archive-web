@@ -60,8 +60,8 @@ Compose services:
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/<your-fork>/fantasia-archive-v1.git
-   cd fantasia-archive-v1
+   git clone https://github.com/OpenNingia/fantasia-archive-web
+   cd fantasia-archive-web
    ```
 
 2. Copy and edit the environment file:
