@@ -4,11 +4,17 @@ import type { FastifyInstance, FastifyReply } from 'fastify'
 
 const REFRESH_TOKEN_EXPIRY_DAYS = Number(process.env.REFRESH_TOKEN_EXPIRY_DAYS ?? 7)
 
-export const COOKIE_OPTS = {
+export const TOKEN_COOKIE_OPTS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'strict' as const,
   path: '/'
+}
+
+// Lax (not Strict) so cookies survive the top-level redirect back from the IdP.
+export const OIDC_COOKIE_OPTS = {
+  ...TOKEN_COOKIE_OPTS,
+  sameSite: 'lax' as const
 }
 
 export function hashToken (token: string) {
@@ -32,6 +38,6 @@ export async function issueAuthCookies (
     data: { userId, tokenHash, expiresAt }
   })
 
-  reply.setCookie('fa_token', jwt, { ...COOKIE_OPTS, maxAge: Number(process.env.JWT_EXPIRY ?? 900) })
-  reply.setCookie('fa_refresh', rawRefresh, { ...COOKIE_OPTS, maxAge: REFRESH_TOKEN_EXPIRY_DAYS * 86400 })
+  reply.setCookie('fa_token', jwt, { ...TOKEN_COOKIE_OPTS, maxAge: Number(process.env.JWT_EXPIRY ?? 900) })
+  reply.setCookie('fa_refresh', rawRefresh, { ...TOKEN_COOKIE_OPTS, maxAge: REFRESH_TOKEN_EXPIRY_DAYS * 86400 })
 }

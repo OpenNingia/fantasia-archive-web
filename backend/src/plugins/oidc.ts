@@ -22,7 +22,7 @@ const plugin: FastifyPluginAsync = async (fastify) => {
     const client = new issuer.Client({
       client_id: process.env.OIDC_CLIENT_ID ?? '',
       client_secret: process.env.OIDC_CLIENT_SECRET ?? '',
-      redirect_uris: [process.env.OIDC_REDIRECT_URI ?? `${process.env.BASE_URL}/auth/callback`],
+      redirect_uris: [process.env.OIDC_REDIRECT_URI ?? `${process.env.BACKEND_URL}/auth/callback`],
       response_types: ['code']
     })
     fastify.decorate('oidcClient', client)

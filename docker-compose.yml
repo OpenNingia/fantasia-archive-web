@@ -42,9 +42,10 @@ services:
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
-      OIDC_REDIRECT_URI: ${BASE_URL}/auth/callback
+      OIDC_REDIRECT_URI: ${BACKEND_URL}/auth/callback
       LOCAL_AUTH_ENABLED: ${LOCAL_AUTH_ENABLED:-false}
-      BASE_URL: ${BASE_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      BACKEND_URL: ${BACKEND_URL}
       UPLOAD_DIR: /app/uploads
       NODE_ENV: production
       PORT: 3000
@@ -52,30 +53,33 @@ services:
       - uploads:/app/uploads
     networks:
       - internal
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_net"
+      - "traefik.http.routers.fa-backend.rule=Host(`${BACKEND_HOST}`)"
+      - "traefik.http.routers.fa-backend.entrypoints=websecure"
+      - "traefik.http.routers.fa-backend.tls=true"
+      - "traefik.http.routers.fa-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.fa-backend.loadbalancer.server.port=3000"
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        API_URL: ${BACKEND_URL}
     restart: unless-stopped
     networks:
-      - internal
-
-  nginx:
-    image: nginx:1.25-alpine
-    restart: unless-stopped
-    depends_on:
-      - backend
-      - frontend
-    ports:
-      - "11080:80"
-      - "11443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
-    networks:
-      - internal
-      - external
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_net"
+      - "traefik.http.routers.fa-frontend.rule=Host(`${FRONTEND_HOST}`)"
+      - "traefik.http.routers.fa-frontend.entrypoints=websecure"
+      - "traefik.http.routers.fa-frontend.tls=true"
+      - "traefik.http.routers.fa-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.fa-frontend.loadbalancer.server.port=80"
 
 volumes:
   postgres_data:
@@ -85,5 +89,5 @@ volumes:
 networks:
   internal:
     driver: bridge
-  external:
-    driver: bridge
+  traefik_net:
+    external: true

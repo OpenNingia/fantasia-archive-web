@@ -2,10 +2,9 @@
 #
 # Changes from production:
 #   - postgres and redis exposed on localhost
-#   - backend runs with tsx watch (hot reload)
+#   - backend runs with tsx watch (hot reload) and exposes :3000 directly
 #   - frontend not built; run `quasar dev` directly on host
-#   - nginx disabled (backend and frontend accessed directly)
-#   - TLS disabled
+#   - traefik_net is created as a local stub (no real Traefik in dev)
 
 services:
   postgres:
@@ -37,6 +36,6 @@ services:
     profiles:
       - donotstart  # frontend runs on host via `quasar dev` during development
 
-  nginx:
-    profiles:
-      - donotstart
+networks:
+  traefik_net:
+    external: false

@@ -2,19 +2,22 @@ import type { FastifyPluginAsync } from 'fastify'
 import { generators } from '../../plugins/oidc'
 import { compareSync, hashSync } from 'bcryptjs'
 import { z } from 'zod'
-import { issueAuthCookies, hashToken, COOKIE_OPTS } from './helpers'
+import { issueAuthCookies, hashToken, TOKEN_COOKIE_OPTS, OIDC_COOKIE_OPTS } from './helpers'
+
+const AUTH_RATE_LIMIT_MAX = process.env.LOCAL_AUTH_ENABLED === 'true' ? 500 : 10
+const authRateLimit = { rateLimit: { max: AUTH_RATE_LIMIT_MAX, timeWindow: '1 minute' } }
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
   // ─── OIDC login redirect ────────────────────────────────────────────────────
-  fastify.get('/login', async (req, reply) => {
+  fastify.get('/login', { config: authRateLimit }, async (req, reply) => {
     if (!fastify.oidcClient) {
       return reply.status(503).send({ error: 'OIDC not configured — use /auth/local/login' })
     }
     const state = generators.state()
     const nonce = generators.nonce()
     const url = fastify.oidcClient.authorizationUrl({ scope: 'openid email profile', state, nonce })
-    reply.setCookie('oidc_state', state, { ...COOKIE_OPTS, maxAge: 300 })
-    reply.setCookie('oidc_nonce', nonce, { ...COOKIE_OPTS, maxAge: 300 })
+    reply.setCookie('oidc_state', state, { ...OIDC_COOKIE_OPTS, maxAge: 300 })
+    reply.setCookie('oidc_nonce', nonce, { ...OIDC_COOKIE_OPTS, maxAge: 300 })
     return reply.redirect(url)
   })
 
@@ -28,7 +31,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     const params = fastify.oidcClient.callbackParams(req.url)
     const tokenSet = await fastify.oidcClient.callback(
-      process.env.OIDC_REDIRECT_URI ?? `${process.env.BASE_URL}/auth/callback`,
+      process.env.OIDC_REDIRECT_URI ?? `${process.env.BACKEND_URL}/auth/callback`,
       params,
       { state: storedState, nonce: storedNonce }
     )
@@ -49,7 +52,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     })
 
     await issueAuthCookies(fastify, reply, user.id, user.email, user.displayName)
-    return reply.redirect(process.env.BASE_URL ?? '/')
+    return reply.redirect(process.env.FRONTEND_URL ?? '/')
   })
 
   // ─── Local login (MVP fallback, enabled via LOCAL_AUTH_ENABLED=true) ────────
@@ -58,7 +61,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     password: z.string().min(8)
   })
 
-  fastify.post('/local/login', async (req, reply) => {
+  fastify.post('/local/login', { config: authRateLimit }, async (req, reply) => {
     if (process.env.LOCAL_AUTH_ENABLED !== 'true') {
       return reply.status(404).send({ error: 'Local auth not enabled' })
     }
@@ -81,7 +84,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     displayName: z.string().min(1)
   })
 
-  fastify.post('/local/register', async (req, reply) => {
+  fastify.post('/local/register', { config: authRateLimit }, async (req, reply) => {
     if (process.env.LOCAL_AUTH_ENABLED !== 'true') {
       return reply.status(404).send({ error: 'Local auth not enabled' })
     }
@@ -100,7 +103,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   })
 
   // ─── Refresh token ──────────────────────────────────────────────────────────
-  fastify.post('/refresh', async (req, reply) => {
+  fastify.post('/refresh', { config: authRateLimit }, async (req, reply) => {
     const rawToken = req.cookies?.fa_refresh
     if (!rawToken) return reply.status(401).send({ error: 'No refresh token' })
 
@@ -123,8 +126,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     if (rawToken) {
       await fastify.prisma.refreshToken.deleteMany({ where: { tokenHash: hashToken(rawToken) } })
     }
-    reply.clearCookie('fa_token', COOKIE_OPTS)
-    reply.clearCookie('fa_refresh', COOKIE_OPTS)
+    reply.clearCookie('fa_token', TOKEN_COOKIE_OPTS)
+    reply.clearCookie('fa_refresh', TOKEN_COOKIE_OPTS)
     return reply.send({ ok: true })
   })
 

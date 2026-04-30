@@ -20,13 +20,14 @@ const app = Fastify({
     transport: process.env.NODE_ENV !== 'production'
       ? { target: 'pino-pretty' }
       : undefined
-  }
+  },
+  trustProxy: true
 })
 
 async function start () {
   await app.register(helmet, { contentSecurityPolicy: false })
   await app.register(cors, {
-    origin: process.env.BASE_URL ?? 'http://localhost:9000',
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:9000',
     credentials: true
   })
   // Local-auth mode (dev/e2e tests) generates bursty traffic from parallel test runners —
