@@ -679,6 +679,7 @@ function deleteTabDocument (targetDocument: I_ShortenedDocument) {
 </script>
 
 <style lang="scss">
+@use "sass:color";
 
 .projectScreen {
   max-width: 1450px;
@@ -697,7 +698,7 @@ function deleteTabDocument (targetDocument: I_ShortenedDocument) {
   display: flex;
   align-items: center;
   padding: 15px 20px;
-  background-color: lighten(#d7ac47, 35);
+  background-color: color.adjust(#d7ac47, $lightness: 35%, $space: hsl);
   border-radius: 5px;
   margin-bottom: 30px;
   color: var(--q-color-dark);

@@ -618,18 +618,21 @@ function checkDocumentTemplate (id: string) {
 </script>
 
 <style lang="scss">
+@use "sass:color";
+@use "sass:map";
+
 .documentPreviewWrapper.no-pointer-events {
   pointer-events: all !important;
   padding: 0 !important;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.45);
   height: 600px;
-  background-color: map-get($customColors, 'gunmetal-lighter') !important;
+  background-color: map.get($customColors, 'gunmetal-lighter') !important;
 }
 
 body:not(.body--dark) {
   .documentPreviewContent.-fullsize {
     background-color: #fff !important;
-    color: darken($dark, 12.5) !important;
+    color: color.adjust($dark, $lightness: -12.5%, $space: hsl) !important;
 
     .text-primary {
       color: var(--q-color-primary) !important;
@@ -642,7 +645,7 @@ body:not(.body--dark) {
 }
 
 body.body--dark .documentPreviewContent.-fullsize {
-  background-color: lighten(#303742, 5) !important;
+  background-color: color.adjust(#303742, $lightness: 5%, $space: hsl) !important;
 }
 
 .documentPreviewContent {
@@ -650,7 +653,7 @@ body.body--dark .documentPreviewContent.-fullsize {
   width: 700px;
   max-width: 100%;
   min-height: 600px;
-  background-color: map-get($customColors, 'gunmetal-lighter') !important;
+  background-color: map.get($customColors, 'gunmetal-lighter') !important;
   color: #fff;
 
   .inputWrapper {

@@ -864,6 +864,8 @@ function triggerExport () {
 </script>
 
 <style lang="scss">
+@use "sass:color";
+
 .documentControl {
   z-index: 999;
   width: calc(100vw - 380px);
@@ -878,7 +880,7 @@ function triggerExport () {
     top: -7.5px;
     left: 0;
     right: 0;
-    background-color: darken($dark, 0.5);
+    background-color: color.adjust($dark, $lightness: -0.5%, $space: hsl);
     z-index: 999;
     height: 7.5px;
   }

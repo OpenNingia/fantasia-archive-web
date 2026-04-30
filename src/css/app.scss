@@ -1,3 +1,6 @@
+@use "sass:map";
+@use "sass:color";
+
 // app global css in SCSS form
 
 @import './app/customColors.scss';
@@ -18,13 +21,13 @@
 
   /* Handle */
   ::-webkit-scrollbar-thumb {
-    background: lighten($dark, 40);
+    background: color.adjust($dark, $lightness: 40%, $space: hsl);
     border-radius: 5px;
   }
 
   /* Handle on hover */
   ::-webkit-scrollbar-thumb:hover {
-    background: lighten($dark, 60);
+    background: color.adjust($dark, $lightness: 60%, $space: hsl);
   }
 }
 
@@ -45,18 +48,18 @@ body {
   overflow-y: scroll;
   overflow-x: hidden;
   top: 0 !important;
-  color: darken($dark, 12.5);
+  color: color.adjust($dark, $lightness: -12.5%, $space: hsl);
 
   /* WebKit/Blink Browsers */
   ::selection {
-    color: lighten($primary, 25);
-    background: lighten($secondary, 10);
+    color: color.adjust($primary, $lightness: 25%, $space: hsl);
+    background: color.adjust($secondary, $lightness: 10%, $space: hsl);
   }
 
   /* Gecko Browsers */
   ::-moz-selection {
-    color: lighten($primary, 25);
-    background: lighten($secondary, 10);
+    color: color.adjust($primary, $lightness: 25%, $space: hsl);
+    background: color.adjust($secondary, $lightness: 10%, $space: hsl);
   }
 
   &.body--dark {
@@ -64,14 +67,14 @@ body {
 
     /* WebKit/Blink Browsers */
     ::selection {
-      color: lighten($primary, 25);
-      background: lighten($secondary, 7);
+      color: color.adjust($primary, $lightness: 25%, $space: hsl);
+      background: color.adjust($secondary, $lightness: 7%, $space: hsl);
     }
 
     /* Gecko Browsers */
     ::-moz-selection {
-      color: lighten($primary, 25);
-      background: lighten($secondary, 7);
+      color: color.adjust($primary, $lightness: 25%, $space: hsl);
+      background: color.adjust($secondary, $lightness: 7%, $space: hsl);
     }
 
     .q-editor {
@@ -134,7 +137,7 @@ img {
   border-radius: 4px;
   font-family: 'Courier New', Courier, monospace;
   color: var(--q-color-primary);
-  background-color: map-get($customColors, 'gunmetal-medium');
+  background-color: map.get($customColors, 'gunmetal-medium');
   vertical-align: baseline;
 }
 
@@ -512,7 +515,7 @@ img {
 }
 
 .q-focus-helper {
-  background-color: map-get($customColors, 'gunmetal-bright') !important;
+  background-color: map.get($customColors, 'gunmetal-bright') !important;
 }
 
 .q-chip.noBounce {
@@ -706,7 +709,7 @@ body .q-tooltip {
   background-size: 30px;
 
   &:hover {
-    background-color: lighten(#244452, 4) !important;
+    background-color: color.adjust(#244452, $lightness: 4%, $space: hsl) !important;
   }
 }
 

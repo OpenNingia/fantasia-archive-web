@@ -1194,6 +1194,8 @@ function checkDocumentTemplate (id: string) {
 </style>
 
 <style lang="scss">
+@use "sass:color";
+
 .documentColumnWrapper {
   flex-grow: 1;
 
@@ -1234,13 +1236,13 @@ function checkDocumentTemplate (id: string) {
 
   /* WebKit/Blink Browsers */
   ::selection {
-    background: lighten($dark, 30);
+    background: color.adjust($dark, $lightness: 30%, $space: hsl);
     color: white;
   }
 
   /* Gecko Browsers */
   ::-moz-selection {
-    background: lighten($dark, 30);
+    background: color.adjust($dark, $lightness: 30%, $space: hsl);
     color: white;
   }
 }
@@ -1265,14 +1267,14 @@ body.body--dark {
 
     /* WebKit/Blink Browsers */
     ::selection {
-      color: lighten($primary, 25);
-      background: lighten($secondary, 7);
+      color: color.adjust($primary, $lightness: 25%, $space: hsl);
+      background: color.adjust($secondary, $lightness: 7%, $space: hsl);
     }
 
     /* Gecko Browsers */
     ::-moz-selection {
-      color: lighten($primary, 25);
-      background: lighten($secondary, 7);
+      color: color.adjust($primary, $lightness: 25%, $space: hsl);
+      background: color.adjust($secondary, $lightness: 7%, $space: hsl);
     }
     $darkModeText: #dcdcdc;
 
