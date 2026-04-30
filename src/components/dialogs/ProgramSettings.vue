@@ -889,11 +889,11 @@
               title="Keybinds"
               :filter="filter"
               hide-bottom
-              :pagination.sync="pagination"
+              v-model:pagination="pagination"
               :rows-per-page-options="[0]"
               :virtual-scroll-sticky-size-start="48"
-              row-key="index"
-              :data="keybindList"
+              row-key="id"
+              :rows="keybindList"
               :columns="keybindListCollums"
             >
             <template v-slot:top-right>
