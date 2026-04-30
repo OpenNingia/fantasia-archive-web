@@ -14,11 +14,18 @@
 
         <q-card-section>
           <div>
-            Currently running Fantasia Archive version:
+            Frontend version:
             <span class="text-bold text-primary">{{ appVersion }}</span>
           </div>
           <div class="text-caption q-mt-xs" style="opacity: 0.7;">
             Built {{ buildDate }}
+          </div>
+          <div class="q-mt-md">
+            Backend version:
+            <span class="text-bold text-primary">{{ backendVersion ?? "…" }}</span>
+          </div>
+          <div v-if="backendBuildDate" class="text-caption q-mt-xs" style="opacity: 0.7;">
+            Built {{ backendBuildDate }}
           </div>
        </q-card-section>
 
@@ -85,6 +92,7 @@
 
 import { ref, watch } from "vue"
 import { useAppStores } from "src/composables/useAppStores"
+import { versionApi } from "src/services/api/versionApi"
 
 const props = defineProps<{ dialogTrigger?: string }>()
 const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
@@ -102,8 +110,22 @@ watch(() => props.dialogTrigger, (val) => {
     }
     dialogsStore.setDialogState(true)
     dialogModel.value = true
+    void loadBackendVersion()
   }
 })
+
+const backendVersion = ref<string | null>(null)
+const backendBuildDate = ref<string | null>(null)
+
+async function loadBackendVersion () {
+  try {
+    const v = await versionApi.get()
+    backendVersion.value = v.version
+    backendBuildDate.value = v.buildDate ? new Date(v.buildDate).toLocaleString() : null
+  } catch {
+    backendVersion.value = "unreachable"
+  }
+}
 
 function triggerDialogClose () { dialogsStore.setDialogState(false); emit("triggerDialogClose", true) }
 function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }

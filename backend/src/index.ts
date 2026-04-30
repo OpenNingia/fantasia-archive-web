@@ -49,6 +49,10 @@ async function start () {
   await app.register(userRoutes, { prefix: '/api/users' })
 
   app.get('/health', async () => ({ ok: true }))
+  app.get('/api/version', async () => ({
+    version: process.env.APP_VERSION || 'unknown',
+    buildDate: process.env.BUILD_DATE || null
+  }))
 
   const port = Number(process.env.PORT ?? 3000)
   const host = process.env.HOST ?? '0.0.0.0'

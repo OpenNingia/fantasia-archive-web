@@ -16,6 +16,13 @@ FROM node:20-alpine
 RUN apk add --no-cache openssl
 WORKDIR /app
 ENV NODE_ENV=production
+# APP_VERSION / BUILD_DATE are surfaced by GET /api/version. Passed in by
+# the GHA workflow via --build-arg; default to "unknown" so the build
+# never fails when invoked outside CI (e.g. local docker compose build).
+ARG APP_VERSION="unknown"
+ARG BUILD_DATE=""
+ENV APP_VERSION=$APP_VERSION
+ENV BUILD_DATE=$BUILD_DATE
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
