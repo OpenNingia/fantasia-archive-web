@@ -113,7 +113,7 @@ export const useOptionsStore = defineStore("options", {
     // store proxy, which has its own `getOptions` accessor. That self-loop blows
     // up Quasar's deep `extend()` (no cycle protection) and crashes the editor.
     getOptions (): OptionsState {
-      return this.$state
+      return (this as unknown as { $state: OptionsState }).$state
     }
   },
 

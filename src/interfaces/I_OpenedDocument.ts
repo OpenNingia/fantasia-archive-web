@@ -33,14 +33,16 @@ export interface I_ShortenedDocument {
   url: string
   expandable?: boolean
   _id: string
+  id?: string
   hierarchicalPath?: string
   isCategory?: boolean
   isMinor?: boolean
   isDead?: boolean
-  parentDoc: string | false
-  children: I_ShortenedDocument[]
+  parentDoc?: string | false
+  children?: I_ShortenedDocument[]
   extraFields: I_ExtraDocumentFields[]
   color?: string
+  bgColor?: string
   tags?: string[]
 
   isNew?: boolean

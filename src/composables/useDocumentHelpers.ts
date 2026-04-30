@@ -6,6 +6,7 @@ import type { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_Ope
 import type { I_NewObjectTrigger } from "src/interfaces/I_NewObjectTrigger"
 import type { I_FieldRelationship } from "src/interfaces/I_FieldRelationship"
 import type { I_KeyPressObject } from "src/interfaces/I_KeypressObject"
+import type { OptionsState } from "src/stores/options"
 
 export function useDocumentHelpers () {
   const router = useRouter()
@@ -293,7 +294,7 @@ export function useDocumentHelpers () {
   }
 
   function toggleHierarchicalTree () {
-    const snap = extend(true, {}, optionsStore.getOptions)
+    const snap = extend<OptionsState>(true, {}, optionsStore.getOptions)
     snap.hideHierarchyTree = !snap.hideHierarchyTree
     void optionsStore.setOptions(snap)
   }

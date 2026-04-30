@@ -13,3 +13,12 @@ declare module "*.ttf"{
   export default content
 }
 
+declare module "@quasar/quasar-ui-qmarkdown" {
+  import type { Plugin } from "vue"
+  const QMarkdown: Plugin
+  export default QMarkdown
+  export { QMarkdown }
+}
+
+declare module "@quasar/quasar-ui-qmarkdown/dist/index.css"
+
