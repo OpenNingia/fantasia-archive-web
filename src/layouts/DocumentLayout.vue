@@ -23,7 +23,39 @@
     <!-- Header -->
     <appHeader/>
 
+    <!-- Mobile shell: off-canvas drawer + full-width content (no splitter, no floating windows) -->
+    <template v-if="isMobile">
+      <q-drawer
+        v-model="mobileDrawerOpen"
+        side="left"
+        :width="300"
+        behavior="mobile"
+        content-class="bg-dark text-cultured mobileSideWrapper"
+        >
+        <objectTree
+          v-if="!hideHierarchyTree"
+        />
+      </q-drawer>
+
+      <q-page-container>
+        <documentControl/>
+        <router-view v-slot="{ Component }">
+          <transition
+            enter-active-class="animated fadeIn"
+            leave-active-class="animated fadeOut"
+            mode="out-in"
+            appear
+            :duration="50"
+          >
+            <component :is="Component" :key="$route.path" />
+          </transition>
+        </router-view>
+      </q-page-container>
+    </template>
+
+    <!-- Desktop shell: resizable splitter + persistent drawer -->
     <q-splitter
+      v-else
       v-model="splitterModel"
       unit="px"
       emit-immediately
@@ -91,7 +123,7 @@
 
 <script setup lang="ts">
 
-import { ref, computed, watch, onMounted, nextTick } from "vue"
+import { ref, computed, watch, onMounted, nextTick, provide } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import objectTree from "src/components/ObjectTree.vue"
 import appHeader from "src/components/AppHeader.vue"
@@ -108,6 +140,8 @@ import { projectApi } from "src/services/api/projectApi"
 import { documentPath } from "src/scripts/utilities/projectRoutes"
 import { useAppStores } from "src/composables/useAppStores"
 import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+import { useIsMobile } from "src/composables/useIsMobile"
+import { MOBILE_DRAWER_KEY } from "src/composables/mobileDrawer"
 
 const q = useQuasar()
 const route = useRoute()
@@ -210,10 +244,25 @@ onMounted(async () => {
 // BASIC COMPONENT DATA
 /****************************************************************/
 
+const isMobile = useIsMobile()
+
 /**
  * Model for the left drawer of the app containing the hierarchical tree
  */
 const leftDrawerOpen = ref(true)
+
+/**
+ * Mobile-only off-canvas drawer state. Exposed via provide so AppHeader's
+ * hamburger button can toggle it without lifting state to a store.
+ */
+const mobileDrawerOpen = ref(false)
+function toggleMobileDrawer () {
+  mobileDrawerOpen.value = !mobileDrawerOpen.value
+}
+provide(MOBILE_DRAWER_KEY, {
+  open: mobileDrawerOpen,
+  toggle: toggleMobileDrawer
+})
 
 /**
  * Width of the splitted model
