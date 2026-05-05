@@ -264,6 +264,13 @@ provide(MOBILE_DRAWER_KEY, {
   toggle: toggleMobileDrawer
 })
 
+// Tapping a document leaf in the tree navigates via the router; close the
+// off-canvas drawer automatically so the user lands on the document instead
+// of staring at a covered page.
+watch(() => route.path, () => {
+  if (isMobile.value) mobileDrawerOpen.value = false
+})
+
 /**
  * Width of the splitted model
  */

@@ -34,7 +34,7 @@
 
     <q-page-sticky position="top-right"
       class="documentControl bg-dark"
-      :class="{'fullScreen': hideHierarchyTree}"
+      :class="{'fullScreen': hideHierarchyTree, '-mobile': isMobile}"
       v-if="!disableDocumentControlBar"
       >
 
@@ -44,12 +44,12 @@
 
       <div
       class="documentControl__wrapper"
-      :class="{'fullScreen': hideHierarchyTree}"
+      :class="{'fullScreen': hideHierarchyTree, '-mobile': isMobile}"
       >
 
         <div class="documentControl__left">
 
-          <template v-if="!disableDocumentControlBarGuides">
+          <template v-if="!disableDocumentControlBarGuides && !isMobile">
             <q-btn
               icon="mdi-file-question"
               color="primary"
@@ -102,6 +102,7 @@
           <q-separator vertical inset color="accent" />
 
           <q-btn
+            v-if="!isMobile"
             icon="mdi-page-layout-sidebar-left"
             color="primary"
             outline
@@ -117,6 +118,7 @@
           </q-btn>
 
           <q-btn
+            v-if="!isMobile"
             icon="mdi-clipboard-text-outline"
             color="primary"
             outline
@@ -131,7 +133,7 @@
             </q-tooltip>
           </q-btn>
 
-          <q-separator vertical inset color="accent" />
+          <q-separator vertical inset color="accent" v-if="!isMobile" />
 
           <q-btn
             icon="mdi-database-search"
@@ -244,7 +246,7 @@
             color="primary"
             outline
             @click="openThisDocumentInSidebar"
-            v-if="!currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
+            v-if="!isMobile && !currentlyNew && openedDocumentsStore.getAllDocuments.docs.length > 0  && route.name === 'project-document'"
           >
             <q-tooltip
               :delay="500"
@@ -368,6 +370,9 @@ import { documentPath } from "src/scripts/utilities/projectRoutes"
 
 import { useAppStores } from "src/composables/useAppStores"
 import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+import { useIsMobile } from "src/composables/useIsMobile"
+
+const isMobile = useIsMobile()
 
 const route = useRoute()
 const router = useRouter()
@@ -757,6 +762,10 @@ function triggerExport () {
     width: calc(100vw);
   }
 
+  &.-mobile {
+    width: 100vw;
+  }
+
   &__blocker {
     position: absolute;
     top: -7.5px;
@@ -776,6 +785,13 @@ function triggerExport () {
 
     &.fullScreen {
       width: calc(100vw);
+    }
+
+    &.-mobile {
+      width: 100vw;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8.5px 8px;
     }
 
     &::after {
@@ -817,6 +833,10 @@ html body {
   &.q-body--prevent-scroll {
     .documentControl {
       min-width: calc(100vw - 375px);
+
+      &.-mobile {
+        min-width: 100vw;
+      }
     }
   }
 }
