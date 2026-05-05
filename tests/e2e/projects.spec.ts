@@ -41,7 +41,8 @@ test('selecting a project and clicking Open Project navigates to /project', asyn
   // Select the first project item
   await page.locator('.q-list .q-item').first().click()
   await page.getByRole('button', { name: 'Open Project' }).click()
-  await page.waitForURL('/project')
+  // Routes are /project/:projectId — match the id segment, not bare /project
+  await page.waitForURL(/\/project\/[^/]+/)
   await page.waitForLoadState('networkidle')
   // mainProjectTitle is an h2 populated asynchronously; check the subtitle which is always visible
   await expect(page.getByText('Project overview for')).toBeVisible({ timeout: 15000 })

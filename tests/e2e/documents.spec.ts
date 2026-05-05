@@ -28,7 +28,8 @@ async function openProject (page: import('@playwright/test').Page, name: string)
   // Select the project by its exact name to avoid picking a stale project from a previous run
   await page.getByText(name, { exact: true }).click()
   await page.getByRole('button', { name: 'Open Project' }).click()
-  await page.waitForURL('/project')
+  // Routes are /project/:projectId — match the id segment, not bare /project
+  await page.waitForURL(/\/project\/[^/]+/)
 }
 
 test('document created via API appears in the tree after page load', async ({ page, request }) => {
@@ -127,5 +128,5 @@ test('clicking a document in the tree navigates to its display page', async ({ p
   const leafHeader = page.locator('.q-tree__node-header').filter({ has: page.locator('.treeButton--edit') }).first()
   await expect(leafHeader).toBeVisible({ timeout: 5000 })
   await leafHeader.click()
-  await page.waitForURL(/\/project\/display-content\//)
+  await page.waitForURL(/\/project\/[^/]+\/display-content\//)
 })
