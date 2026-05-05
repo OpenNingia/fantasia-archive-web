@@ -47,6 +47,51 @@ test('mobile shell: hamburger toggles ObjectTree drawer; TopTabs hidden', async 
   await deleteProject(request, projectId)
 })
 
+test('mobile WYSIWYG: editor mounts and toolbar fits the 390px viewport', async ({ page, request }) => {
+  // Phase 12.3: editing must remain reachable on mobile. The full-fat desktop
+  // toolbar overflows; we ship a slimmer one. Smoke-check that q-editor mounts
+  // in edit mode and its toolbar doesn't push outside the viewport.
+  const projectName = `Mobile-Wysiwyg-${Date.now()}`
+  const projectId = await createProject(request, projectName)
+  await createDocument(request, projectId, 'characters', [{ id: 'name', value: 'Boromir' }])
+
+  await openProjectMobile(page, projectName)
+
+  // Navigate to the doc via the tree
+  await page.getByTestId('mobile-drawer-toggle').click()
+  await page.waitForTimeout(400)
+  const rootWithDoc = page.locator('.q-tree__node-header').filter({
+    has: page.locator('.docCount', { hasText: /^[1-9]/ })
+  }).first()
+  await expect(rootWithDoc).toBeVisible({ timeout: 15000 })
+  await rootWithDoc.click()
+  const leafHeader = page.locator('.q-tree__node-header').filter({ has: page.locator('.treeButton--edit') }).first()
+  await leafHeader.click()
+  await page.waitForURL(/\/project\/[^/]+\/display-content\//)
+  await page.waitForTimeout(800)
+
+  // Toggle edit mode from the document toolbar — q-editor only mounts then.
+  await page.locator('button .mdi-file-document-edit').first().click()
+
+  const editor = page.locator('.q-editor').first()
+  await expect(editor).toBeVisible({ timeout: 5000 })
+
+  // Toolbar must not overflow horizontally. q-editor wraps groups onto multiple
+  // rows when needed, so check the toolbar element's own bounding box width.
+  const toolbar = editor.locator('.q-editor__toolbar').first()
+  await expect(toolbar).toBeVisible()
+  const tb = await toolbar.boundingBox()
+  expect(tb).not.toBeNull()
+  expect((tb?.width ?? 1000)).toBeLessThanOrEqual(390)
+
+  // Alignment / fontSize / fullscreen / viewsource are dropped on mobile —
+  // assert at least one (alignment) is genuinely absent. q-editor uses its
+  // i18n strings for aria-label; we use the native command name on the button.
+  await expect(editor.locator('button[aria-label*="lign"]')).toHaveCount(0)
+
+  await deleteProject(request, projectId)
+})
+
 test('mobile shell: tapping a tree leaf navigates and auto-closes the drawer', async ({ page, request }) => {
   // Phase 12.2: the off-canvas drawer should close itself when the user lands
   // on a document, otherwise they stare at a covered page after navigating.

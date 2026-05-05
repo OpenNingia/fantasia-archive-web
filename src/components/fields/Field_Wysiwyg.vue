@@ -54,11 +54,13 @@
       :fonts="wysiwygFonts"
       @input="processInput"
       :flat="isDarkMode"
+      :dense="isMobile"
       v-if="editMode"
       :definitions="definitions"
-      min-height="350px"
+      :min-height="isMobile ? '200px' : '350px'"
       :class="{
-        'limitEditorHeight': limitEditorHeight
+        'limitEditorHeight': limitEditorHeight,
+        'fieldWysiwygEditor--mobile': isMobile
       }"
       @keypress.native="handleEditorKeypress"
       @click.native="handleEditorClick"
@@ -79,6 +81,7 @@
 import { ref, computed, watch, onMounted, onUpdated, onBeforeUpdate, nextTick } from "vue"
 import { useAppStores } from "src/composables/useAppStores"
 import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
+import { useIsMobile } from "src/composables/useIsMobile"
 import type { I_ExtraFields } from "src/interfaces/I_Blueprint"
 import { QEditor, extend } from "quasar"
 import type { I_HasFullScreenEditMode, I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
@@ -101,6 +104,7 @@ const emit = defineEmits(["signalInput", "signalFullScreenStatusChange"])
 const { optionsStore, projectStore, openedDocumentsStore, allDocumentsStore } = useAppStores()
 const { generateUID, openLink, findRequestedOrActiveDocument } = useDocumentHelpers()
 const q = useQuasar()
+const isMobile = useIsMobile()
 
 const isDarkMode = ref(false)
 const disableDocumentToolTips = ref(false)
@@ -383,7 +387,7 @@ const wysiwygFonts = {
   verdana: "Verdana"
 }
 
-const wysiwygOptions = [
+const desktopWysiwygOptions = [
   ["left", "center", "right", "justify"],
   ["bold", "italic", "underline", "subscript", "superscript"],
   [
@@ -442,6 +446,28 @@ const wysiwygOptions = [
   ["toggleFullSceen"],
   ["viewsource"]
 ]
+
+// Mobile drops alignment, fontSize, defaultFont, advanced lists, fullscreen
+// and viewsource — they take a lot of toolbar space and are rarely used on a
+// phone. Heading dropdown stays so users can mark sections.
+const mobileWysiwygOptions = [
+  ["bold", "italic", "underline"],
+  [
+    {
+      label: q.lang.editor.formatting,
+      icon: q.iconSet.editor.formatting,
+      list: "no-icons",
+      fixedIcon: true,
+      options: ["h1", "h2", "h3", "p"]
+    },
+    "removeFormat"
+  ],
+  ["link", "unordered", "ordered"],
+  ["insertImageLink"],
+  ["undo", "redo"]
+]
+
+const wysiwygOptions = computed(() => isMobile.value ? mobileWysiwygOptions : desktopWysiwygOptions)
 
 // Insert image dialog
 const WISIWYG_insertImageChoiceDialogTrigger = ref("")
