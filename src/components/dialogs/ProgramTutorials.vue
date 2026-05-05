@@ -38,7 +38,7 @@
             <q-tab name="quickSearchQuickAdd" label="3 - Quick Search/Add & Advanced Searching" />
             <q-tab name="exportAndTemplates" label="4 - Exports & Document templates" />
             <q-tab name="treeAndTags" label="5 - Hierarchical tree & Tags" />
-            <q-tab name="settingsAndKeybinds" label="6 - Settings & Keybinds" />
+            <q-tab name="settingsAndKeybinds" label="6 - Settings" />
             <q-tab name="extras_nodeboard" label="7, A - Extras
               Noteboard" />
             <q-tab name="extras_customCSS" label="7, B - Extras

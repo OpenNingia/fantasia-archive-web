@@ -495,7 +495,6 @@ const {
   blueprintsStore,
   openedDocumentsStore,
   allDocumentsStore,
-  keybindsStore,
   dialogsStore,
   optionsStore,
   floatingWindowsStore,
@@ -510,30 +509,13 @@ const {
   addNewObjectRoute,
   openExistingDocumentRoute,
   openExistingDocumentRouteWithEdit,
-  openDocumentPreviewPanel,
-  determineKeyBind
+  openDocumentPreviewPanel
 } = useDocumentHelpers()
 
 // lazy import documentPreview
 import documentPreview from "src/components/DocumentPreview.vue"
 
-/****************************************************************/
-// KEYBINDS MANAGEMENT
-/****************************************************************/
 const treeFilterRef = ref<HTMLInputElement | null>(null)
-
-watch(() => keybindsStore.getCurrentKeyBindData, () => {
-  // Focus left tree search
-  if (determineKeyBind("focusHierarchicalTree") && !dialogsStore.getDialogsState) {
-    const treeFilterDOM = treeFilterRef.value as unknown as HTMLInputElement
-    treeFilterDOM?.focus()
-  }
-
-  // Clear input in the left tree search
-  if (determineKeyBind("clearInputHierarchicalTree") && !dialogsStore.getDialogsState) {
-    resetTreeFilter()
-  }
-}, { deep: true })
 
 /****************************************************************/
 // GENERIC FUNCTIONALITY

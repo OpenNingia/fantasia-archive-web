@@ -7,7 +7,6 @@ export const tipsTricks: string[] = [
   "\"CTRL+SHIFT\" will bring up a full-page search in case you are hunting for that particular word in the current document!",
   "Any field in the document editing mode with the small dropdown arrow allows for custom values! Just close the menu of predefined values with ESC, type your desired value and confirm with ENTER.",
   "It is possible to search through all documents and all of their fields at once using the following in either the Quick search popup or any of the relationship searches: \"%field-name:whatever-you-need\"",
-  "There is a whole list of really helpful keybinds that can make your use of FA a lot quicker and easier!",
   "The settings menu contains a whole assortment of both big and small tweaks to tailor the app to your needs!",
   "FA has a Dark Mode that is no mere afterthought and is fully serviceable!",
   "Many parts of the app react to a middle-mouse click. For example, you can close document tabs or open hierarchical tree items with it directly!",

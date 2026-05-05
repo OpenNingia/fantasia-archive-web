@@ -98,8 +98,8 @@ const props = defineProps<{
 
 const emit = defineEmits(["signalInput", "signalFullScreenStatusChange"])
 
-const { optionsStore, projectStore, keybindsStore, openedDocumentsStore, allDocumentsStore, dialogsStore } = useAppStores()
-const { generateUID, openLink, determineKeyBind, findRequestedOrActiveDocument } = useDocumentHelpers()
+const { optionsStore, projectStore, openedDocumentsStore, allDocumentsStore } = useAppStores()
+const { generateUID, openLink, findRequestedOrActiveDocument } = useDocumentHelpers()
 const q = useQuasar()
 
 const isDarkMode = ref(false)
@@ -196,20 +196,6 @@ function signalFullScreenStatusChange () {
     value: !fullScreenState
   })
 }
-
-// Keybinds
-watch(() => keybindsStore.getCurrentKeyBindData, () => {
-  if ((determineKeyBind("toggleCurrentWysiwygFullScreen") || determineKeyBind("toggleCurrentWysiwygFullScreenAlt")) && !dialogsStore.getDialogsState) {
-    const localFocus = document.activeElement?.closest(`#${props.inputDataBluePrint.id}`)
-
-    if (localFocus) {
-      toggleEditorFullScreen()
-    }
-    else {
-      turnOffEditorFullScreen()
-    }
-  }
-}, { deep: true })
 
 // WYSIWYG functionality
 function pasteCapture (evt: any) {
@@ -348,21 +334,6 @@ function toggleEditorFullScreen () {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     editor.setFullscreen()
     editor.focus()
-  }
-}
-
-function turnOffEditorFullScreen () {
-  const editor = wysiwygFieldRef.value as QEditor
-  // @ts-ignore
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const fullScreenState = editor.inFullscreen
-
-  if (fullScreenState) {
-    signalFullScreenStatusChange()
-
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    editor.exitFullscreen()
   }
 }
 

@@ -5,7 +5,6 @@ import { documentPath, projectHomePath } from "src/scripts/utilities/projectRout
 import type { I_OpenedDocument, I_ShortenedDocument } from "src/interfaces/I_OpenedDocument"
 import type { I_NewObjectTrigger } from "src/interfaces/I_NewObjectTrigger"
 import type { I_FieldRelationship } from "src/interfaces/I_FieldRelationship"
-import type { I_KeyPressObject } from "src/interfaces/I_KeypressObject"
 import type { OptionsState } from "src/stores/options"
 
 export function useDocumentHelpers () {
@@ -15,7 +14,6 @@ export function useDocumentHelpers () {
     blueprintsStore,
     openedDocumentsStore,
     allDocumentsStore,
-    keybindsStore,
     dialogsStore,
     optionsStore,
     floatingWindowsStore,
@@ -95,48 +93,6 @@ export function useDocumentHelpers () {
     if (!fieldData) return false
     const bp = blueprintsStore.getBlueprint(document.type)
     return (bp?.extraFields.find((f) => f.id === fieldID)?.isLegacy as boolean) ?? false
-  }
-
-  /****************************************************************/
-  // KEYBINDS
-  /****************************************************************/
-
-  function retrieveKeybindString (keybind: I_KeyPressObject): string {
-    if (!keybind) return ""
-    let s = ""
-    if (keybind.ctrlKey) s += "CTRL + "
-    if (keybind.altKey) s += "ALT + "
-    if (keybind.shiftKey) s += "SHIFT + "
-
-    const specialKeys: Record<number, string> = {
-      13: "ENTER", 9: "TAB", 32: "SPACE",
-      37: "LEFT ARROW", 38: "UP ARROW", 39: "RIGHT ARROW", 40: "DOWN ARROW",
-      192: "`", 189: "-", 187: "+", 219: "[", 221: "]", 220: "\\",
-      186: ";", 222: "'", 188: ",", 190: ".", 191: "/",
-      112: "F1", 113: "F2", 114: "F3", 115: "F4", 116: "F5", 117: "F6",
-      118: "F7", 119: "F8", 120: "F9", 121: "F10", 122: "F11", 123: "F12"
-    }
-
-    s += specialKeys[keybind.which] ?? String.fromCharCode(keybind.which)
-
-    if (keybind.note) {
-      s += `<div class="text-italic keybindNote">${keybind.note}</div>`
-    }
-    return s
-  }
-
-  function determineKeyBind (keybindId: string): boolean {
-    const km = keybindsStore.getCurrentKeyBindData
-    const pressed = km.currentKeyPress
-    const def = km.defaults.find((e) => e.id === keybindId)
-    if (!def) return false
-    const check = km.userKeybinds.find((e) => e.id === keybindId) ?? def
-    return (
-      pressed.altKey === check.altKey &&
-      pressed.ctrlKey === check.ctrlKey &&
-      pressed.shiftKey === check.shiftKey &&
-      pressed.which === check.which
-    )
   }
 
   /****************************************************************/
@@ -323,8 +279,6 @@ export function useDocumentHelpers () {
     retrieveFieldLength,
     retrieveFieldType,
     determineLegacyField,
-    retrieveKeybindString,
-    determineKeyBind,
     getDocumentHieararchicalPath,
     mapShortDocument,
     checkForLegacyDocuments,

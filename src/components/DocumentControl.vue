@@ -26,12 +26,6 @@
       @trigger-dialog-close="advancedSearchGuideDialogClose"
     />
 
-    <!-- Keybind dialog -->
-    <keybindCheatsheetDialog
-      :dialog-trigger="keybindsDialogTrigger"
-      @trigger-dialog-close="keybindsDialogClose"
-    />
-
     <!-- Tips, Tricks & Trivia dialog -->
     <tipsTricksTriviaDialog
       :dialog-trigger="tipsTricksDialogTrigger"
@@ -56,21 +50,6 @@
         <div class="documentControl__left">
 
           <template v-if="!disableDocumentControlBarGuides">
-            <q-btn
-              icon="mdi-keyboard-settings"
-              color="primary"
-              outline
-              @click="keybindsDialogAssignUID"
-            >
-              <q-tooltip
-                :delay="500"
-                anchor="bottom middle"
-                self="top middle"
-              >
-              Open keybinds cheatsheet
-              </q-tooltip>
-            </q-btn>
-
             <q-btn
               icon="mdi-file-question"
               color="primary"
@@ -377,7 +356,6 @@ import newDocumentDialog from "src/components/dialogs/NewDocument.vue"
 import existingDocumentDialog from "src/components/dialogs/ExistingDocument.vue"
 import deleteDocumentCheckDialog from "src/components/dialogs/DeleteDocumentCheck.vue"
 import advancedSearchGuideDialog from "src/components/dialogs/AdvancedSearchGuide.vue"
-import keybindCheatsheetDialog from "src/components/dialogs/KeybindCheatsheet.vue"
 import tipsTricksTriviaDialog from "src/components/dialogs/TipsTricksTrivia.vue"
 
 import type { I_OpenedDocument } from "src/interfaces/I_OpenedDocument"
@@ -399,7 +377,6 @@ const {
   blueprintsStore,
   openedDocumentsStore,
   allDocumentsStore,
-  keybindsStore,
   dialogsStore,
   optionsStore,
   floatingWindowsStore,
@@ -412,8 +389,7 @@ const {
   findRequestedOrActiveDocument,
   openDocumentPreviewPanel,
   toggleHierarchicalTree,
-  mapShortDocument,
-  determineKeyBind
+  mapShortDocument
 } = useDocumentHelpers()
 
 /****************************************************************/
@@ -447,87 +423,6 @@ function checkProjectStatus () {
 }
 
 /****************************************************************/
-// Keybinds management
-/****************************************************************/
-
-watch(() => keybindsStore.getCurrentKeyBindData, async () => {
-  // Quick new document
-  if (determineKeyBind("quickNewDocument") && !dialogsStore.getDialogsState) {
-    newObjectAssignUID()
-  }
-
-  // Quick open existing document
-  if (determineKeyBind("quickExistingDocument") && !dialogsStore.getDialogsState) {
-    existingObjectAssignUID()
-  }
-
-  // Quick open existing document
-  if (determineKeyBind("openDocInSide") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
-    openThisDocumentInSidebar()
-  }
-
-  // Delete dialog - CTRL + D
-  if (determineKeyBind("deleteDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
-    deleteObjectAssignUID()
-  }
-
-  // Export document - NONE
-  if (determineKeyBind("exportDocument") && currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
-    triggerExport()
-  }
-
-  // Edit document - CTRL + E
-  if (determineKeyBind("editDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
-    toggleEditMode()
-  }
-
-  // Save document - CTRL + S
-  if (determineKeyBind("saveDocument") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
-    setTimeout(() => {
-      saveCurrentDocument(false).catch(e => console.log(e))
-    }, 500)
-  }
-
-  // Save document without exiting edit mode - CTRL + ALT + S
-  if (determineKeyBind("saveDocumentNoExit") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
-    setTimeout(() => {
-      saveCurrentDocument(true).catch(e => console.log(e))
-    }, 500)
-  }
-
-  // Mass document save - CTRL + SHIFT + S
-  if (determineKeyBind("saveDocumentMass") && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
-    setTimeout(() => {
-      massSave().catch(e => console.log(e))
-    }, 500)
-  }
-
-  // Save document and mark it as finished - NONE
-  if (determineKeyBind("saveDocumentTickFinish") && !currentyEditable.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
-    setTimeout(() => {
-      saveCurrentDocument(false, true).catch(e => console.log(e))
-    }, 500)
-  }
-
-  // Add new under parent - CTRL + SHIFT + N
-  if (determineKeyBind("addUnderParent") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
-    await sleep(100)
-    addNewUnderParent()
-  }
-
-  // Copy document - CTRL + ALT + C
-  if (determineKeyBind("copyDocument") && !currentlyNew.value && openedDocumentsStore.getAllDocuments.docs.length > 0 && !dialogsStore.getDialogsState && route.name === "project-document") {
-    await sleep(100)
-    copyTargetDocument()
-  }
-
-  // Toggle hierarchical tree - CTRL + ALT + SHIFT + T
-  if (determineKeyBind("toggleHierarchicalTree")) {
-    toggleHierarchicalTree()
-  }
-}, { deep: true })
-
-/****************************************************************/
 // Advanced search guide dialog
 /****************************************************************/
 
@@ -538,19 +433,6 @@ function advancedSearchGuideDialogClose () {
 
 function advancedSearchGuideAssignUID () {
   advancedSearchGuideDialogTrigger.value = generateUID()
-}
-
-/****************************************************************/
-// Keybinds cheatsheet dialog
-/****************************************************************/
-
-const keybindsDialogTrigger = ref("")
-function keybindsDialogClose () {
-  keybindsDialogTrigger.value = ""
-}
-
-function keybindsDialogAssignUID () {
-  keybindsDialogTrigger.value = generateUID()
 }
 
 /****************************************************************/

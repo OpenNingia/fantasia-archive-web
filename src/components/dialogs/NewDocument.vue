@@ -73,8 +73,8 @@ import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 const props = defineProps<{ dialogTrigger?: string }>()
 const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
-const { dialogsStore, blueprintsStore, optionsStore, keybindsStore } = useAppStores()
-const { sleep, determineKeyBind, addNewObjectRoute } = useDocumentHelpers()
+const { dialogsStore, blueprintsStore, optionsStore } = useAppStores()
+const { sleep, addNewObjectRoute } = useDocumentHelpers()
 
 const dialogModel = ref(false)
 const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
@@ -95,8 +95,6 @@ function triggerDialogSubmit (val: string) { emit("triggerDialogSubmit", val) }
 // COMPONENT SETTINGS
 /****************************************************************/
 
-const isCloseAbleViaKeybind = ref(false)
-const closeWithSameClick = ref(false)
 const textShadow = ref(false)
 
 watch(() => optionsStore.getOptions, () => {
@@ -104,24 +102,7 @@ watch(() => optionsStore.getOptions, () => {
 }, { immediate: true, deep: true })
 
 function reloadOptions () {
-  closeWithSameClick.value = optionsStore.getOptions.allowQuickPopupSameKeyClose
   textShadow.value = optionsStore.getOptions.textShadow
-}
-
-/****************************************************************/
-// LOCAL KEYBINDS
-/****************************************************************/
-
-watch(() => keybindsStore.getCurrentKeyBindData, () => {
-  processKeyPush()
-}, { deep: true })
-
-function processKeyPush () {
-  if (determineKeyBind("quickNewDocument") && dialogModel.value && closeWithSameClick.value && isCloseAbleViaKeybind.value && dialogsStore.getDialogsState) {
-    dialogModel.value = false
-    dialogsStore.setDialogState(false)
-    newDocumentModel.value = null
-  }
 }
 
 /****************************************************************/
@@ -133,7 +114,6 @@ function openDialog (val: string | false) {
     if (dialogsStore.getDialogsState) {
       return
     }
-    isCloseAbleViaKeybind.value = false
     dialogsStore.setDialogState(true)
     dialogModel.value = true
     populateNewObjectDialog().catch(e => console.log(e))
@@ -163,8 +143,6 @@ async function populateNewObjectDialog () {
   await nextTick()
   await sleep(300)
   ref_newDocument.value?.focus()
-
-  isCloseAbleViaKeybind.value = true
 }
 
 async function refocusSelect () {

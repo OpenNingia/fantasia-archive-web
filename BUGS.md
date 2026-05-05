@@ -6,7 +6,7 @@ Bugs che ho trovato
 
 - [x] Bottoni minimizza, massimizza, chiudi sono un retaggio di electron -- rimuovere
 - [x] Program settings -> Keybinds -> pagina vuota (q-table usava le prop di Quasar v1; switch a `:rows` + `v-model:pagination`. Patch transitoria, vedi punto sotto)
-- [ ] Program settings -> Keybinds -> rimuovere l'intera funzionalità: in browser molti shortcut sono protetti (Ctrl+W chiude la tab del browser, Ctrl+N nuova finestra, Ctrl+Shift+N incognito, F11 fullscreen del browser, Ctrl+Shift+W chiude la finestra) e altri (Ctrl+F, Ctrl+S, Ctrl+D, Ctrl+E, Ctrl+Shift+T) richiederebbero `preventDefault()` oggi assente. ~11 di 36 keybind di default sono rotti o pericolosi. Vedi piano Phase 11 per scope di rimozione.
+- [x] Program settings -> Keybinds -> rimuovere l'intera funzionalità (Phase 11, 2026-05-05): rimossi store `keybinds`, `defaultKeybinds`, `KeybindCheatsheet`, l'intera tab Keybinds in ProgramSettings, tutti i watcher su `keybindsStore.getCurrentKeyBindData` (App, AppControl, DocumentControl, TopTabs, ObjectTree, NewDocument, ExistingDocument, Field_Wysiwyg), `userKeybindList` da OptionsState, e la voce di menu "Show keybind cheatsheet" in Help & Info. Il "full-page search popup" (`appSearchBox`) era triggerabile solo da keybind: il binding non c'è più, il componente è ancora montato ma non si attiva — eventuale rimozione/UI alternativa è scope futuro.
 
 - [] Errore console in produzione
 ReferenceError: can't access lexical declaration 'X' before initialization

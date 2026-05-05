@@ -87,7 +87,6 @@ import { ref, watch, computed, onMounted, onUnmounted } from "vue"
 import { useRoute } from "vue-router"
 import { useI18n } from "vue-i18n"
 import { useQuasar, setCssVar } from "quasar"
-import { defaultKeybinds } from "src/scripts/appSettings/defaultKeybinds"
 import type { OptionsStateInteface } from "./store/module-options/state"
 import { tipsTricks } from "src/scripts/utilities/tipsTricks"
 import { summonAllPlusheForms } from "src/scripts/utilities/plusheMascot"
@@ -100,12 +99,11 @@ import { useMarkdown } from "src/composables/useMarkdown"
 const q = useQuasar()
 const route = useRoute()
 const {
-  keybindsStore,
   optionsStore,
   floatingWindowsStore,
   projectStore
 } = useAppStores()
-const { openLink, determineKeyBind } = useDocumentHelpers()
+const { openLink } = useDocumentHelpers()
 const { t } = useI18n()
 const { render: renderMarkdown } = useMarkdown()
 const renderedSearchCheatSheet = computed(() => renderMarkdown(t("documents.advancedSearchCheatSheet")))
@@ -140,19 +138,12 @@ onMounted(async () => {
   // Load the popup hint on
   loadHintPopup()
 
-  // React to keybind presses
-  window.addEventListener("keydown", triggerKeyPush)
-
   // Catch normal clicks inside wysiwyg
   window.addEventListener("click", openWysiwygLink)
 })
 
 onUnmounted(() => {
   window.removeEventListener("auxclick", reactToMiddleClick)
-
-  deregisterCustomKeybinds()
-  deregisterDefaultKeybinds()
-  window.removeEventListener("keydown", triggerKeyPush)
 })
 
 /****************************************************************/
@@ -213,64 +204,6 @@ watch(route, () => {
 })
 
 /****************************************************************/
-// KEYBIND HANDLING
-/****************************************************************/
-
-/**
- * React to keybind combinations being pushed and submit them to the store
- */
-function triggerKeyPush (e: any) {
-  const specialKeyList = [
-    // F11
-    122
-  ]
-
-  if (e?.altKey === true || e?.ctrlKey || e?.shiftKey || specialKeyList.includes(e?.which)) {
-    const ouputKeycombo = {
-      altKey: e.altKey,
-      ctrlKey: e.ctrlKey,
-      shiftKey: e.shiftKey,
-      which: e.which
-    }
-
-    keybindsStore.updatePressedKey(ouputKeycombo)
-  }
-}
-
-/**
- * Registers a default keybind into the store
- */
-function registerDefaultKeybinds () {
-  // @ts-ignore
-  defaultKeybinds.forEach(e => keybindsStore.registerDefaultKeybind(e))
-}
-
-/**
- * Removes a default keybind from the store
- */
-function deregisterDefaultKeybinds () {
-  // @ts-ignore
-  defaultKeybinds.forEach(e => keybindsStore.deregisterDefaultKeybind(e))
-}
-
-/**
- * Registers a custom keybind into the store
- */
-function registerCustomKeybinds () {
-  setTimeout(() => {
-    optionsStore.getOptions.userKeybindList.forEach(e => keybindsStore.registerUserKeybind(e))
-  }, 1000)
-}
-
-/**
- * Removes a custom keybind from the store
- */
-function deregisterCustomKeybinds () {
-  // @ts-ignore
-  defaultKeybinds.forEach(e => keybindsStore.deregisterUserKeybind(e))
-}
-
-/****************************************************************/
 // VARIOUS APP FUNCTIONALITY
 /****************************************************************/
 
@@ -314,9 +247,6 @@ function loadSettings () {
       console.warn("Failed to parse stored settings", e)
     }
   }
-
-  registerDefaultKeybinds()
-  registerCustomKeybinds()
 }
 
 /**
@@ -428,22 +358,6 @@ function refreshDocumentPreviewWindow (input = true) {
     documentPreviewWindowVisible.value = true
   }
 }
-
-/****************************************************************/
-// Local keybinds
-/****************************************************************/
-
-watch(() => keybindsStore.getCurrentKeyBindData, () => {
-  // Toggle the Advanced search cheatsheet
-  if (determineKeyBind("toggleAdvSearchCheatsheet")) {
-    advSearchWindowVisible.value = !advSearchWindowVisible.value
-  }
-
-  // Toggle Note Board - CTRL + ALT + SHIFT + P
-  if (determineKeyBind("toggleNoteCorkboard")) {
-    corkboardWindowVisible.value = !corkboardWindowVisible.value
-  }
-}, { deep: true })
 
 /****************************************************************/
 // CUSTOM CSS ATTACHING

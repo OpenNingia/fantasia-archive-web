@@ -26,10 +26,6 @@
           <q-tab name="popupSettings" label="Popups & Floating Windows" />
           <q-tab name="treeSettings" label="Hierarchical tree" />
           <q-tab name="tabSettings" label="Opened documents tabs" />
-
-          <q-separator dark />
-
-          <q-tab name="keybinds" label="Keybinds" />
         </q-tabs>
 
       </q-card-section>
@@ -285,7 +281,7 @@
                       <q-tooltip :delay="500">
                         In case you wish to maximize your working space on the document, you can disable the top button bar with the setting.
                         <br>
-                        The necessary control buttons will be moved to the top of the main document body while the rest of the functionality will be accessible via keybinds or through the app menu on the top left.
+                        The necessary control buttons will be moved to the top of the main document body while the rest of the functionality will be accessible through the app menu on the top left.
                       </q-tooltip>
                     </q-icon>
                     </div>
@@ -880,145 +876,6 @@
            </q-scroll-area>
           </q-tab-panel>
 
-          <q-tab-panel name="keybinds" dark>
-            <q-table
-              class="keybindsTable"
-              virtual-scroll
-              dark
-              flat
-              title="Keybinds"
-              :filter="filter"
-              hide-bottom
-              v-model:pagination="pagination"
-              :rows-per-page-options="[0]"
-              :virtual-scroll-sticky-size-start="48"
-              row-key="id"
-              :rows="keybindList"
-              :columns="keybindListCollums"
-            >
-            <template v-slot:top-right>
-              <q-input clearable dark dense debounce="300" v-model="filter" placeholder="Filter the keybinds">
-                <template v-slot:prepend>
-                  <q-icon name="search" />
-                </template>
-              </q-input>
-            </template>
-            <template v-slot:body="props">
-              <q-tr :props="props">
-                <q-td
-                  key="name"
-                  :props="props"
-                  v-html="props.row.name"
-                >
-                </q-td>
-                <q-td
-                  key="userKeybinds"
-                  :props="props"
-                >
-                  <template
-                    v-if="props.row.editable"
-                  >
-                    <q-btn
-                      :color="(props.row.userKeybind && props.row.userKeybind.which) ? 'accent' : 'primary'"
-                      size="12px"
-                      outline
-                    >
-                      {{(props.row.userKeybind && props.row.userKeybind.which) ? retrieveKeybindString(props.row.userKeybind) : 'Add New'}}
-                    <q-popup-edit
-                      content-class="darkBg"
-                      v-model="props.row.userKeybind"
-                      @before-show="prepareKeybindSetting(props.row)"
-                      @before-hide="processKeybindSetting()"
-                    >
-                      <q-btn
-                        color="dark"
-                        round
-                        dense
-                        flat
-                        v-close-popup
-                        class="keybindPopupCloseButton"
-                        size="md"
-                        icon="close"
-                      />
-                      <div class="keybindUpdateField">
-                        <div class="text-center q-mt-xs q-mb-lg text-dark darkBg__title">{{currentRowData.name}}</div>
-                        <q-field filled readonly
-                          dense
-                          class="q-ml-lg"
-                          :dark="false"
-                          :label="(tempKeybindString.length === 0)? '> Type your keybind <' : ''"
-                          :error="keybindError"
-                          :error-message="keybindErrorMessage">
-                          <template v-slot:after>
-                            <q-icon name="mdi-help-circle" size="23px" class="keybindsTooltipIcon">
-                              <q-tooltip :delay="500" content-class="keybindToolTip">
-                                Allow keys combination and modifiers:
-                                <br>
-                                - CTRL + <span class="text-italic text-caption">YOUR KEYBIND HERE</span>
-                                <br>
-                                - ALT + <span class="text-italic text-caption">YOUR KEYBIND HERE</span>
-                                <br>
-                                - CTRL + ALT + <span class="text-italic text-caption">YOUR KEYBIND HERE</span>
-                                <br>
-                                - CTRL + SHIFT + <span class="text-italic text-caption">YOUR KEYBIND HERE</span>
-                                <br>
-                                - ALT + SHIFT + <span class="text-italic text-caption">YOUR KEYBIND HERE</span>
-                                <br>
-                                - CTRL + ALT + SHIFT + <span class="text-italic text-caption">YOUR KEYBIND HERE</span>
-                                <br>
-                                <br>
-                                - Your desired keybind can contain any symbol of the alphanumerical part of the keyboard along with all of the F keys and arrow keys.
-                              </q-tooltip>
-                            </q-icon>
-                          </template>
-                          <template v-slot:control>
-                            <div class="self-center full-width no-outline">{{tempKeybindString}}</div>
-                          </template>
-                        </q-field>
-                        <div class="flex justify-around q-mt-md">
-                            <q-btn
-                            label="Clear keybind"
-                            color="secondary"
-                            size="14px"
-                            v-close-popup
-                            @click="resetKeybind"
-                            :disable="!(tempKeybindString && tempKeybindString.length > 0)"
-                          />
-                          <q-btn
-                            label="Set keybind"
-                            color="dark"
-                            size="14px"
-                            v-close-popup
-                            @click="setKeybind"
-                            :disable="!tempHasChange || (!tempKeybindString || tempKeybindString.length === 0)"
-                          />
-                        </div>
-                      </div>
-                    </q-popup-edit>
-                    </q-btn>
-
-                  </template>
-                  <template
-                    v-if="!props.row.editable"
-                    >
-                    <span class="text-secondary text-bold">
-                      Built-in & uneditable functionality
-                    </span>
-                  </template>
-                </q-td>
-                <q-td
-                  key="defaultKeybinds"
-                  :class="{'text-blue-grey-6':props.row.userKeybind && props.row.userKeybind.which}"
-                  :props="props"
-                  v-html="retrieveKeybindString(props.row.defaultKeybind)"
-                >
-                </q-td>
-              </q-tr>
-            </template>
-
-            </q-table>
-          </q-tab-panel>
-
         </q-tab-panels>
       </q-card-section>
 
@@ -1032,23 +889,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from "vue"
+import { ref, watch } from "vue"
 import { extend } from "quasar"
 import { useAppStores } from "src/composables/useAppStores"
-import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 
 import type { OptionsState as OptionsStateInteface } from "src/stores/options"
 
 const props = defineProps<{ dialogTrigger?: string }>()
 const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit"])
 
-const { dialogsStore, optionsStore, keybindsStore } = useAppStores()
-const { retrieveKeybindString } = useDocumentHelpers()
+const { dialogsStore, optionsStore } = useAppStores()
 
 const dialogModel = ref(false)
 const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
-const thumbStyleTabs = { right: "0px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
-const thumbStyleTutorialTabContent = { right: "-55px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
 
 watch(() => dialogsStore.getDialogsState, (val) => { if (!val) dialogModel.value = false })
 watch(() => props.dialogTrigger, (val) => {
@@ -1074,37 +927,11 @@ function openDialog (val: string | false) {
     dialogsStore.setDialogState(true)
     dialogModel.value = true
     options.value = extend(true, {}, optionsStore.getOptions)
-    mapKeybinds()
   }
 }
 
 function saveSettings () {
   const optionsSnapShot: OptionsStateInteface = extend(true, {}, options.value)
-  optionsSnapShot.userKeybindList = []
-
-  keybindList.value.forEach(e => {
-    keybindsStore.deregisterUserKeybind({
-      id: e.id,
-      altKey: e.defaultKeybind.altKey,
-      ctrlKey: e.defaultKeybind.ctrlKey,
-      shiftKey: e.defaultKeybind.shiftKey,
-      which: e.defaultKeybind.which
-    })
-
-    if (e.userKeybind && e.userKeybind.which) {
-      const tempkey = {
-        id: e.id,
-        altKey: e.userKeybind.altKey,
-        ctrlKey: e.userKeybind.ctrlKey,
-        shiftKey: e.userKeybind.shiftKey,
-        which: e.userKeybind.which
-      }
-
-      optionsSnapShot.userKeybindList.push(tempkey)
-      keybindsStore.registerUserKeybind(tempkey)
-    }
-  })
-
   void optionsStore.setOptions(optionsSnapShot)
 }
 
@@ -1156,265 +983,11 @@ const options = ref<OptionsStateInteface>({
   preventPreviewsTree: true,
   preventPreviewsTabs: true,
   preventPreviewsPopups: false,
-  preventPreviewsDocuments: false,
-  userKeybindList: []
+  preventPreviewsDocuments: false
 })
-
-/****************************************************************/
-// KEYBINDS MANAGEMENT
-/****************************************************************/
-
-const pagination = ref({
-  rowsPerPage: 0
-})
-
-const keybindListCollums = [
-  {
-    name: "name",
-    required: true,
-    label: "Action",
-    align: "left",
-    field: (row: {name: string}) => row.name,
-    format: (val: string) => `${val}`,
-    sortable: true
-  },
-  {
-    name: "userKeybinds",
-    align: "left",
-    label: "User Keybinds",
-    field: "userKeybind"
-  },
-  {
-    name: "defaultKeybinds",
-    align: "left",
-    label: "Default keybinds",
-    field: "defaultKeybind"
-  }
-]
-
-const filter = ref("")
-const tempKeybindString = ref("")
-const tempKeybindData = ref<any>(null)
-const tempHasChange = ref(false)
-const keybindList = ref<any[]>([])
-const keybindError = ref(false)
-const keybindErrorMessage = ref("")
-const currentRowData = ref<any>({})
-
-async function resetKeybind () {
-  tempKeybindString.value = ""
-  tempKeybindData.value = null
-  keybindError.value = false
-
-  currentRowData.value.userKeybind = ""
-
-  const temp: any[] = extend(true, [], keybindList.value)
-
-  keybindList.value = []
-
-  await nextTick()
-
-  keybindList.value = temp
-}
-
-async function setKeybind () {
-  currentRowData.value.userKeybind = tempKeybindData.value
-  const temp: any[] = extend(true, [], keybindList.value)
-
-  keybindList.value = []
-
-  await nextTick()
-
-  keybindList.value = temp
-}
-
-function processKeybindSetting () {
-  window.removeEventListener("keydown", triggerKeyPush)
-}
-
-function prepareKeybindSetting (row: any) {
-  keybindError.value = false
-  tempHasChange.value = false
-  tempKeybindData.value = (row.userKeybind && row.userKeybind.which) ? tempKeybindData.value : null
-  tempKeybindString.value = (row.userKeybind && row.userKeybind.which) ? retrieveKeybindString(row.userKeybind) : ""
-  currentRowData.value = row
-  window.addEventListener("keydown", triggerKeyPush)
-}
-
-function triggerKeyPush (e: any) {
-  keybindError.value = false
-
-  const ignoredKeys = [16, 17, 18, 27]
-  const allowedKeys = [186, 187, 188, 189, 190, 191, 192, 219, 220, 221, 222, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 37, 38, 39, 40, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90]
-
-  if ((e?.altKey || e?.ctrlKey) && e?.keyCode && !ignoredKeys.includes(e.which)) {
-    if (allowedKeys.includes(e.which)) {
-      const compareList = keybindList.value
-        .filter(e => e.id !== currentRowData.value.id)
-        .map(bind => {
-          const mappedKeybind = (bind.userKeybind && bind.userKeybind.which)
-            ? {
-              altKey: bind.userKeybind.altKey,
-              ctrlKey: bind.userKeybind.ctrlKey,
-              shiftKey: bind.userKeybind.shiftKey,
-              which: bind.userKeybind.which,
-              id: currentRowData.value.id
-            }
-            : {
-              altKey: bind.defaultKeybind.altKey,
-              ctrlKey: bind.defaultKeybind.ctrlKey,
-              shiftKey: bind.defaultKeybind.shiftKey,
-              which: bind.defaultKeybind.which,
-              id: currentRowData.value.id
-            }
-
-          return mappedKeybind
-        })
-
-      let duplicate = false
-      compareList.forEach(bind => {
-        if (
-          bind.altKey === e.altKey &&
-          bind.ctrlKey === e.ctrlKey &&
-          bind.shiftKey === e.shiftKey &&
-          bind.which === e.which
-        ) {
-          duplicate = true
-        }
-      })
-
-      if (duplicate) {
-        keybindError.value = true
-        keybindErrorMessage.value = "This keybind is already present among the existing ones. Please chose a different one."
-        return
-      }
-
-      tempHasChange.value = true
-      keybindError.value = false
-      const keybindStringValue = retrieveKeybindString(e)
-      tempKeybindString.value = keybindStringValue
-      tempKeybindData.value = {
-        altKey: e.altKey,
-        ctrlKey: e.ctrlKey,
-        shiftKey: e.shiftKey,
-        which: e.which,
-        id: currentRowData.value.id
-      }
-    }
-    else {
-      keybindError.value = true
-      keybindErrorMessage.value = "Only alphanumerical keys, arrows keys and F keys are allowed for keybinds."
-    }
-  }
-  else if (!ignoredKeys.includes(e.keyCode)) {
-    keybindError.value = true
-    keybindErrorMessage.value = "Only combination containing ALT and/or CTRL allowed."
-  }
-}
-
-function mapKeybinds () {
-  keybindList.value = keybindsStore.getCurrentKeyBindData.defaults.map((keybind) => {
-    return {
-      name: keybind.tooltip,
-      id: keybind.id,
-      editable: keybind.editable,
-      defaultKeybind: keybind,
-      userKeybind: (options.value.userKeybindList.find(userKb => userKb.id === keybind.id)) || ""
-    }
-  })
-}
 </script>
 
 <style lang="scss">
-
-.keybindsTooltipIcon {
-  right: 0;
-  margin-left: 10px;
-  top: 4px;
-}
-
-.keybindToolTip {
-  background-color: white !important;
-  border: 1px solid $dark;
-}
-
-.keybindPopupCloseButton {
-  position: absolute;
-  right: 10px;
-  top: 10px;
-}
-
-.keybindUpdateField {
-  width: 550px;
-  padding: 40px;
-
-  .q-field--filled .q-field__control {
-    background-color: transparent;
-  }
-
-  .q-field__label {
-    text-align: center;
-    margin-top: 7px;
-  }
-
-  .q-field__native > div {
-    text-align: center;
-  }
-
-  .q-field__append {
-    position: absolute;
-    right: 0;
-    top: 5px;
-  }
-}
-
-.darkBg {
-  background: $accent;
-
-  .darkBg__title {
-    font-weight: 500;
-    font-size: 16px;
-  }
-}
-
-.keybindsTable {
-  max-height: calc(100vh - 340px);
-  height: calc(100vh - 340px);
-  margin-top: -25px;
-
-  .q-field__control {
-    background-color: transparent;
-  }
-
-  .q-table__control,
-  .q-table__control label {
-    width: 200px;
-  }
-
-  th,
-  td {
-    white-space: normal;
-  }
-
-  .q-table__top,
-  .q-table__bottom,
-  thead tr:first-child th {
-    background-color: var(--q-color-dark);
-  }
-
-  thead tr th {
-    position: sticky;
-    z-index: 1;
-  }
-
-  thead tr:last-child th {
-    top: 48px;
-  }
-
-  thead tr:first-child th {
-    top: 0;
-  }
-}
 
 body.body--dark {
   .programSettingsDialog {

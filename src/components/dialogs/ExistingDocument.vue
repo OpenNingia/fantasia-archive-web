@@ -270,8 +270,8 @@ const props = defineProps<{
 const emit = defineEmits(["triggerDialogClose", "triggerDialogSubmit", "signalDocumentSelected"])
 
 const router = useRouter()
-const { dialogsStore, blueprintsStore, allDocumentsStore, openedDocumentsStore, optionsStore, floatingWindowsStore, keybindsStore } = useAppStores()
-const { stripTags, retrieveIconColor, generateUID, sleep, openExistingDocumentRoute, openExistingDocumentRouteWithEdit, openDocumentPreviewPanel, determineKeyBind } = useDocumentHelpers()
+const { dialogsStore, blueprintsStore, allDocumentsStore, openedDocumentsStore, optionsStore, floatingWindowsStore } = useAppStores()
+const { stripTags, retrieveIconColor, generateUID, sleep, openExistingDocumentRoute, openExistingDocumentRouteWithEdit, openDocumentPreviewPanel } = useDocumentHelpers()
 
 const dialogModel = ref(false)
 const thumbStyle = { right: "-40px", borderRadius: "5px", backgroundColor: "#61a2bd", width: "5px", opacity: 1 }
@@ -296,9 +296,7 @@ const preventPreviewsPopups = ref(false)
 const hideAdvSearchCheatsheetButton = ref(false)
 const hideDeadCrossThrough = ref(false)
 const disableCloseAftertSelectQuickSearch = ref(false)
-const closeWithSameClick = ref(false)
 const textShadow = ref(false)
-const isCloseAbleViaKeybind = ref(false)
 
 /****************************************************************/
 // PRE-FILTERING
@@ -311,29 +309,12 @@ watch(() => optionsStore.getOptions, () => {
 }, { immediate: true, deep: true })
 
 function reloadOptions () {
-  closeWithSameClick.value = optionsStore.getOptions.allowQuickPopupSameKeyClose
   disableCloseAftertSelectQuickSearch.value = optionsStore.getOptions.disableCloseAftertSelectQuickSearch
   includeCategories.value = !optionsStore.getOptions.disableQuickSearchCategoryPrecheck
   textShadow.value = optionsStore.getOptions.textShadow
   hideDeadCrossThrough.value = optionsStore.getOptions.hideDeadCrossThrough
   hideAdvSearchCheatsheetButton.value = optionsStore.getOptions.hideAdvSearchCheatsheetButton
   preventPreviewsPopups.value = optionsStore.getOptions.preventPreviewsPopups
-}
-
-/****************************************************************/
-// LOCAL KEYBINDS
-/****************************************************************/
-
-watch(() => keybindsStore.getCurrentKeyBindData, () => {
-  processKeyPush()
-}, { deep: true })
-
-function processKeyPush () {
-  if (determineKeyBind("quickExistingDocument") && dialogModel.value && closeWithSameClick.value && isCloseAbleViaKeybind.value && dialogsStore.getDialogsState) {
-    dialogModel.value = false
-    dialogsStore.setDialogState(false)
-    existingDocumentModel.value = []
-  }
 }
 
 watch(includeCategories, () => {
@@ -366,7 +347,6 @@ async function populateExistingObjectDialog () {
     await sleep(100)
     ref_existingDocument.value.focus()
   }
-  isCloseAbleViaKeybind.value = true
 }
 
 const existingDocumentModel = ref<any[]>([])
@@ -410,7 +390,6 @@ function openDialog (val: string | false) {
     if (dialogsStore.getDialogsState) {
       return
     }
-    isCloseAbleViaKeybind.value = false
     dialogsStore.setDialogState(true)
     dialogModel.value = true
 

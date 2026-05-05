@@ -27,12 +27,6 @@
       @trigger-dialog-close="projectCloseCheckDialogClose"
     />
 
-    <!-- Keybind dialog -->
-    <keybindCheatsheetDialog
-      :dialog-trigger="keybindsDialogTrigger"
-      @trigger-dialog-close="keybindsDialogClose"
-    />
-
     <!-- Load project dialog -->
     <loadProjectCheckDialog
       :dialog-trigger="loadProjectDialogTrigger"
@@ -461,20 +455,6 @@
           <q-list class="bg-gunmetal-light" dark>
 
             <q-item
-              @click="keybindsDialogAssignUID"
-              v-close-popup
-              clickable
-              active
-              active-class="bg-gunmetal-light text-cultured"
-              class="noHigh"
-              >
-              <q-item-section>Show keybind cheatsheet</q-item-section>
-                <q-item-section avatar>
-                <q-icon name="mdi-keyboard-settings" />
-              </q-item-section>
-            </q-item>
-
-            <q-item
               @click="advancedSearchGuideAssignUID"
               v-close-popup
               clickable
@@ -564,7 +544,6 @@ import { useRoute, useRouter } from "vue-router"
 import { useQuasar } from "quasar"
 
 import projectCloseCheckDialog from "src/components/dialogs/ProjectCloseCheck.vue"
-import keybindCheatsheetDialog from "src/components/dialogs/KeybindCheatsheet.vue"
 import loadProjectCheckDialog from "src/components/dialogs/LoadProjectCheck.vue"
 import mergeProjectCheckDialog from "src/components/dialogs/MergeProjectCheck.vue"
 import newProjectCheckDialog from "src/components/dialogs/NewProjectCheck.vue"
@@ -597,7 +576,6 @@ const router = useRouter()
 const q = useQuasar()
 
 const {
-  keybindsStore,
   dialogsStore,
   floatingWindowsStore,
   projectStore
@@ -605,7 +583,6 @@ const {
 
 const {
   generateUID,
-  determineKeyBind,
   toggleHierarchicalTree
 } = useDocumentHelpers()
 
@@ -639,41 +616,6 @@ function checkProjectStatus () {
   isFrontpage.value = (route.path === "/")
   isProjectPage.value = (route.name === "project-home")
 }
-
-/****************************************************************/
-// Local keybinds
-/****************************************************************/
-
-watch(() => keybindsStore.getCurrentKeyBindData, () => {
-  // Open full page search
-  if (determineKeyBind("openFullPageSearch") && !dialogsStore.getDialogsState) {
-    fullPageSeachPopupClose()
-
-    setTimeout(() => {
-      fullPageSeachPopupAssignUID()
-    }, 100)
-  }
-
-  // Keybind cheatsheet
-  if (determineKeyBind("openKeybindsCheatsheet") && !dialogsStore.getDialogsState) {
-    keybindsDialogAssignUID()
-  }
-
-  // Open app options page
-  if (determineKeyBind("openAppOptions") && !dialogsStore.getDialogsState) {
-    programSettingsDialogAssignUID()
-  }
-
-  // Navigate to project overview
-  if (determineKeyBind("navigateToProjectOverview") && projectExists.value && !isProjectPage.value) {
-    navigateToProjectPage()
-  }
-
-  // Toggle custom CSS editor
-  if (determineKeyBind("openCustomCssEditor")) {
-    customCssEditorAssignUID()
-  }
-}, { deep: true })
 
 /****************************************************************/
 // Full page search pop-up
@@ -804,19 +746,6 @@ function newProjectDialogClose () {
 
 function newProjectAssignUID () {
   newProjectDialogTrigger.value = generateUID()
-}
-
-/****************************************************************/
-// Keybinds cheatsheet dialog
-/****************************************************************/
-
-const keybindsDialogTrigger = ref("")
-function keybindsDialogClose () {
-  keybindsDialogTrigger.value = ""
-}
-
-function keybindsDialogAssignUID () {
-  keybindsDialogTrigger.value = generateUID()
 }
 
 /****************************************************************/

@@ -224,7 +224,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from "vue"
-import { useRoute, useRouter } from "vue-router"
+import { useRouter } from "vue-router"
 
 import deleteDocumentCheckDialog from "src/components/dialogs/DeleteDocumentCheck.vue"
 
@@ -240,14 +240,11 @@ import { useAppStores } from "src/composables/useAppStores"
 import { useDocumentHelpers } from "src/composables/useDocumentHelpers"
 import { documentPath } from "src/scripts/utilities/projectRoutes"
 
-const route = useRoute()
 const router = useRouter()
 
 const {
   blueprintsStore,
   openedDocumentsStore,
-  keybindsStore,
-  dialogsStore,
   optionsStore,
   projectStore
 } = useAppStores()
@@ -257,8 +254,7 @@ const {
   retrieveFieldValue,
   findRequestedOrActiveDocument,
   openDocumentPreviewPanel,
-  refreshRoute,
-  determineKeyBind
+  refreshRoute
 } = useDocumentHelpers()
 
 /****************************************************************/
@@ -275,61 +271,6 @@ watch(() => optionsStore.getOptions, () => {
   hideDeadCrossThrough.value = options.hideDeadCrossThrough
   preventPreviewsTabs.value = options.preventPreviewsTabs
 }, { immediate: true, deep: true })
-
-/****************************************************************/
-// Keybind handling
-/****************************************************************/
-
-watch(() => keybindsStore.getCurrentKeyBindData, () => {
-  // Close tab dialog
-  if (determineKeyBind("closeTab") && localDocuments.value.length > 0 && !dialogsStore.getDialogsState) {
-    tryCloseTab()
-  }
-
-  // Next tab
-  if (determineKeyBind("nextTab") && localDocuments.value.length > 0 && !dialogsStore.getDialogsState) {
-    goToNextTab()
-  }
-
-  // Previous tab
-  if (determineKeyBind("previousTab") && localDocuments.value.length > 0 && !dialogsStore.getDialogsState) {
-    goToPreviousTab()
-  }
-
-  // Move tab left - SHIFT + ALT + LEFT ARROW
-  if (determineKeyBind("moveTabLeft") && localDocuments.value.length > 0 && !dialogsStore.getDialogsState) {
-    const currentDoc = findRequestedOrActiveDocument() as I_OpenedDocument
-    tryMoveTabLeft(currentDoc)
-  }
-
-  // Move tab right - SHIFT + ALT + RIGHT ARROW
-  if (determineKeyBind("moveTabRight") && localDocuments.value.length > 0 && !dialogsStore.getDialogsState) {
-    const currentDoc = findRequestedOrActiveDocument() as I_OpenedDocument
-    tryMoveTabRight(currentDoc)
-  }
-
-  // Close all tabs without changes except for this - CTRL + ALT + SHIFT + W
-  if (determineKeyBind("closeAllTabsWithoutChangesButThis") && localDocuments.value.length > 0 && !dialogsStore.getDialogsState) {
-    const currentDoc = findRequestedOrActiveDocument() as I_OpenedDocument
-    openedDocumentsStore.closeAllButCurrentDocuments(currentDoc)
-  }
-
-  // Close all tabs without changes - CTRL + SHIFT + W
-  if (determineKeyBind("closeAllTabsWithoutChanges") && localDocuments.value.length > 0 && !dialogsStore.getDialogsState) {
-    openedDocumentsStore.closeAllDocuments()
-  }
-
-  // Force close all tabs except for this - NONE
-  if (determineKeyBind("forceCloseAllTabsButThis") && localDocuments.value.length > 0 && !dialogsStore.getDialogsState) {
-    const currentDoc = findRequestedOrActiveDocument() as I_OpenedDocument
-    openedDocumentsStore.forceCloseAllButCurrentDocuments(currentDoc)
-  }
-
-  // Force close all tabs - NONE
-  if (determineKeyBind("forceCloseAllTabs") && localDocuments.value.length > 0 && !dialogsStore.getDialogsState) {
-    openedDocumentsStore.forceCloseAllDocuments()
-  }
-}, { deep: true })
 
 /****************************************************************/
 // Tab management
@@ -401,53 +342,6 @@ function tryMoveTabLeft (doc?: I_OpenedDocument) {
     // @ts-ignore
     copy.move(currentIndex, newIndex)
     localDocuments.value = copy
-  }
-}
-
-function goToNextTab () {
-  let index = -1
-  const matchingDocument = localDocuments.value.find((e, i) => {
-    index = i
-    return e.url === route.path
-  })
-
-  if (matchingDocument && index !== localDocuments.value.length - 1) {
-    router.push({ path: localDocuments.value[index + 1].url }).catch((e: {name: string}) => {
-      if (e && e.name !== "NavigationDuplicated") {
-        console.log(e)
-      }
-    })
-  }
-  if (matchingDocument && index === localDocuments.value.length - 1) {
-    router.push({ path: localDocuments.value[0].url }).catch((e: {name: string}) => {
-      if (e && e.name !== "NavigationDuplicated") {
-        console.log(e)
-      }
-    })
-  }
-}
-
-function goToPreviousTab () {
-  let index = -1
-  const matchingDocument = localDocuments.value.find((e, i) => {
-    index = i
-    return e.url === route.path
-  })
-
-  if (matchingDocument && index !== 0) {
-    router.push({ path: localDocuments.value[index - 1].url }).catch((e: {name: string}) => {
-      if (e && e.name !== "NavigationDuplicated") {
-        console.log(e)
-      }
-    })
-  }
-
-  if (matchingDocument && index === 0) {
-    router.push({ path: localDocuments.value[localDocuments.value.length - 1].url }).catch((e: {name: string}) => {
-      if (e && e.name !== "NavigationDuplicated") {
-        console.log(e)
-      }
-    })
   }
 }
 

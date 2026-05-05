@@ -46,7 +46,6 @@ export interface OptionsState {
   preventPreviewsTabs: boolean
   preventPreviewsPopups: boolean
   preventPreviewsDocuments: boolean
-  userKeybindList: any[]
   treeWidth?: number
   pre017check?: boolean
   legacyFieldsCheck018?: boolean
@@ -100,7 +99,6 @@ const defaultState = (): OptionsState => ({
   preventPreviewsPopups: false,
   preventPreviewsDocuments: false,
   treeWidth: 374,
-  userKeybindList: [],
   pre017check: false,
   legacyFieldsCheck018: true
 })
