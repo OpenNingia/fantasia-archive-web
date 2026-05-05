@@ -17,6 +17,37 @@ async function openProjectMobile (page: import('@playwright/test').Page, project
   await page.waitForTimeout(2500)
 }
 
+test('mobile welcome: project list fits 390px viewport, no horizontal overflow', async ({ page, request }) => {
+  // Phase 12.4: the welcome screen had decorative logo pseudo-elements
+  // positioned -95px outside the title, pushing the page wider than the
+  // viewport on phones. Verify no horizontal scroll and that the "Open
+  // Project" button is reachable.
+  const projectName = `Mobile-Welcome-${Date.now()}`
+  const projectId = await createProject(request, projectName)
+
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(1000)
+
+  const overflow = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth
+  }))
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth)
+
+  // The project card is visible and the seeded project is listed
+  await expect(page.locator('.q-item').filter({ hasText: projectName }).first()).toBeVisible()
+
+  // The Open Project button must be tappable (visible and inside the viewport)
+  const openBtn = page.locator('button').filter({ hasText: /Open Project/i }).first()
+  await expect(openBtn).toBeVisible()
+  const box = await openBtn.boundingBox()
+  expect(box).not.toBeNull()
+  expect((box?.x ?? -1) + (box?.width ?? 0)).toBeLessThanOrEqual(390)
+
+  await deleteProject(request, projectId)
+})
+
 test('mobile shell: hamburger toggles ObjectTree drawer; TopTabs hidden', async ({ page, request }) => {
   // Phase 12.1 smoke: in a phone-sized viewport the desktop splitter+drawer is
   // replaced by an off-canvas drawer toggled by a hamburger button. The TopTabs

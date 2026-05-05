@@ -281,6 +281,16 @@ body.body--dark {
     background-size: contain;
     filter: drop-shadow(-1px 1px 2px var(--q-color-dark));
   }
+
+  // Below md the decorative side logos (positioned -95px outside the title)
+  // would push the page wider than the viewport. Drop them on mobile —
+  // the centered title is still recognizable on its own.
+  @media (max-width: 1023px) {
+    &::before,
+    &::after {
+      content: none;
+    }
+  }
 }
 
 .projectListWrapper {
