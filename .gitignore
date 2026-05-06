@@ -1,5 +1,6 @@
 # IDE / tool directories
 .serena/
+.claude/settings.local.json
 
 # Environment and secrets
 .env
