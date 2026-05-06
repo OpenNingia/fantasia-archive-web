@@ -1,7 +1,7 @@
 <template>
  <q-tooltip
-  content-class="documentPreviewWrapper tooltip"
-  :content-style="`z-index: ${specialZIndex} !important;`"
+  class="documentPreviewWrapper tooltip"
+  :style="`z-index: ${specialZIndex} !important;`"
   :delay="customDelay"
   max-width="700px"
   max-height="600px"

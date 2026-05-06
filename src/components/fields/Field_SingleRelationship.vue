@@ -104,7 +104,7 @@
                 @mouseleave="menuLeave"
                 @mouseenter="menuEnter"
                 :dense="recursive"
-                :content-style="`z-index: ${(specialZIndex !== 999) ? specialZIndex+1 : '' } !important;`"
+                :style="`z-index: ${(specialZIndex !== 999) ? specialZIndex+1 : '' } !important;`"
               >
 
                 <q-list class="bg-gunmetal-light text-accent">

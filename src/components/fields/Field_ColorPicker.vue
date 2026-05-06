@@ -49,7 +49,7 @@
         </q-tooltip>
         <q-popup-proxy transition-show="scale" transition-hide="scale">
           <q-color
-            @input="processInput"
+            @update:model-value="processInput"
             v-model="localInput"
            />
         </q-popup-proxy>

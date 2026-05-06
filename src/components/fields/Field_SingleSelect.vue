@@ -52,7 +52,7 @@
       input-debounce="0"
       new-value-mode="add"
       v-model="localInput"
-      @input="processInput"
+      @update:model-value="processInput"
       @keydown="processInput"
     >
      <template v-slot:selected-item="scope">

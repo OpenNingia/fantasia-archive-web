@@ -77,8 +77,8 @@
       dark
       :duration="200"
       :filter="treeFilter"
-      :selected.sync="selectedTreeNode"
-      :expanded.sync="expandedTreeNodes"
+      v-model:selected="selectedTreeNode"
+      v-model:expanded="expandedTreeNodes"
       no-nodes-label="Loading your project..."
       no-results-label="Nothing matches your request"
       >

@@ -570,14 +570,14 @@
 
             <q-table
               :title="blueprint.namePlural"
-              :data="documentTemplateTableData[index].fields"
+              :rows="documentTemplateTableData[index].fields"
               :columns="documentTemplateDataColumns"
               virtual-scroll
               :rows-per-page-options="[0]"
               :virtual-scroll-sticky-size-start="48"
               row-key="id"
               selection="multiple"
-              :selected.sync="selecteddocumentTemplateTableData[index].fields"
+              v-model:selected="selecteddocumentTemplateTableData[index].fields"
               dark
               flat
               dense

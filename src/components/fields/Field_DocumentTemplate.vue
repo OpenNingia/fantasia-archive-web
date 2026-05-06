@@ -39,7 +39,7 @@
       :filled="isDarkMode"
       @filter="filterFn"
       v-model="selectedTemplate"
-      @input="signalInput"
+      @update:model-value="signalInput"
     >
       <template v-slot:selected-item="scope">
           {{scope.opt.name}}

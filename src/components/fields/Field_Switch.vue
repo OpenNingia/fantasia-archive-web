@@ -33,7 +33,7 @@
   <q-toggle
     v-if="editMode"
     v-model="localInput"
-    @input="processInput"
+    @update:model-value="processInput"
   />
 
     <div class="separatorWrapper">

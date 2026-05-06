@@ -52,7 +52,7 @@
       @paste.native="evt => pasteCapture(evt)"
       :toolbar="wysiwygOptions"
       :fonts="wysiwygFonts"
-      @input="processInput"
+      @update:model-value="processInput"
       :flat="isDarkMode"
       :dense="isMobile"
       v-if="editMode"

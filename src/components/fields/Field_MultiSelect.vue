@@ -54,7 +54,7 @@
       new-value-mode="add"
       multiple
       v-model="localInput"
-      @input="processInput"
+      @update:model-value="processInput"
       @keydown="processInput"
     >
       <template v-slot:selected-item="scope">

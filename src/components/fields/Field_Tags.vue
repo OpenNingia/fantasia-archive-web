@@ -44,7 +44,7 @@
       multiple
       v-model="localInput"
       @new-value="addNewValue"
-      @input="processInput"
+      @update:model-value="processInput"
       @keydown="processInput"
       error-message="This tag is already present in the selection."
       :error="tagAlreadyExists"

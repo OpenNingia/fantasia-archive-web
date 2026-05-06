@@ -133,7 +133,7 @@
           virtual-scroll-slice-size="1000"
           :class="`listField_prefix${index}_${inputDataBluePrint.id}`"
           @filter="filterFn"
-          @input="processInput"
+          @update:model-value="processInput"
           @keydown="processInput"
           :label="(inputAffix) ? inputAffix : ''"
           v-model="localInput[index].affix"
@@ -257,7 +257,7 @@
           dark
           :class="`listField_prefix${index}_${inputDataBluePrint.id}`"
           @filter="filterFn"
-          @input="processInput"
+          @update:model-value="processInput"
           @keydown="processInput"
           :label="(inputAffix) ? inputAffix : ''"
           v-model="localInput[index].affix"
