@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client'
+import type { PrismaClient, Prisma } from '@prisma/client'
 
 // ─── Types matching the frontend I_OpenedDocument extraFields ─────────────────
 
@@ -8,16 +8,20 @@ interface FieldValue {
   type?: string
 }
 
-interface RelationshipValue {
-  value: {
-    _id: string
-    type: string      // document type (blueprint slug)
-    pairedField: string  // field id in the paired document that back-references this one
-  }
-  addedValues?: Array<{ _id: string; type: string; pairedField: string }>
+interface BlueprintField {
+  id: string
+  type: string
+  relationshipSettings?: { connectedObjectType?: string; connectedField?: string }
 }
 
-// Relationship field types as defined in the frontend blueprints
+interface RefShape { _id: string; type: string; pairedField: string }
+
+// Shape of a relationship field's `value`:
+//   single*: { value: RefShape | null,  addedValues: { pairedId, value } | undefined }
+//   many*:   { value: RefShape[],       addedValues: { pairedId, value }[] | undefined }
+// `addedValues` holds USER NOTES, not relationship targets — see Field_MultiRelationship.vue
+// and Field_SingleRelationship.vue. The relationship targets always live in `value.value`.
+
 const RELATIONSHIP_FIELD_TYPES = new Set([
   'singleToNoneRelationship',
   'singleToSingleRelationship',
@@ -27,20 +31,56 @@ const RELATIONSHIP_FIELD_TYPES = new Set([
   'manyToManyRelationship'
 ])
 
-function isRelationshipField (field: FieldValue): boolean {
-  return !!field.type && RELATIONSHIP_FIELD_TYPES.has(field.type)
+const SINGLE_REL_TYPES = new Set([
+  'singleToNoneRelationship',
+  'singleToSingleRelationship',
+  'singleToManyRelationship'
+])
+
+type Tx = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0]
+
+async function loadBlueprintFields (tx: Tx, projectId: string, slug: string): Promise<BlueprintField[] | null> {
+  const bp = await (tx as PrismaClient).blueprint.findUnique({
+    where: { projectId_slug: { projectId, slug } }
+  })
+  return bp ? (bp.extraFields as unknown as BlueprintField[]) : null
 }
 
-function getRelationshipTargets (field: FieldValue): Array<{ _id: string; type: string; pairedField: string }> {
-  if (!field.value) return []
-  const v = field.value as RelationshipValue
-  // singleTo* stores value.value as a single ref; manyTo* stores value.addedValues
-  const single = v.value ? [v.value] : []
-  const many = v.addedValues ?? []
-  return [...single, ...many].filter(r => r._id && r.type && r.pairedField)
+function findFieldType (blueprint: BlueprintField[] | null, fieldId: string): string | undefined {
+  return blueprint?.find(f => f.id === fieldId)?.type
 }
 
-// ─── Create document ──────────────────────────────────────────────────────────
+function isRelationshipType (type: string | undefined): boolean {
+  return !!type && RELATIONSHIP_FIELD_TYPES.has(type)
+}
+
+// Resolve a field's effective type: prefer the explicit `type` on the saved field
+// (e.g. set by importPouchdb or older payloads), otherwise fall back to the blueprint.
+function effectiveFieldType (field: FieldValue, blueprint: BlueprintField[] | null): string | undefined {
+  return field.type ?? findFieldType(blueprint, field.id)
+}
+
+// Read the target list from a relationship field's `value.value`. Single-side
+// relationships store one object; many-side store an array. Anything that
+// doesn't carry the {_id, type, pairedField} triple is dropped — those are
+// the only refs we can act on.
+function getRelationshipTargets (field: FieldValue): RefShape[] {
+  const v = field.value as { value?: unknown } | null | undefined
+  if (!v || typeof v !== 'object') return []
+  const target = v.value
+  const candidates: unknown[] = []
+  if (Array.isArray(target)) candidates.push(...target)
+  else if (target && typeof target === 'object') candidates.push(target)
+
+  return candidates.filter((r): r is RefShape => {
+    if (!r || typeof r !== 'object') return false
+    const o = r as Partial<RefShape>
+    return typeof o._id === 'string' && typeof o.type === 'string' && typeof o.pairedField === 'string' &&
+      o._id.length > 0 && o.type.length > 0 && o.pairedField.length > 0
+  })
+}
+
+// ─── Service ─────────────────────────────────────────────────────────────────
 
 export const documentService = {
   async createDocument (
@@ -66,14 +106,11 @@ export const documentService = {
         }
       })
 
-      // Establish back-references for any relationship fields on the new document
-      await syncRelationshipAdditions(tx, data.projectId, doc.id, data.extraFields as FieldValue[], [])
+      await syncRelationshipAdditions(tx, data.projectId, doc.id, data.type, data.extraFields as FieldValue[])
 
       return doc
     })
   },
-
-  // ─── Update document ─────────────────────────────────────────────────────────
 
   async updateDocument (
     prisma: PrismaClient,
@@ -99,7 +136,7 @@ export const documentService = {
       const oldFields = existing.extraFields as unknown as FieldValue[]
       const newFields = data.extraFields as FieldValue[]
 
-      const affectedTypes = await syncRelationshipChanges(tx, data.projectId, data.id, newFields, oldFields)
+      const affectedTypes = await syncRelationshipChanges(tx, data.projectId, data.id, data.type, newFields, oldFields)
 
       const doc = await tx.document.update({
         where: { id: data.id },
@@ -114,8 +151,6 @@ export const documentService = {
     })
   },
 
-  // ─── Delete document ──────────────────────────────────────────────────────────
-
   async deleteDocument (
     prisma: PrismaClient,
     data: { id: string; projectId: string; type: string }
@@ -126,8 +161,7 @@ export const documentService = {
       })
       if (!existing) return
 
-      // Remove all back-references this document has in other documents
-      await syncRelationshipRemovals(tx, data.projectId, data.id, existing.extraFields as unknown as FieldValue[])
+      await syncRelationshipRemovals(tx, data.projectId, data.id, existing.type, existing.extraFields as unknown as FieldValue[])
 
       await tx.document.delete({ where: { id: data.id } })
     })
@@ -137,19 +171,22 @@ export const documentService = {
 // ─── Relationship sync helpers ────────────────────────────────────────────────
 
 async function syncRelationshipChanges (
-  tx: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0],
+  tx: Tx,
   projectId: string,
   sourceDocId: string,
+  sourceType: string,
   newFields: FieldValue[],
   oldFields: FieldValue[]
 ): Promise<string[]> {
   const affectedTypes: string[] = []
 
+  const sourceBlueprint = await loadBlueprintFields(tx, projectId, sourceType)
+
   const oldFieldMap = new Map(oldFields.map(f => [f.id, f]))
   const newFieldMap = new Map(newFields.map(f => [f.id, f]))
 
   for (const newField of newFields) {
-    if (!isRelationshipField(newField)) continue
+    if (!isRelationshipType(effectiveFieldType(newField, sourceBlueprint))) continue
 
     const oldField = oldFieldMap.get(newField.id)
     const oldTargets = oldField ? getRelationshipTargets(oldField) : []
@@ -158,13 +195,11 @@ async function syncRelationshipChanges (
     const oldIds = new Set(oldTargets.map(t => t._id))
     const newIds = new Set(newTargets.map(t => t._id))
 
-    // Additions: targets in new but not old
     const added = newTargets.filter(t => !oldIds.has(t._id))
-    // Removals: targets in old but not new
     const removed = oldTargets.filter(t => !newIds.has(t._id))
 
     for (const target of added) {
-      await addBackReference(tx, projectId, sourceDocId, target)
+      await addBackReference(tx, projectId, sourceDocId, sourceType, newField.id, target)
       affectedTypes.push(target.type)
     }
     for (const target of removed) {
@@ -173,9 +208,8 @@ async function syncRelationshipChanges (
     }
   }
 
-  // Handle fields removed entirely
   for (const oldField of oldFields) {
-    if (!isRelationshipField(oldField)) continue
+    if (!isRelationshipType(effectiveFieldType(oldField, sourceBlueprint))) continue
     if (!newFieldMap.has(oldField.id)) {
       for (const target of getRelationshipTargets(oldField)) {
         await removeBackReference(tx, projectId, sourceDocId, target)
@@ -188,39 +222,59 @@ async function syncRelationshipChanges (
 }
 
 async function syncRelationshipAdditions (
-  tx: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0],
+  tx: Tx,
   projectId: string,
   sourceDocId: string,
-  newFields: FieldValue[],
-  _oldFields: FieldValue[]
+  sourceType: string,
+  newFields: FieldValue[]
 ) {
+  const sourceBlueprint = await loadBlueprintFields(tx, projectId, sourceType)
   for (const field of newFields) {
-    if (!isRelationshipField(field)) continue
+    if (!isRelationshipType(effectiveFieldType(field, sourceBlueprint))) continue
     for (const target of getRelationshipTargets(field)) {
-      await addBackReference(tx, projectId, sourceDocId, target)
+      await addBackReference(tx, projectId, sourceDocId, sourceType, field.id, target)
     }
   }
 }
 
 async function syncRelationshipRemovals (
-  tx: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0],
+  tx: Tx,
   projectId: string,
   sourceDocId: string,
+  sourceType: string,
   fields: FieldValue[]
 ) {
+  const sourceBlueprint = await loadBlueprintFields(tx, projectId, sourceType)
   for (const field of fields) {
-    if (!isRelationshipField(field)) continue
+    if (!isRelationshipType(effectiveFieldType(field, sourceBlueprint))) continue
     for (const target of getRelationshipTargets(field)) {
       await removeBackReference(tx, projectId, sourceDocId, target)
     }
   }
 }
 
+// Resolve the paired field's type — first from any `type` already stored on the
+// existing field (preserves explicit info from older payloads/imports), then
+// from the paired blueprint. Returns undefined if neither knows.
+async function resolvePairedFieldType (
+  tx: Tx,
+  projectId: string,
+  pairedType: string,
+  existingField: FieldValue | undefined,
+  pairedFieldId: string
+): Promise<string | undefined> {
+  if (existingField?.type && RELATIONSHIP_FIELD_TYPES.has(existingField.type)) return existingField.type
+  const bp = await loadBlueprintFields(tx, projectId, pairedType)
+  return findFieldType(bp, pairedFieldId)
+}
+
 async function addBackReference (
-  tx: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0],
+  tx: Tx,
   projectId: string,
   sourceDocId: string,
-  target: { _id: string; type: string; pairedField: string }
+  sourceType: string,
+  sourceFieldId: string,
+  target: RefShape
 ) {
   const paired = await (tx as PrismaClient).document.findFirst({
     where: { id: target._id, projectId }
@@ -229,39 +283,48 @@ async function addBackReference (
 
   const pairedFields = paired.extraFields as unknown as FieldValue[]
   const fieldIdx = pairedFields.findIndex(f => f.id === target.pairedField)
+  const existing = fieldIdx === -1 ? undefined : pairedFields[fieldIdx]
 
-  if (fieldIdx === -1) {
-    // Field doesn't exist yet — create it with the back-reference
+  const pairedFieldType = await resolvePairedFieldType(tx, projectId, paired.type, existing, target.pairedField)
+  // Default to many-shape (array) when the type is unknown — safer than overwriting
+  // with a single-object shape that would clobber a sibling back-reference.
+  const isSingle = pairedFieldType ? SINGLE_REL_TYPES.has(pairedFieldType) : false
+
+  const refEntry: RefShape = { _id: sourceDocId, type: sourceType, pairedField: sourceFieldId }
+
+  if (existing === undefined) {
     pairedFields.push({
       id: target.pairedField,
-      value: {
-        addedValues: [{ _id: sourceDocId, type: paired.type, pairedField: '' }]
-      }
+      ...(pairedFieldType ? { type: pairedFieldType } : {}),
+      value: isSingle ? { value: refEntry } : { value: [refEntry] }
     })
   } else {
-    // Add sourceDocId to the existing field's addedValues (avoid duplicates)
-    const f = pairedFields[fieldIdx]
-    const v = (f.value ?? {}) as RelationshipValue
-    const existing = v.addedValues ?? []
-    if (!existing.some(e => e._id === sourceDocId)) {
-      existing.push({ _id: sourceDocId, type: paired.type, pairedField: '' })
+    const v = (existing.value && typeof existing.value === 'object')
+      ? existing.value as { value?: unknown; addedValues?: unknown }
+      : {}
+    if (isSingle) {
+      v.value = refEntry
+    } else {
+      const arr = Array.isArray(v.value) ? (v.value as RefShape[]).slice() : []
+      if (!arr.some(r => r._id === sourceDocId)) arr.push(refEntry)
+      v.value = arr
     }
-    v.addedValues = existing
-    f.value = v
-    pairedFields[fieldIdx] = f
+    existing.value = v
+    if (pairedFieldType && existing.type !== pairedFieldType) existing.type = pairedFieldType
+    pairedFields[fieldIdx] = existing
   }
 
   await (tx as PrismaClient).document.update({
     where: { id: target._id },
-    data: { extraFields: pairedFields as unknown as import('@prisma/client').Prisma.InputJsonValue }
+    data: { extraFields: pairedFields as unknown as Prisma.InputJsonValue }
   })
 }
 
 async function removeBackReference (
-  tx: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0],
+  tx: Tx,
   projectId: string,
   sourceDocId: string,
-  target: { _id: string; type: string; pairedField: string }
+  target: RefShape
 ) {
   const paired = await (tx as PrismaClient).document.findFirst({
     where: { id: target._id, projectId }
@@ -273,19 +336,19 @@ async function removeBackReference (
   if (fieldIdx === -1) return
 
   const f = pairedFields[fieldIdx]
-  const v = (f.value ?? {}) as RelationshipValue
+  if (!f.value || typeof f.value !== 'object') return
+  const v = f.value as { value?: unknown; addedValues?: unknown }
 
-  if (v.value?._id === sourceDocId) {
-    v.value = null as unknown as RelationshipValue['value']
-  }
-  if (v.addedValues) {
-    v.addedValues = v.addedValues.filter(e => e._id !== sourceDocId)
+  if (Array.isArray(v.value)) {
+    v.value = (v.value as RefShape[]).filter(r => r._id !== sourceDocId)
+  } else if (v.value && typeof v.value === 'object' && (v.value as RefShape)._id === sourceDocId) {
+    v.value = null
   }
   f.value = v
   pairedFields[fieldIdx] = f
 
   await (tx as PrismaClient).document.update({
     where: { id: target._id },
-    data: { extraFields: pairedFields as unknown as import('@prisma/client').Prisma.InputJsonValue }
+    data: { extraFields: pairedFields as unknown as Prisma.InputJsonValue }
   })
 }

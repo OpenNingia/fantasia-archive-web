@@ -202,7 +202,7 @@
         option-value="_id"
         v-model="localInput"
         @filter="filterSelect"
-        @input="selectValue"
+        @update:model-value="selectValue"
       >
         <template v-slot:append>
           <q-btn round dense flat v-slot:append v-if="!hideAdvSearchCheatsheetButton" icon="mdi-help-rhombus" @click.stop.prevent="floatingWindowsStore.setAdvSearchWindowVisible"

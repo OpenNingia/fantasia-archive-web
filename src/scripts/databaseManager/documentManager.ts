@@ -211,12 +211,15 @@ export const saveDocument = async (
     delete documentCopy.scrollDistance
   }
 
-  const parentDocId = (documentCopy.extraFields.find(e => e.id === "parentDoc")?.value as string) || undefined
+  // parentDoc is a singleToNoneRelationship — its value is `{ value: { _id, type, ... } }` or null,
+  // not a plain string. Extract the nested _id for the FK column.
+  const parentDocFieldValue = documentCopy.extraFields.find(e => e.id === "parentDoc")?.value as { value?: { _id?: string } } | null | undefined
+  const parentDocId = parentDocFieldValue?.value?._id || undefined
   const isCategory = !!(documentCopy.extraFields.find(e => e.id === "categorySwitch")?.value)
   const payload = {
     extraFields: documentCopy.extraFields,
     isCategory,
-    parentDocId: parentDocId || undefined
+    parentDocId
   }
 
   let affectedTypes: string[] = [document.type]

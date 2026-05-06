@@ -209,7 +209,7 @@
       input-debounce="500"
       v-model="localInput"
       @filter="filterSelect"
-      @input="selectValue"
+      @update:model-value="selectValue"
     >
     <template v-slot:append>
         <q-btn round dense flat v-slot:append v-if="!hideAdvSearchCheatsheetButton" icon="mdi-help-rhombus" @click.stop.prevent="floatingWindowsStore.setAdvSearchWindowVisible"
@@ -650,6 +650,12 @@ async function removeInput (scope: {
   removeAtIndex: (index: number) => void
 }) {
   scope.removeAtIndex(scope.index)
+
+  // q-select ha aggiornato localInput via v-model ma inputNotes resta disallineato:
+  // il template della tabella (v-for su inputNotes) accede a localInput[index] e
+  // crasherebbe al re-render se gli array hanno lunghezze diverse.
+  inputNotes.value = inputNotes.value.filter(single => localInput.value.find(e => single.pairedId === e._id))
+  signalInput(false)
 
   await nextTick()
   /*eslint-disable */

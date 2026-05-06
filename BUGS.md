@@ -8,77 +8,17 @@ Bugs che ho trovato
 - [x] Program settings -> Keybinds -> pagina vuota (q-table usava le prop di Quasar v1; switch a `:rows` + `v-model:pagination`. Patch transitoria, vedi punto sotto)
 - [x] Program settings -> Keybinds -> rimuovere l'intera funzionalità (Phase 11, 2026-05-05): rimossi store `keybinds`, `defaultKeybinds`, `KeybindCheatsheet`, l'intera tab Keybinds in ProgramSettings, tutti i watcher su `keybindsStore.getCurrentKeyBindData` (App, AppControl, DocumentControl, TopTabs, ObjectTree, NewDocument, ExistingDocument, Field_Wysiwyg), `userKeybindList` da OptionsState, e la voce di menu "Show keybind cheatsheet" in Help & Info. Il "full-page search popup" (`appSearchBox`) era triggerabile solo da keybind: il binding non c'è più, il componente è ancora montato ma non si attiva — eventuale rimozione/UI alternativa è scope futuro.
 
-- [] Errore console in produzione
-ReferenceError: can't access lexical declaration 'X' before initialization
-    Y https://fa.dasi.casa/assets/ProjectScreen-DKkyVd2g.js:1
-    setup https://fa.dasi.casa/assets/ProjectScreen-DKkyVd2g.js:1
-    dn https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    qa https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    Ka https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    O https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    ae https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    v https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    s https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    run https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    oe https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    ae https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    v https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    s https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    run https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    oe https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    ae https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    v https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    s https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    run https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    runIfDirty https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    dn https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
-    Dn https://fa.dasi.casa/assets/runtime-core.esm-bundler-DP7QA9Y_.js:1
+- [x] Errore console dopo aver cliccato "Save current document" — `documentManager.ts:214` castava il valore di `parentDoc` (campo `singleToNoneRelationship`, value = `{ value: { _id, type, ... } }`) a `string`: il cast TS non fa nulla a runtime, quindi al backend arrivava l'intero oggetto come `parentDocId` e Prisma rifiutava con `Unknown argument 'value'` → 500. Frontend incassava col `.catch`, ma `savedDocument` diventava `undefined` e il successivo accesso a `.documentCopy` faceva il TypeError visibile in console; il `Loading.show` ritardato (setTimeout 750ms) restava orfano e crashava Quasar (`parentApp is undefined`) come effetto collaterale. Fix: estrarre `_id` dalla struttura `value.value._id` come già si fa altrove nello stesso file (line 19) e in `ObjectTree.vue:792`.
 
-- [] Errore console dopo aver cliccato "Save project"    
-Uncaught TypeError: can't access property "config", parentApp is undefined
-    createChildApp quasar.client.js:1080
-    timeout quasar.client.js:24673
-    setTimeout handler*show quasar.client.js:24670
-    saveProject projectManagent.ts:51
-    commenceSave AppControl.vue:716
-    callWithErrorHandling runtime-core.esm-bundler.js:199
-    callWithAsyncErrorHandling runtime-core.esm-bundler.js:206
-    emit runtime-core.esm-bundler.js:4448
-    navigateOnClick quasar.client.js:1871
-    onClick quasar.client.js:10853
-    callWithErrorHandling runtime-core.esm-bundler.js:199
-    callWithAsyncErrorHandling runtime-core.esm-bundler.js:206
-    invoker runtime-dom.esm-bundler.js:745
-    addEventListener runtime-dom.esm-bundler.js:696
-    patchEvent runtime-dom.esm-bundler.js:714
-    patchProp runtime-dom.esm-bundler.js:791
-    mountElement runtime-core.esm-bundler.js:5668
-    processElement runtime-core.esm-bundler.js:5605
-    patch runtime-core.esm-bundler.js:5471
-    componentUpdateFn runtime-core.esm-bundler.js:6132
-    run reactivity.esm-bundler.js:250
-    setupRenderEffect runtime-core.esm-bundler.js:6260
-    mountComponent runtime-core.esm-bundler.js:6032
-    processComponent runtime-core.esm-bundler.js:5984
-    patch runtime-core.esm-bundler.js:5483
-    mountChildren runtime-core.esm-bundler.js:5734
-    mountElement runtime-core.esm-bundler.js:5650
-    processElement runtime-core.esm-bundler.js:5605
-    patch runtime-core.esm-bundler.js:5471
-    componentUpdateFn runtime-core.esm-bundler.js:6132
-    run reactivity.esm-bundler.js:250
-    setupRenderEffect runtime-core.esm-bundler.js:6260
-    mountComponent runtime-core.esm-bundler.js:6032
-    processComponent runtime-core.esm-bundler.js:5984
-    patch runtime-core.esm-bundler.js:5483
-    mountChildren runtime-core.esm-bundler.js:5734
-    mountElement runtime-core.esm-bundler.js:5650
-    processElement runtime-core.esm-bundler.js:5605
-    patch runtime-core.esm-bundler.js:5471
-    componentUpdateFn runtime-core.esm-bundler.js:6132
-    run reactivity.esm-bundler.js:250
-    setupRenderEffect runtime-core.esm-bundler.js:6260
-    mountComponent runtime-core.esm-bundler.js:6032
+- [x] Cliccare la (x) accanto a una relazione in un campo MultiRelationship (es. Thomas Rowan nella scheda di Linda Rowan) crashava con `TypeError: can't access property "label", $setup.localInput[index] is undefined` (`Field_MultiRelationship.vue:526`). Il template della tabella in edit mode itera `inputNotes` ma accede a `localInput[index]`; `removeInput` chiamava solo `scope.removeAtIndex(scope.index)` che muta `localInput` via v-model di q-select senza toccare `inputNotes`, quindi al re-render gli array avevano lunghezze diverse. `moveItem` invece manteneva l'allineamento mutando entrambi gli array in lockstep. Fix: dopo `removeAtIndex` filtrare `inputNotes` per i `pairedId` ancora presenti in `localInput` e chiamare `signalInput(false)` per propagare la rimozione al parent.
+
+- [x] Selezionare un'opzione dal dropdown di un campo MultiRelationship o SingleRelationship non si propagava al documento al Save: `Field_MultiRelationship.vue:212` e `Field_SingleRelationship.vue:205` avevano `@input="selectValue"` (sintassi Vue 2 / Quasar 1), ma `q-select` in Quasar 2 emette `update:modelValue` (verificato in `node_modules/quasar/src/components/select/QSelect.js:526`). Quindi il `v-model` aggiornava `localInput` reattivamente ma `selectValue` non scattava mai → `processInput()` → `signalInput` non venivano chiamati → `DocumentDisplay.reactToFieldUpdate` non riceveva nulla → `currentData.extraFields[i].value` restava invariato → Save inviava il payload vecchio (con relazione vuota) e il backend persisteva il vuoto. La rimozione (chip × → `removeInput`) e l'auto-generazione (`addNewRelationshipObject`) chiamavano `processInput()` direttamente, quindi sembravano funzionare; solo l'aggiunta esistente era rotta. Fix: sostituito `@input="selectValue"` con `@update:model-value="selectValue"` in entrambi i field. Pattern Vue-2 simile presente anche su altri Field_* (SingleSelect, MultiSelect, Tags, ColorPicker, Switch, Wysiwyg, List, DocumentTemplate) — molti di quei componenti usano `q-input`/`q-toggle`/`q-checkbox` che hanno comportamenti diversi sul retro-compat di `@input`; verificare caso per caso quando emergono regressioni equivalenti.
+
+- [x] Le back-reference delle relazioni non venivano scritte sul documento paired (es. aggiungere Thomas come rivale di Linda salvava il forward su Linda ma non aggiungeva Linda alla lista rivali di Thomas). Cause concorrenti in `backend/src/services/documentService.ts`:
+  1. `getRelationshipTargets` leggeva i target da `field.value.addedValues`, ma il frontend (`Field_MultiRelationship.vue` / `Field_SingleRelationship.vue`) li mette in `field.value.value` — `addedValues` contiene solo le note testuali. I target dei campi multi non venivano mai estratti, quindi nessun back-ref creato. Per single, lo spread `[...many]` su `addedValues` (oggetto singolo `{pairedId, value}`, non array) crashava la transazione → fallivano sia create sia back-ref.
+  2. `addBackReference` scriveva il back-ref in `value.addedValues` del paired field, ma il frontend legge i target da `value.value`: anche quando il back-ref single→single veniva scritto, l'UI non lo mostrava.
+  3. `isRelationshipField` si basava su `extraField.type`, ma `buildDefaultExtraFields` (e i payload reali) emettono solo `{id, value}` — quindi nessun campo veniva riconosciuto come relazione e la sync non partiva mai.
+  Fix: `getRelationshipTargets` legge da `value.value` (singolo o array). Detezione del field type via blueprint del tipo sorgente (con fallback su `field.type` se presente, per back-compat con import PouchDB). `addBackReference`/`removeBackReference` scrivono in `value.value` nella shape giusta (oggetto per `singleTo*`, array deduplicato per `manyTo*`), determinata via blueprint del tipo paired; il back-ref entry porta `{_id: source, type: sourceType, pairedField: sourceFieldId}` così il ciclo di rimozione dal lato paired propaga correttamente. Test: aggiunti 3 test in `documentService.test.ts` ("frontend payload shape") che usano la shape esatta emessa dal frontend (senza `type` sul field) e seedano le blueprint built-in nel `beforeAll`.
 
 ## Menu
 - [x] Menù Help & Info -> Toggle developer tools -- refuso di app electron
