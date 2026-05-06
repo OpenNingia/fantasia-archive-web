@@ -13,6 +13,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
+    "db:import:pouchdb": "tsx scripts/importPouchdb.ts",
     "test": "vitest run"
   },
   "dependencies": {

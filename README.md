@@ -175,9 +175,34 @@ the Postgres volume.
 
 ## Migrating from the Electron desktop app
 
-A migration tool that reads existing PouchDB `.txt` exports and inserts them
-into PostgreSQL is planned. Until then, restore your old project by hand or
-keep the desktop app running in parallel.
+The Electron version stored each project as a directory of PouchDB
+replication-stream dumps (`<slug>.txt` per blueprint type, plus
+`project-data.txt` and `blueprints.txt`). The backend ships a one-shot
+importer that reads such a directory and inserts everything into Postgres.
+
+The target user (the future project master) must already exist — register
+them via OIDC sign-in or, with `LOCAL_AUTH_ENABLED=true`,
+`./scripts/register-user.sh email pass "Display Name"`.
+
+Then copy the dump directory into the backend container and run:
+
+```bash
+docker compose cp /path/to/electron/project backend:/tmp/import
+docker compose exec backend npm run db:import:pouchdb -- \
+  --dir /tmp/import --owner you@example.com [--name "My Project"]
+```
+
+The script:
+
+- creates a new project owned by the given user (master role),
+- seeds the standard blueprints, then upserts your blueprint customizations
+  from `blueprints.txt` so any extra fields you added in the desktop app
+  carry over,
+- inserts every non-deleted document, then re-attaches `parentDocId`
+  references in a second pass (orphan parents are reported, not failed),
+- writes any `file:///` image references from the original Electron host to
+  `import-images-todo.txt` inside the dump directory — those need to be
+  re-uploaded manually through the UI.
 
 ## License
 

@@ -29,6 +29,10 @@ ENV BUILD_DATE=$BUILD_DATE
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
+# scripts/ ships with the prod image so operators can run one-shot tools like
+# the PouchDB import (npm run db:import:pouchdb). They run via tsx, which is
+# already in node_modules from the builder's `npm ci`.
+COPY --from=builder /app/scripts ./scripts
 COPY backend/package.json ./
 RUN mkdir -p /app/uploads
 EXPOSE 3000
