@@ -190,8 +190,13 @@ export function useDocumentHelpers () {
     })
   }
 
+  // Rebuild the path from the current project + type + id rather than trusting
+  // existingObject.url. Imported PouchDB dumps embed the legacy Electron URL
+  // (no projectId segment) inside relationship payloads — pushing that path
+  // hits the catch-all 404 route.
   function openExistingDocumentRoute (existingObject: I_OpenedDocument | I_FieldRelationship | I_ShortenedDocument) {
-    router.push({ path: existingObject.url }).catch((e: { name: string }) => {
+    const path = documentPath(projectStore.currentProjectId, existingObject.type, existingObject._id)
+    router.push({ path }).catch((e: { name: string }) => {
       if (e.name !== "NavigationDuplicated") console.log(e)
     })
   }
@@ -204,7 +209,8 @@ export function useDocumentHelpers () {
       openedDocumentsStore.updateDocument({ doc: dataCopy, treeAction: false })
       return
     }
-    router.push({ path: existingObject.url, query: { editMode: "editMode" } }).catch((e: { name: string }) => {
+    const path = documentPath(projectStore.currentProjectId, existingObject.type, existingObject._id)
+    router.push({ path, query: { editMode: "editMode" } }).catch((e: { name: string }) => {
       if (e.name !== "NavigationDuplicated") console.log(e)
     })
   }
